@@ -848,7 +848,7 @@ class Sensor:
         self._p : np.ndarray = None
         self._ttsqm : Dict[Target, SensingQualityFunction] = {}     # target to sensing quality function mapper
         self._ttHm : Dict[Target, np.ndarray] = {}                  # target to measurement matrix mapper
-        self._ttRm : Dict[Target, np.ndarray] = {}                     # target to measurement noise mapper
+        self._ttRm : Dict[Target, np.ndarray] = {}                  # target to measurement noise mapper
         
         if p is not None:
             self.setPosition(p)
