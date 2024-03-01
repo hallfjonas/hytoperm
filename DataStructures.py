@@ -450,8 +450,8 @@ class Tree(object):
         if self.getParent().isRoot() and plot_direction:
             dx = q[0] - p[0]
             dy = q[1] - p[1]
-            nrm = 0.1*np.sqrt(dx**2 + dy**2)
-            po.add(ax.quiver(q[0], q[1], dx/nrm, dy/nrm, angles='xy', pivot='tip', **kwargs))
+            nrm = np.sqrt(dx**2 + dy**2)
+            po.add(ax.arrow(p[0], p[1], dx, dy, width=0, head_width = 0.02, head_length=0.033, overhang=0.3, length_includes_head=True,**kwargs))
             
         return po
 
