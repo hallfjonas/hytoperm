@@ -1,8 +1,8 @@
-import matplotlib as plt
+import matplotlib.pyplot as plt
 from pdfCropMargins import crop
 import os
 
-def export(name, directory = '../../figures/experiments', ext='.pdf') -> None:
+def export(name, directory = '../figures/experiments', ext='.pdf') -> None:
     out_dir = os.path.join(os.path.dirname(__file__), directory)
     file = os.path.join(out_dir, name + ext)
     plt.savefig(file)
