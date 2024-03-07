@@ -6,6 +6,7 @@ import numpy as np
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from typing import Tuple
 from Plotters import export
+from Agent import *
 
 def run(name, exec, **kwargs):
     print("Running test " + name + " ...")
@@ -30,7 +31,7 @@ def generate_partitioning(n_sets=10,fraction=0.5,seed=235) -> Experiment:
     ex.AddRandomVoronoiPoints(n_sets)
     ex.GeneratePartitioning()
     ex.AddRandomTargets(fraction=fraction)
-    ex.AddRandomAgent()
+    ex.AssignRandomAgent()
     return ex
 
 def test_random_boundary_point(n_sets = 10):
@@ -55,13 +56,18 @@ def test_voronoi(M = 10):
 
     return
 
-def plot_world(ex : Experiment) -> Tuple[Experiment, plt.Axes]:
+def plot_world(ex : Experiment, with_sensor_quality=False, savefig = False) -> Tuple[Experiment, plt.Axes]:
     fig, ax = empty_plot_figure()
     ex.PlotWorld(ax)
-    export('.sample_mission_space')
-    po = plot_sensor_quality_per_region(ex,ax)
-    export('.sample_mission_space_w_quality')
-    po.remove()
+
+    if savefig:
+        export('.sample_mission_space')
+
+    if with_sensor_quality:
+        po = plot_sensor_quality_per_region(ex,ax)
+        if savefig:
+            export('.sample_mission_space_w_quality')
+
     return fig, ax
 
 def test_plot_world(n_sets=10):
@@ -103,7 +109,7 @@ def plot_travel_cost_per_region(ex : Experiment, ax : plt.Axes = plt):
 
 def plot_sensor_quality_per_region(ex : Experiment, ax : plt.Axes = plt) -> PlotObject:
     X, Y, Z = get_meshgrid(ex)
-    sensor = ex._world.agents()[0].sensor()
+    sensor = ex._agent.sensor()
     for i in range(X.shape[0]):
         for j in range(Y.shape[1]):
             p = np.array((X[i,j], Y[i,j]))
@@ -158,3 +164,24 @@ def test_tsp(n_sets=20, plot = False) -> GlobalPathPlanner:
     gpp.PlotTSPSolution(ax, color='red', linewidth=2)
     export('.sample_tsp_w_sensing_quality')
     return gpp
+
+def test_local_controller(n_sets=20) -> Experiment:
+    ex = generate_partitioning(n_sets=n_sets)
+    assert(isinstance(ex, Experiment))
+    
+    target = ex._world.targets()[0]
+    sensor = ex._agent.sensor()
+
+    phi = SwitchingPoint(target.region().RandomBoundaryPoint())
+    psi = SwitchingPoint(target.region().RandomBoundaryPoint())
+    tf = 10
+    Omega0 = np.eye(1)
+    lmp = MonitoringParameters(phi=phi,psi=psi,tf=tf,Omega0=Omega0)
+    mc = MonitoringController(target, sensor)
+
+    mc.buildOptimalMonitoringSolver(target, sensor)
+    tp, tmse, tu = mc.optimalMonitoringControl(lmp)
+
+    ex, ax = plot_world(ex, with_sensor_quality=False, savefig=False)
+    tp.plotStateVsState(0,1, ax)
+    return ex

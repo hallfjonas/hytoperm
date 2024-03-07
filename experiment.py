@@ -1,5 +1,6 @@
 
 from World import *
+from Agent import *
 import matplotlib.pyplot as plt
 from matplotlib import figure
 from scipy.spatial import Voronoi, voronoi_plot_2d
@@ -11,6 +12,7 @@ class Experiment:
         self._vc = []                   # Voronoi centers
         self._voronoi = None            # Voronoi object
         self._world : World = World()   # world object
+        self._agent : Agent = None      # agent object
         self._domain = domain           # domain object
         
     def AddRandomVoronoiPoints(self, M) -> None:
@@ -37,7 +39,7 @@ class Experiment:
             regions.append(ConstantDCPRegion(g,b,self._vc[i], domain=self._domain, dynamics=dyn))      
         self._world.SetRegions(regions)
     
-    def AddRandomAgent(self) -> None:
+    def AssignRandomAgent(self) -> None:
         sensor = Sensor()
         for target in self._world.targets():
             ranint = np.random.randint(0, 6)
@@ -47,7 +49,10 @@ class Experiment:
                 sensor.setSensingQualityFunction(target, SinusoidalSensingQualityFunction(c1=np.random.uniform(3,20),c2=np.random.uniform(3,20)))
             else:
                 sensor.setSensingQualityFunction(target, GaussianSensingQualityFunction())
-        self._world.AddAgent(Agent(np.array([0.5,0.5]), sensor=sensor))
+
+            sensor.setNoiseMatrix(target, np.eye(1))
+            sensor.setMeasurementMatrix(target, np.eye(1))
+        self._agent = Agent(self._world, sensor=sensor)
 
     def AddRandomTargets(self, fraction=0.5) -> None:
         for region in self._world.regions():
@@ -55,7 +60,10 @@ class Experiment:
             if np.random.uniform(0, 1) < fraction:
                 pos = region.p()
                 distToBoundary = region.DistToBoundary(pos)
-                target = Target(pos, region, np.array([1.0]))
+                phi0 = np.array([1.0])
+                Q = np.array([1.0])
+                A = np.array([-0.9])
+                target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
                 self.AddTarget(target)
 
     def AddTarget(self, target : Target) -> None:

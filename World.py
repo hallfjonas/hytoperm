@@ -749,17 +749,19 @@ class ConstantDCPRegion(DynamicCPRegion):
 
 class Target:
     
-    def __init__(self, p : np.ndarray, region : Region = None, phi0 : np.ndarray = None) -> None:
+    def __init__(self, pos : np.ndarray, region : Region = None, phi0 : np.ndarray = None, A : np.ndarray = None, Q : np.ndarray = None) -> None:
         
         self._r : Region = None
         self._p : np.ndarray = None
-        self._phi = None
-        self.A = None
-        self.Q = None
+        self._phi : np.ndarray = None
+        self.A : np.ndarray = None
+        self.Q : np.ndarray = None
 
         self.assignRegion(region)
-        self.assignPosition(p)
+        self.assignPosition(pos)
         self.assignInternalState(phi0)
+        self.assignStateMatrix(A)
+        self.assignCovariance(Q)
         
     def p(self) -> np.ndarray:
         return self._p
@@ -769,6 +771,9 @@ class Target:
     
     def internalState(self) -> np.ndarray:
         return self._phi
+
+    def getNumberOfStates(self) -> int:
+        return self.A.shape[0]
 
     def assignPosition(self, p : np.ndarray) -> None:
         assert(isinstance(p, np.ndarray))
@@ -785,172 +790,27 @@ class Target:
         assert(isinstance(phi0, np.ndarray))
         self._phi = phi0
 
+    def assignStateMatrix(self, A : np.ndarray) -> None:
+        assert(isinstance(A, np.ndarray))
+        if (A.ndim == 1 and A.shape[0] == 1):
+            self.A = A.reshape((1,1))
+            return
+        else:
+            assert(A.ndim == 2)
+        self.A = A
+
+    def assignCovariance(self, Q : np.ndarray) -> None:
+        assert(isinstance(Q, np.ndarray))
+        if (Q.ndim == 1 and Q.shape[0] == 1):
+            self.Q = Q.reshape((1,1))
+            return
+        else:
+            assert(Q.ndim == 2)
+        self.Q = Q
+
     def plot(self, ax : plt.Axes = plt) -> PlotObject:
         po = PlotObject(ax.plot(self._p[0], self._p[1], 'ro'))
         return po
-
-class SensingQualityFunction:
-    def __init__(self):
-        pass
-
-    @abstractclassmethod
-    def __call__(self, p, q):
-        pass
-
-class ConstantSensingQualityFunction(SensingQualityFunction):
-    def __init__(self, c = 1):
-        self._c : float = None
-        self.assign_constant(c)
-
-    def assign_constant(self, c : float) -> None:
-        assert(c >= 0)
-        assert(c <= 1)
-        self._c = c
-
-    def __call__(self, p, q):
-        return self._c
-    
-class GaussianSensingQualityFunction(SensingQualityFunction):
-    def __init__(self, c = 50):
-        self._c : float = None
-        self.assign_constant(c)
-
-    def assign_constant(self, c : float) -> None:
-        assert(c > 0)
-        self._c = c
-
-    def __call__(self, p, q):
-        delta = p - q
-        sqr_dist = np.dot(delta, delta)
-        return math.exp(-self._c*sqr_dist)
-
-class SinusoidalSensingQualityFunction(SensingQualityFunction):
-    def __init__(self, c1 = 3.0, c2 = 20.0, c3 = 40.0):
-        self._c1 : float = None
-        self._c2 : float = None
-        self._c3 : float = None
-        self.assign_constants(c1, c2, c3)
-
-    def assign_constants(self, c1 : float, c2 : float, c3 : float) -> None:
-        assert(c1 > 0)
-        assert(c2 > 0)
-        assert(c3 > 0)
-        self._c1 = c1
-        self._c2 = c2
-        self._c3 = c3
-
-    def __call__(self, p, q):
-        delta = p - q
-        return math.exp(-self._c3*np.dot(delta,delta))*(math.sin(self._c1*delta[0])**2 + math.cos(self._c2*delta[1])**2)
-
-class Sensor:
-    def __init__(self, p : np.ndarray = None) -> None:
-        self._p : np.ndarray = None
-        self._ttsqm : Dict[Target, SensingQualityFunction] = {}     # target to sensing quality function mapper
-        self._ttHm : Dict[Target, np.ndarray] = {}                  # target to measurement matrix mapper
-        self._ttRm : Dict[Target, np.ndarray] = {}                  # target to measurement noise mapper
-        
-        if p is not None:
-            self.setPosition(p)
-
-    def getPosition(self) -> np.ndarray:
-        return self._p
-    
-    def setPosition(self, p : np.ndarray) -> None:
-        assert(isinstance(p, np.ndarray))
-        self._p = p
-
-    def targetToSQFMapper(self) -> Dict[Target, SensingQualityFunction]:
-        return self._ttsqm
-        
-    def drawNoise(self, target : Target) -> np.ndarray:
-        return np.random.multivariate_normal(0, self.getMeasurementNoiseMatrix(target))
-
-    def sensingQualityFunction(self, target : Target) -> SensingQualityFunction:
-        return self.targetToSQFMapper()[target]
-
-    def setSensingQualityFunction(self, target : Target, sqf : SensingQualityFunction) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(sqf, SensingQualityFunction))
-        self.targetToSQFMapper()[target] = sqf
-
-    def getSensingQuality(self, target : Target) -> float:
-        return self.sensingQualityFunction(target)(self.getPosition(), target.p())
-
-    def setNoiseMatrix(self, target : Target, R : np.ndarray) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(R, np.ndarray))
-        self._ttRm[target] = R
-
-    def setMeasurmentMatrix(self, target : Target, H : np.ndarray) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(H, np.ndarray))
-        self._ttHm[target] = H
-
-    def getMeasurmentMatrix(self, target : Target) -> np.ndarray:
-        return self._ttHm[target]
-
-    def getMeasurementNoiseMatrix(self, target : Target) -> np.ndarray:
-        return self._ttRm[target]
-
-    def getMeasurment(self, p : np.ndarray, target : Target):
-        q = target.p()
-        quality = self.getSensingQuality(target)(p, q)
-        H = self.getMeasurmentMatrix(target)
-        return quality * H @ target.internalState() + np.random.normal(0, 0.1, H.shape[0])
-
-class Agent:
-    def __init__(self, p0 : np.ndarray, sensor : Sensor = None) -> None:
-        self._p : np.ndarray = None
-        self._sensor : Sensor = None
-
-        if sensor is not None:
-            self.setSensor(sensor)
-        self.updatePosition(p0)
-
-    def SwitchRegion(self, r : Region):
-        self.r = r
-
-    def sensor(self) -> Sensor:
-        return self._sensor
-
-    def setSensor(self, sensor : Sensor) -> None:
-        assert(isinstance(sensor, Sensor))
-        self._sensor = sensor
-
-    def updatePosition(self, p : np.ndarray) -> None:
-        assert(isinstance(p, np.ndarray))
-        self._p = p
-        self._sensor.setPosition(p)
-
-    def TimeOptimalLocalControl(self, r : Region, x0, xf) -> Tuple[np.ndarray, float]:
-        dx = (xf[0] - x0[0])
-        dy = (xf[1] - x0[1])
-        a = pow(r.f[0],2) + pow(r.f[1],2) - 1
-        b = 2 * (r.f[0] * dx + r.f[1] * dy)
-        c = pow(dx,2) + pow(dy,2)
-        delta = pow(b,2) - 4 * a * c
-        t_star = 0
-        if (delta < 0):
-            raise ValueError("No solution")
-        else:
-            t1 = (-b + np.sqrt(delta)) / (2 * a)
-            t2 = (-b - np.sqrt(delta)) / (2 * a)
-            if (t1 < 0 and t2 < 0):
-                raise ValueError("No solution exists")
-            elif (t1 < 0):
-                t_star = t2
-            elif (t2 < 0):
-                t_star = t1
-            else:
-                raise ValueError("Both times are positive. This should not occur.")
-            
-        u = (xf - x0)/t_star - r.f
-
-        return u, t_star
-
-    def plot(self, ax : plt.Axes = plt) -> PlotObject:
-        return PlotObject(ax.plot(self._p[0], self._p[1], 'bd'))
 
 class World:
     
@@ -958,15 +818,14 @@ class World:
         
         self._regions : Set[Region] = []
         self._targets : List[Target] = []
-        self._agents : List[Agent] = []
         self._region_to_target : Dict[Region, Target] = {}
         self._target_to_region : Dict[Target, Region] = {}
         self._partition : Partition = None
         self._domain : Domain = domain
-        self._target_distances : np.ndarray = None
+
         self.SetRegions(objs)
         self.SetPartition()
-
+        
     def SetRegions(self, objs) -> None:
         for obj in objs:
             try:
@@ -981,12 +840,6 @@ class World:
             finally:
                 pass
 
-    def SetAgents(self, agents : List[Agent]) -> None:
-        assert(isinstance(agents, list))
-        for a in agents:
-            assert(isinstance(a, Agent))
-        self._agents = agents
-
     def AddRegion(self, region : Region) -> None:
         assert(isinstance(region, Region))
         if region not in self._regions:
@@ -996,11 +849,6 @@ class World:
         assert(isinstance(target, Target))
         if target not in self._targets:
             self._targets.append(target)
-
-    def AddAgent(self, agent : Agent) -> None:
-        assert(isinstance(agent, Agent))
-        if agent not in self._agents:
-            self._agents.append(agent)
 
     def SetPartition(self) -> None:
         self._partition = Partition(self.regions()) 
@@ -1016,10 +864,7 @@ class World:
     
     def targets(self) -> List[Target]:
         return self._targets
-    
-    def agents(self) -> List[Agent]:
-        return self._agents
-    
+        
     def partition(self) -> Partition:
         return self._partition
     
@@ -1049,10 +894,6 @@ class World:
         for target in self._targets:
             assert(isinstance(target, Target))
             po.add(target.plot(ax))
-
-        for agent in self._agents:
-            assert(isinstance(agent, Agent))
-            # po.add(agent.plot(ax))
 
         po.add(self.partition().Plot(ax, 'k-'))
 

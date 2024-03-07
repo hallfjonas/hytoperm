@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Set
-from World import Target, World, Region, ConstantDCPRegion
+from World import *
 from DataStructures import Tree, Node, PlotObject
 from python_tsp.exact import solve_tsp_dynamic_programming
 from python_tsp.heuristics import solve_tsp_simulated_annealing
@@ -60,16 +60,16 @@ class RRT:
         self.world = World()                        # world
         self.target_distances : np.ndarray = None   # target distances
         
-        self.world.SetRegions(self.regions) # set regions
+        self.world.SetRegions(self.regions)         # set regions
 
         # caching
-        self._rttm : Dict[Region,Set[Tree]] = {}         # region to node mapper
+        self._rttm : Dict[Region,Set[Tree]] = {}    # region to node mapper
 
         # convergence
-        self._max_iter = 1000                   # maximum iterations
+        self._max_iter = 1000                       # maximum iterations
 
         # visualization
-        self._plot_options = None                    # a plot options instance
+        self._plot_options = None                   # a plot options instance
 
         self._rewire = False                # rewire
         self._cut = False                   # cut
@@ -429,7 +429,7 @@ class TSP:
         self.target_distances = np.delete(self.target_distances, indices, axis=0)
         self.target_distances = np.delete(self.target_distances, indices, axis=1)
                 
-    def ComputeTSP(self, exact = True, ax : plt.Axes = plt):        
+    def ComputeTSP(self, exact = True):        
         if exact:
             permutation, distance = solve_tsp_dynamic_programming(self.target_distances)
         else:
@@ -455,13 +455,18 @@ class TSP:
                 po.add(ax.annotate(f"{self.target_distances[i,j]:.2f}", ((p[0]+q[0])/2, (p[1]+q[1])/2), fontsize=12, color='black'))
         return po
         
+    def getTargetVisitingSequence(self) -> List[Target]:
+        tvs = []
+        for p in self._best_permutation:
+            tvs.append(self.targets[p])
+        return tvs
+    
 class GlobalPathPlanner:
     def __init__(self, world : World) -> None:
         self._world = world
-        self.rrt : RRT = None
         self.tsp : TSP = None
         self.plot = False
-        self.target_paths = {}
+        self.target_paths : Dict[Target, Dict[Target, Tree]]= {}
         self._plot_options = PlotOptions()
         
     def PlanPath(self, t0 : np.ndarray, tf : np.ndarray, max_iter = 500, ax : plt.Axes = plt) -> Tuple[Set[Region], List[np.ndarray]]:
@@ -476,10 +481,10 @@ class GlobalPathPlanner:
                     return i_reg, i_reg.PlanPath(t0, tf)
         
         # Otherwise use global planner
-        self.rrt = RRT(self._world.regions())
-        self.rrt._plot_options = self._plot_options
-        self.rrt._max_iter = max_iter
-        return self.rrt.PlanPath(t0, tf, ax)
+        rrt = RRT(self._world.regions())
+        rrt._plot_options = self._plot_options
+        rrt._max_iter = max_iter
+        return rrt.PlanPath(t0, tf, ax)
 
     def RemoveUnreachableTargets(self) -> None:
         remove_targets = []
@@ -516,7 +521,7 @@ class GlobalPathPlanner:
                 remove_targets.append(i)
         self.tsp.remove_targets(remove_targets)
 
-    def SolveTSP(self, ax : plt.Axes = plt):
+    def SolveTSP(self) -> None:
 
         if self.tsp is None:
             self.tsp = TSP(self._world.targets())
@@ -527,13 +532,13 @@ class GlobalPathPlanner:
                 if i == j:
                     self.tsp.target_distances[i,j] = 0
                     continue
-                plannedPath = self.PlanPath(self._world.targets()[i].p(), self._world.targets()[j].p(), ax=ax)
+                plannedPath = self.PlanPath(self._world.targets()[i].p(), self._world.targets()[j].p())
                 self.target_paths[i][j] = plannedPath[0] 
                 self.tsp.target_distances[i,j] = plannedPath[1]
                 print(f"Distance from {i} to {j} is {self.tsp.target_distances[i,j]}")
         
-        self.tsp.ComputeTSP(ax)
-
+        self.tsp.ComputeTSP()
+        
     def PlotTSPSolution(self, ax : plt.Axes = plt, annotate=False, style='', **kwargs) -> PlotObject:
         if self.tsp._best_permutation is None:
             print("No TSP solution exists. Please run 'SolveTSP' first.")
