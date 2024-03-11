@@ -304,6 +304,7 @@ class MonitoringController:
         self.nx : int = None                                    # number of states (assigned by builder)
         self.nu : int = None                                    # number of controls (assigned by builder)
         self.no : int = None                                    # number of target states (assigned by builder)
+        self.add_region_constraints = False
         self.buildOptimalMonitoringSolver(target, sensor)
 
     def buildOptimalMonitoringSolver(self, target : Target, sensor : Sensor) -> None:
@@ -340,7 +341,7 @@ class MonitoringController:
         L = 0
         for i in range(no):
             L += Omega[i*no + i]
-
+            
         # Fixed step Runge-Kutta 4 integrator
         M = 4 # RK4 steps per interval
         DT = T/N/M
@@ -357,6 +358,16 @@ class MonitoringController:
             X=X+DT/6*(k1 +2*k2 +2*k3 +k4)
             Q = Q + DT/6*(k1_q + 2*k2_q + 2*k3_q + k4_q)
         F = cad.Function('F', [X0, U, params], [X, Q],['x0','u0','p'],['xf','qf'])
+
+        # Region constraints
+        region = target.region()
+        assert(isinstance(region, CPRegion))
+        g_constr = region.g()
+        b_constr = region.b()
+        g_constr_term = []
+        for i in g_constr.keys():
+            g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
+        R = cad.Function('region', [X0], [cad.vertcat(*g_constr_term)], ['x0'], ['region'])
 
         lbx = -np.inf*np.ones(nx)
         ubx = -lbx
@@ -417,6 +428,12 @@ class MonitoringController:
             g   += [cad.dot(Uk, Uk)]
             lbg += [-np.inf]
             ubg += [1]
+
+            # Add region constraints
+            if (self.add_region_constraints):
+                g   += [R(Xk)]
+                lbg += [-np.inf*np.ones(len(g_constr_term))]
+                ubg += [np.zeros(len(g_constr_term))]
 
         # Terminal constraint
         g   += [Xk[0:2]-psi]
@@ -488,16 +505,20 @@ class Agent:
     def __init__(self, world : World, sensor : Sensor) -> None:
         self._world : World = world
         self._sensor : Sensor = sensor
-        self._ucs : Dict[Target, cad.Function] = {}
         self._gpp : GlobalPathPlanner = None
+
+        # things to collect for each cycle
         self._tvs : List[Target] = []
         self._switchingPoints : List[SwitchingPoint] = []
-        self._epm : Dict[Target, SwitchingPoint] = {}                           # map a target visit index to an entry point
-        self._dpm : Dict[Target, SwitchingPoint] = {}                           # map a target visit index to a departure point
+        self._epm : Dict[int, SwitchingPoint] = {}                           # map a target visit index to an entry point
+        self._dpm : Dict[int, SwitchingPoint] = {}                           # map a target visit index to a departure point
         self._switchingSegments : List[SwitchingSegment] = []
         self._monitoringSegments : List[MonitoringSegment] = []
         self._cycle_start : float = 0.0
+
+        # things to collect for each target
         self._mseTrajectories : Dict[Target, Trajectory] = {}           # one cycle of mean squared error trajectories
+        self._ucs : Dict[Target, cad.Function] = {}
 
         self.initialize()
 
@@ -520,6 +541,28 @@ class Agent:
         self.gpp().SolveTSP()
         self._tvs = self.gpp().tsp.getTargetVisitingSequence()
 
+    def refineVisitingSequence(self) -> None:
+        # If we switch through another target region along the way
+        # let us add the target to the sequence
+        i = 0
+        while i < len(self._tvs):
+            old_target = self._tvs[i-1]
+            current_target = self._tvs[i]
+            switchPath = self.gpp().target_paths[old_target][current_target]
+            p : Tree = switchPath.getParent()
+            appended = False
+            while not p.getParent().isRoot():
+                region = p.getData().active_region_to_parent()
+                for target in self.world().targets():
+                    if region == target.region():
+                        self._tvs.insert(i, target)
+                        appended = True
+                        break
+                p = p.getParent()
+            
+            if not appended:
+                i += 1
+
     def getCycleTime(self) -> float:
         mst = sum([ms.getDuration() for ms in self._monitoringSegments])
         sst = sum([ss.getDuration() for ss in self._switchingSegments])
@@ -531,11 +574,11 @@ class Agent:
             Warning("Expected at least two targets in the visiting sequence...")
             return
         
-        # cache the following timings for initializing monitoring time:
+        # cache the following timings for initializing monitoring time (index is corresponding to ):
         # 1) time from target to switching point
         # 2) time from switching point to next target
-        target_to_switching = {}
-        switching_to_target = {}
+        target_to_switching : Dict[int, float] = {}
+        switching_to_target : Dict[int, float] = {}
         self._switchingSegments.clear()
         self._monitoringSegments.clear()
         self._switchingPoints.clear()
@@ -550,35 +593,35 @@ class Agent:
             
             startSp = SwitchingPoint(switchSegment.getStartPoint())
             self._switchingPoints.append(startSp)
-            self._dpm[old_target] = self._switchingPoints[-1]
+            self._dpm[(i-1) % len(self._tvs)] = self._switchingPoints[-1]
 
             if switchSegment.getDuration() > 0:
                 endSp = SwitchingPoint(switchSegment.getEndPoint())
                 self._switchingPoints.append(endSp)
-            self._epm[current_target] = self._switchingPoints[-1]
+            self._epm[i] = self._switchingPoints[-1]             
 
             # update cache values
-            target_to_switching[old_target] = switchPath.getData().costToParent()
+            target_to_switching[(i-1) % len(self._tvs)] = switchPath.getData().costToParent()
             p : Tree = switchPath.getParent()
             while not p.isRoot():
-                switching_to_target[current_target] = p.getData().costToParent()
+                switching_to_target[i] = p.getData().costToParent()
                 p = p.getParent() 
 
         # assign monitoring segments
         for i in range(len(self._tvs)):
             target = self._tvs[i]
-            phi = self.getEntrancePoint(target)
-            psi = self.getDeparturePoint(target)
-            tf = 2*(switching_to_target[target] + target_to_switching[target])
+            phi = self.getEntrancePoint(i)
+            psi = self.getDeparturePoint(i)
+            tf = 2*(switching_to_target[i] + target_to_switching[i])
             
             monitoringParams = MonitoringParameters(phi, psi, tf)            
             self._monitoringSegments.append(MonitoringSegment(target, self.sensor(), monitoringParams))
 
-    def getEntrancePoint(self, target : Target) -> SwitchingPoint:
-        return self._epm[target]
+    def getEntrancePoint(self, idx : int) -> SwitchingPoint:
+        return self._epm[idx]
     
-    def getDeparturePoint(self, target : Target) -> SwitchingPoint:
-        return self._dpm[target]
+    def getDeparturePoint(self, idx : int) -> SwitchingPoint:
+        return self._dpm[idx]
 
     def simulateToSteadyState(self, maxIter = 10) -> None:
         omega0 = {}
@@ -648,6 +691,7 @@ class Agent:
             assert(np.abs(self._monitoringSegments[i].uTrajectory.t[-1] - self._monitoringSegments[i].pTrajectory.t[-1]) < 1e-6)
     
         self._cycle_start = t0
+
     def plotMSE(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
         hasLabel = kwargs.get('label') is not None
@@ -699,7 +743,7 @@ class Agent:
         for ss in self._switchingSegments:
             po.add(ss.pTrajectory.plotStateVsState(0, 1, ax, **kwargs))
         return po
-    
+
     def gpp(self) -> GlobalPathPlanner:
         return self._gpp   
 
@@ -709,5 +753,3 @@ class Agent:
     def sensor(self) -> Sensor:
         return self._sensor
     
-    def plot(self, ax : plt.Axes = plt) -> PlotObject:
-        return PlotObject(ax.plot(self._p[0], self._p[1], 'bd'))
