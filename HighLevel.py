@@ -71,6 +71,7 @@ class RRT:
         # visualization
         self._plot_options = None                   # a plot options instance
 
+        self._optimize = False
         self._rewire = False                # rewire
         self._cut = False                   # cut
 
@@ -205,6 +206,8 @@ class RRT:
             child.getData().activate_region_to_parent(rtp)
 
     def OptimizeSwitchingPoints(self, T : Tree) -> None:
+        if not self._optimize:
+            return
         active = T
         init_waypoints : List[Node] = []
         while active is not None:
@@ -527,13 +530,15 @@ class GlobalPathPlanner:
             self.tsp = TSP(self._world.targets())
 
         for i in range(self._world.NT()):
-            self.target_paths[i] = {}
+            target_i = self._world.targets()[i]
+            self.target_paths[target_i] = {}
             for j in range(self._world.NT()):
                 if i == j:
                     self.tsp.target_distances[i,j] = 0
                     continue
-                plannedPath = self.PlanPath(self._world.targets()[i].p(), self._world.targets()[j].p())
-                self.target_paths[i][j] = plannedPath[0] 
+                target_j = self._world.targets()[j]
+                plannedPath = self.PlanPath(target_i.p(), target_j.p())
+                self.target_paths[target_i][target_j] = plannedPath[0] 
                 self.tsp.target_distances[i,j] = plannedPath[1]
                 print(f"Distance from {i} to {j} is {self.tsp.target_distances[i,j]}")
         
@@ -548,8 +553,8 @@ class GlobalPathPlanner:
             return
         po = PlotObject()
         for i in range(0,len(self.tsp._best_permutation)):
-            currTarget = self.tsp._best_permutation[i-1]
-            nextTarget = self.tsp._best_permutation[i]
+            currTarget = self._world.targets()[self.tsp._best_permutation[i-1]]
+            nextTarget = self._world.targets()[self.tsp._best_permutation[i]]
             currPath = self.target_paths[currTarget][nextTarget]
             assert(isinstance(currPath, Tree))
             po.add(currPath.plotPathToRoot(ax=ax, style=style, plot_direction=True, **kwargs))

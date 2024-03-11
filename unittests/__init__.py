@@ -1,1 +1,1 @@
-from Tests import *
+from .Tests import *

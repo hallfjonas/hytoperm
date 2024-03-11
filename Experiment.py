@@ -1,6 +1,8 @@
 
 from World import *
 from Agent import *
+
+import pickle
 import matplotlib.pyplot as plt
 from matplotlib import figure
 from scipy.spatial import Voronoi, voronoi_plot_2d
@@ -43,7 +45,7 @@ class Experiment:
         sensor = Sensor()
         for target in self._world.targets():
             ranint = np.random.randint(0, 6)
-            if ranint == 0:
+            if ranint == -1:
                 sensor.setSensingQualityFunction(target, ConstantSensingQualityFunction())
             elif ranint <= 1:
                 sensor.setSensingQualityFunction(target, SinusoidalSensingQualityFunction(c1=np.random.uniform(3,20),c2=np.random.uniform(3,20)))
@@ -55,6 +57,7 @@ class Experiment:
         self._agent = Agent(self._world, sensor=sensor)
 
     def AddRandomTargets(self, fraction=0.5) -> None:
+        target_counter = 1
         for region in self._world.regions():
             assert(isinstance(region, CPRegion))
             if np.random.uniform(0, 1) < fraction:
@@ -62,9 +65,11 @@ class Experiment:
                 distToBoundary = region.DistToBoundary(pos)
                 phi0 = np.array([1.0])
                 Q = np.array([1.0])
-                A = np.array([-0.9])
+                A = np.array([0.0])
                 target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
+                target.name = str(target_counter)
                 self.AddTarget(target)
+                target_counter += 1
 
     def AddTarget(self, target : Target) -> None:
         assert(isinstance(target, Target))
@@ -81,4 +86,10 @@ class Experiment:
         ax.set_ylim(self._domain.ymin()*1.1, self._domain.ymax()*1.1)
         return self._world.PlotMissionSpace(ax)
 
+    def serialize(self, filename : str) -> None:
+        with open(filename, "wb") as f:
+            pickle.dump(self, f)
     
+    def deserialize(fileame : str):
+        with open(fileame, "rb") as f:
+            return pickle.load(f)

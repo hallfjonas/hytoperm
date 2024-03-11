@@ -2,7 +2,7 @@
 1. Perform the tests below...
     - I want to see a periodic trajectory!!
 2. Given a periodic trajectory, obtain steady state
-    - Should just be a repitition of simulateCycle without updating parameters
+    - Should just be a repetition of simulateCycle without updating parameters
     - Want to see a periodic MSE Trajectory Plot!
 3. Optimize the local parameters based on gradient information
     - for now let's restrict our attention to monitoring time parameters
@@ -13,9 +13,7 @@
 
 ## Needs more testing
 - Agent class:
-    - computeVisitingSequence
     - getCycleTime
-    - initializeCycle
     - simulateCycle
     - plotMSE
     - plotCycle

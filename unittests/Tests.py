@@ -1,4 +1,4 @@
-from experiment import Experiment
+from Experiment import Experiment
 from HighLevel import GlobalPathPlanner
 from World import * 
 import matplotlib.pyplot as plt
@@ -22,6 +22,13 @@ def empty_plot_figure():
     plt.show()
     fig.tight_layout()
     return fig, ax
+
+def shift_time():
+    traj = Trajectory(np.array([[-10,20,0.2,0.01,-1.0]]), np.array([0,1,2,3,4]))
+    traj.shiftTime(1)
+
+    assert(np.all(traj.t == np.array([1,2,3,4,5])))
+                    
 
 # Nice seeds for 10 sets and 0.5 fraction: 235
 def generate_partitioning(n_sets=10,fraction=0.5,seed=235) -> Experiment:
@@ -184,4 +191,23 @@ def test_local_controller(n_sets=20) -> Experiment:
 
     ex, ax = plot_world(ex, with_sensor_quality=False, savefig=False)
     tp.plotStateVsState(0,1, ax)
+    return ex
+
+def test_cycle(n_sets=20) -> Experiment:
+    ex = generate_partitioning(n_sets=n_sets)
+    assert(isinstance(ex, Experiment))
+    
+    target = ex._world.targets()[0]
+    sensor = ex._agent.sensor()
+
+    ex._agent.computeVisitingSequence()
+    ex._agent.initializeCycle()
+    ex._agent.simulateCycle()
+
+    fig, ax = plot_world(ex, with_sensor_quality=True, savefig=False)
+    ex._agent.plotCycle(ax)
+
+    fig2, ax2 = empty_plot_figure()
+    ex._agent.plotMSE(ax2)
+
     return ex

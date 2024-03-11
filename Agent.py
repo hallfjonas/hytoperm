@@ -190,9 +190,9 @@ def UnmonitoredOmegaSimulator(target : Target, sensor : Sensor, N) -> cad.Functi
 def SimulateUnmonitoredOmega(fun : cad.Function, tf, Omega0, N):
     params = cad.vertcat(tf, np.matrix(Omega0).getA1())
     sim = fun(params)
-    Ik = sim['Ik'].full().flatten()
-    mse = sim['mse'].full().flatten()
-    tgrid = [tf/N*k for k in range(N+1)]
+    Ik = sim[0].full().flatten()
+    mse = sim[1].full().flatten().reshape(-1,1).T
+    tgrid = np.array([tf/N*k for k in range(N+1)])
     return Trajectory(mse, tgrid), Ik
 
 class SwitchingPoint:
@@ -201,6 +201,11 @@ class SwitchingPoint:
 
     def p(self) -> np.ndarray:
         return self._p
+
+    def plot(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        if kwargs.get('marker') is None:
+            kwargs['marker'] = 'o'
+        return PlotObject(ax.plot(self._p[0], self._p[1], **kwargs))
 
 class SwitchingParameters:
     def __init__(self, phi : SwitchingPoint, psi : SwitchingPoint, tf):
@@ -239,36 +244,52 @@ class TrajectorySegment:
     def getDuration(self) -> float:
         return self.pTrajectory.t[-1] - self.pTrajectory.t[0]
 
-    def plotInMissionSpace(self, ax : plt.Axes, **kwargs) -> PlotObject:
-        return self.pTrajectory.plot(ax, kwargs)
+    def plotInMissionSpace(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        return self.pTrajectory.plotStateVsState(0, 1, ax, **kwargs)
+
+    def shiftTime(self, deltaT : float) -> None:
+        self.pTrajectory.shiftTime(deltaT)
+        self.uTrajectory.shiftTime(deltaT)
 
 class SwitchingSegment(TrajectorySegment):
-    def __init__(self, path : Tree, t0 = 0):
+    def __init__(self, path : Tree):
         self._sp : SwitchingParameters = None
         self._path : Tree = path
-        self._t0 = t0
+        super().__init__()
         self.update()
 
     def update(self) -> None:
         assert(isinstance(self._path, Tree))
         node : Tree = self._path.getParent()
         assert(node is not None)
-        phi = node.getData().p()
-        self.pTrajectory = Trajectory(phi, self._t0)
-        tf = self._t0
-        while not self._path.getParent().isRoot():
+        phi = node.getData().p().reshape(-1,1)
+        tf = np.array(0).reshape(1)
+        u = np.nan*np.zeros((2,1))
+        self.pTrajectory = Trajectory(phi, tf)
+        self.uTrajectory = Trajectory(u, tf)
+        while not node.getParent().isRoot():
 
             # update end point
-            psi = node.getData().p()
+            psi = node.getParent().getData().p().reshape(-1,1)
             deltaT = node.getData().costToParent()
+
+            # TODO(Jonas): Hacky solution currently in place
+            # What I need here is the control from one node to the next
+            # In my current setting (constant Dynamics on the regions, this is a constant control law)
+            # In general doesn't need to be... 
+            # So really, should have a trajectory to parent stored in the node or even better in an edge between the two nodes...
+            # Will have to fix a lot of things, so let's improve this after CDC submission
+            v = node.getData().active_region_to_parent().dynamics().v().reshape(-1,1)
+            u = (psi - phi)/deltaT - v
             
             # update trajectories
-            u = (psi - phi)/deltaT
             self.uTrajectory.extend(u, tf)
+            self.uTrajectory.extend(u, tf + deltaT)
             self.pTrajectory.extend(psi, tf + deltaT)
 
             # update time
-            tf += deltaT
+            tf = tf + deltaT
+            phi = psi
 
             # get next node
             node = node.getParent()
@@ -278,7 +299,7 @@ class SwitchingSegment(TrajectorySegment):
 
 class MonitoringController:
     def __init__(self, target : Target, sensor : Sensor) -> None:
-        self.solver : NLPSolver = None              
+        self.solver : NLPSolver = None   
         self.N : int = 100
         self.nx : int = None                                    # number of states (assigned by builder)
         self.nu : int = None                                    # number of controls (assigned by builder)
@@ -414,6 +435,14 @@ class MonitoringController:
     def optimalMonitoringControl(self, params : MonitoringParameters) -> Tuple[Trajectory, Trajectory, Trajectory]:
         self.solver.params = cad.vertcat(params._phi.p(), params._psi.p(), params._tf, np.matrix(params._Omega0).getA1())
         sol = self.solver.solve()
+
+        if not self.solver.solver.stats()['success']:
+            params._psi.plot(color='green')
+            params._phi.plot(color='blue')
+            print("\| psi - phi \| = ", np.linalg.norm(params._psi.p() - params._phi.p()))
+            print("Monitoring time: ", params._tf)
+            print("Initial Uncertainty: ", params._Omega0)
+            raise Exception("Optimal monitoring control failed to converge...")
         w_opt = sol['x'].full()
 
         # Plot the solution
@@ -428,7 +457,7 @@ class MonitoringController:
 
         u[0,0:-1] = w_opt[nx::nx+nu].flatten()
         u[1,0:-1] = w_opt[nx+1::nx+nu].flatten()
-        tgrid = [params._tf/N*k for k in range(N+1)]
+        tgrid = np.array([params._tf/N*k for k in range(N+1)])
 
         pTraj = Trajectory(p, tgrid)
         mseTraj = Trajectory(mse, tgrid)
@@ -443,12 +472,17 @@ class MonitoringSegment(TrajectorySegment):
         self._target : Target = target
         self._mseTrajectory : Trajectory = None
         self.monitoring_controller : MonitoringController = MonitoringController(target, sensor)
+        super().__init__()
 
     def update(self):
         p, m, u = self.monitoring_controller.optimalMonitoringControl(self._mp)
         self.pTrajectory = p
         self.mseTrajectory = m
         self.uTrajectory = u
+
+    def shiftTime(self, deltaT : float) -> None:
+        super().shiftTime(deltaT)
+        self.mseTrajectory.shiftTime(deltaT)
 
 class Agent:
     def __init__(self, world : World, sensor : Sensor) -> None:
@@ -458,9 +492,11 @@ class Agent:
         self._gpp : GlobalPathPlanner = None
         self._tvs : List[Target] = []
         self._switchingPoints : List[SwitchingPoint] = []
+        self._epm : Dict[Target, SwitchingPoint] = {}                           # map a target visit index to an entry point
+        self._dpm : Dict[Target, SwitchingPoint] = {}                           # map a target visit index to a departure point
         self._switchingSegments : List[SwitchingSegment] = []
         self._monitoringSegments : List[MonitoringSegment] = []
-
+        self._cycle_start : float = 0.0
         self._mseTrajectories : Dict[Target, Trajectory] = {}           # one cycle of mean squared error trajectories
 
         self.initialize()
@@ -470,6 +506,7 @@ class Agent:
             self._ucs[target] = UnmonitoredOmegaSimulator(target, self.sensor(), N=200)
         self.initializeCovarianceMatrices(Omegas)
         self._gpp = GlobalPathPlanner(self.world())
+        self._gpp._plot_options.toggle_all_plotting(False)
         
     def initializeCovarianceMatrices(self, Omegas : Dict[Target, np.ndarray] = None) -> None:
         if Omegas is None:
@@ -477,7 +514,7 @@ class Agent:
             for target in self.world().targets():
                 Omegas[target] = np.eye((target.getNumberOfStates()))
         for target in self.world().targets():
-            self._mseTrajectories[target] = Trajectory(np.trace(Omegas[target]), 0)
+            self._mseTrajectories[target] = Trajectory(np.array([np.trace(Omegas[target])]).reshape(-1,1), np.array([0]))
 
     def computeVisitingSequence(self) -> None:
         self.gpp().SolveTSP()
@@ -490,74 +527,181 @@ class Agent:
 
     def initializeCycle(self) -> None:
         
+        if (len(self._tvs) <= 1):
+            Warning("Expected at least two targets in the visiting sequence...")
+            return
+        
         # cache the following timings for initializing monitoring time:
         # 1) time from target to switching point
         # 2) time from switching point to next target
         target_to_switching = {}
         switching_to_target = {}
+        self._switchingSegments.clear()
+        self._monitoringSegments.clear()
+        self._switchingPoints.clear()
 
         # assign switching segments
         for i in range(len(self._tvs)):
-            old_target = self._tvs[-1]
+            old_target = self._tvs[i-1]
             current_target = self._tvs[i]
             switchPath = self.gpp().target_paths[old_target][current_target]
             switchSegment = SwitchingSegment(switchPath)
             self._switchingSegments.append(switchSegment)
-            self._switchingPoints.append(SwitchingPoint(switchSegment.getStartPoint()))
-            self._switchingPoints.append(SwitchingPoint(switchSegment.getEndPoint()))
+            
+            startSp = SwitchingPoint(switchSegment.getStartPoint())
+            self._switchingPoints.append(startSp)
+            self._dpm[old_target] = self._switchingPoints[-1]
+
+            if switchSegment.getDuration() > 0:
+                endSp = SwitchingPoint(switchSegment.getEndPoint())
+                self._switchingPoints.append(endSp)
+            self._epm[current_target] = self._switchingPoints[-1]
 
             # update cache values
             target_to_switching[old_target] = switchPath.getData().costToParent()
             p : Tree = switchPath.getParent()
             while not p.isRoot():
                 switching_to_target[current_target] = p.getData().costToParent()
-                p = p.getParent()
+                p = p.getParent() 
 
         # assign monitoring segments
         for i in range(len(self._tvs)):
             target = self._tvs[i]
-            phi = self._switchingPoints[2*i+1]
-            psi = self._switchingPoints[2*i+2 % len(self._switchingPoints)]
-            tf = 1.1*(switching_to_target[target] + target_to_switching[target])
+            phi = self.getEntrancePoint(target)
+            psi = self.getDeparturePoint(target)
+            tf = 2*(switching_to_target[target] + target_to_switching[target])
             
-            monitoringParams = MonitoringParameters(phi, psi, tf)
+            monitoringParams = MonitoringParameters(phi, psi, tf)            
+            self._monitoringSegments.append(MonitoringSegment(target, self.sensor(), monitoringParams))
+
+    def getEntrancePoint(self, target : Target) -> SwitchingPoint:
+        return self._epm[target]
+    
+    def getDeparturePoint(self, target : Target) -> SwitchingPoint:
+        return self._dpm[target]
+
+    def simulateToSteadyState(self, maxIter = 10) -> None:
+        omega0 = {}
+        for target in self.world().targets():
+            omega0[target] = self._mseTrajectories[target].getEndPoint()
+        it = 0
+        while True:
+            it += 1
+            self.simulateCycle()
             
-            self._monitoringSegments.append(MonitoringSegment(current_target, self.sensor(), monitoringParams))
+            tol = 1e-3
+            steadyState = True
+            for target in self.world().targets():
+                omegaend = self._mseTrajectories[target].getEndPoint()
+                omegadiff = np.linalg.norm(omegaend - omega0[target])
+                if omegadiff > tol:
+                    steadyState = False
+                    break
+            if steadyState or it >= maxIter:
+                break
 
     def simulateCycle(self) -> None:
+        '''
+        In this method, we simulate the entire cycle of the agent. This includes the following steps:
+            1) Place the agent at the starting point of the first switching segment, i.e., the departure point of the 0 index target in the visiting sequence
+            2) Then repeat the following steps (starting with t0 = 0)
+                2.1) Simulate the switching segment and update t0 += switching duration
+                2.2) Simulate the monitoring segment and update t0 += monitoring duration
+
+        '''
+        assert(len(self._tvs))
+
+        if(len(self._switchingSegments) == 0):
+            self.initializeCycle()
+
+        if (len(self._tvs) <= 1):
+            return
         
+        t0 = self._cycle_start
+
         for i in range(len(self._tvs)):
             # switch to next target
             self._switchingSegments[i].update()
+            self._switchingSegments[i].shiftTime(t0)
             for target in self.world().targets():
-                mseTraj = SimulateUnmonitoredOmega(self._ucs[target], self._switchingSegments[i].getDuration(), self._mseTrajectories[target].getEndPoint(), 200)
-                self._mseTrajectories[target].extend(mseTraj.x, mseTraj.t)
-            
+                mseTraj, Ik  = SimulateUnmonitoredOmega(self._ucs[target], self._switchingSegments[i].getDuration(), self._mseTrajectories[target].getEndPoint(), 200)
+                self._mseTrajectories[target].extend(mseTraj.x, mseTraj.t + t0)
+            print("Switching segment from target {} to target {} over period [{},{}]".format(self._tvs[i-1].name, self._tvs[i].name, t0, t0 + self._switchingSegments[i].getDuration()))
+            t0 += self._switchingSegments[i].getDuration()
+
+            # monitor target
             self._monitoringSegments[i]._mp._Omega0 = self._mseTrajectories[self._tvs[i]].getEndPoint()
             self._monitoringSegments[i].update()
-            self._mseTrajectories[self._tvs[i]].extend(self._monitoringSegments[i]._mseTrajectory.x, self._monitoringSegments[i]._mseTrajectory.t)
+            self._monitoringSegments[i].shiftTime(t0)
+            self._mseTrajectories[self._tvs[i]].extend(self._monitoringSegments[i].mseTrajectory.x, self._monitoringSegments[i].mseTrajectory.t)
             for target in self.world().targets():
                 if target == self._tvs[i]:
                     continue
-                mseTraj = SimulateUnmonitoredOmega(self._ucs[target], self._monitoringSegments[i].getDuration(), self._mseTrajectories[target].getEndPoint(), 200)
-                self._mseTrajectories[target].extend(mseTraj.x, mseTraj.t)
+                mseTraj, Ik = SimulateUnmonitoredOmega(self._ucs[target], self._monitoringSegments[i].getDuration(), self._mseTrajectories[target].getEndPoint(), 200)
+                self._mseTrajectories[target].extend(mseTraj.x, mseTraj.t + t0)
+            print("Monitoring segment of target {} over period [{},{}]".format(self._tvs[i].name, t0, t0 + self._monitoringSegments[i].getDuration()))
+            t0 += self._monitoringSegments[i].getDuration()
             
-    def plotMSE(self, ax : plt.Axes, **kwargs) -> PlotObject:
+            assert(np.abs(self._switchingSegments[i].pTrajectory.t[-1] - self._monitoringSegments[i].pTrajectory.t[0]) < 1e-6)
+            assert(np.abs(self._switchingSegments[i].uTrajectory.t[-1] - self._monitoringSegments[i].uTrajectory.t[0]) < 1e-6)
+            assert(np.abs(self._switchingSegments[i].uTrajectory.t[-1] - self._switchingSegments[i].pTrajectory.t[-1]) < 1e-6)
+            assert(np.abs(self._monitoringSegments[i].uTrajectory.t[-1] - self._monitoringSegments[i].pTrajectory.t[-1]) < 1e-6)
+    
+        self._cycle_start = t0
+    def plotMSE(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
+        hasLabel = kwargs.get('label') is not None
         for target in self.world().targets():
-            po.add(self._mseTrajectories[target].plot(ax, kwargs))
+            if not hasLabel:
+                kwargs['label'] = target.name
+            po.add(self._mseTrajectories[target].plot(ax, **kwargs))
         return po
     
-    def plotCycle(self, ax : plt.Axes, **kwargs) -> PlotObject:
+    def plotControls(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        fig, ax2 = plt.subplots()
         po = PlotObject()
-        for ms in self._monitoringSegments:
-            po.add(ms.pTrajectory.plot(ax, kwargs))
         for ss in self._switchingSegments:
-            po.add(ss.pTrajectory.plot(ax, kwargs))
+            po.add(ss.uTrajectory.plotStateVsTime(0, ax2, color='blue', linestyle='-', **kwargs))
+            po.add(ss.uTrajectory.plotStateVsTime(1, ax2, color='blue', linestyle='--', **kwargs))
+            u_norm = np.sqrt(np.square(ss.uTrajectory.x[0,:])+np.square(ss.uTrajectory.x[1,:]))
+            po.add(ax.plot(ss.uTrajectory.t, u_norm, color='blue', alpha=0.3, linestyle='-', **kwargs))
+        for ms in self._monitoringSegments:
+            po.add(ms.uTrajectory.plotStateVsTime(0, ax2, color='red', linestyle='-', **kwargs))
+            po.add(ms.uTrajectory.plotStateVsTime(1, ax2, color='red', linestyle='--', **kwargs))
+            u_norm = np.sqrt(np.square(ms.uTrajectory.x[0,:])+np.square(ms.uTrajectory.x[1,:]))
+            po.add(ax.plot(ms.uTrajectory.t, u_norm, color='red', alpha=0.3, linestyle='-', **kwargs))
+            
+            tText = np.median(ms.uTrajectory.t)
+            uText = np.nanmedian(u_norm) + 0.1
+            po.add(ax.text(tText, uText, ms._target.name))
         return po
 
+    def plotCycle(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        po = PlotObject()
+        po.add(self.plotMonitoringSegments(ax, **kwargs))
+        po.add(self.plotSwitchingSegments(ax, **kwargs))
+        return po
+    
+    def plotMonitoringSegments(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        po = PlotObject()
+        for ms in self._monitoringSegments:
+            po.add(ms.pTrajectory.plotStateVsState(0, 1, ax, **kwargs))
+        return po
+    
+    def plotSwitchingPoints(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        po = PlotObject()
+        for sp in self._switchingPoints:
+            po.add(sp.plot(ax, **kwargs))
+        return po
+
+    def plotSwitchingSegments(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        po = PlotObject()
+        for ss in self._switchingSegments:
+            po.add(ss.pTrajectory.plotStateVsState(0, 1, ax, **kwargs))
+        return po
+    
     def gpp(self) -> GlobalPathPlanner:
-        return self._gpp
+        return self._gpp   
 
     def world(self) -> World:
         return self._world

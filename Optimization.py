@@ -2,7 +2,7 @@
 import casadi as cad
 
 class NLPSolver:
-    def __init__(self, prob = None, w0 = None, lbw = None, ubw = None, lbg = None, ubg = None, params = None):
+    def __init__(self, prob = None, w0 = None, lbw = None, ubw = None, lbg = None, ubg = None, params = None, quiet = True) -> None:
         self.solver = None
         self.lbw = None
         self.ubw = None
@@ -10,10 +10,12 @@ class NLPSolver:
         self.ubg = None
         self.w0 = None
         self.params = None
-        self.initialize(prob, w0, lbw, ubw, lbg, ubg, params)
+        self.quiet = quiet
+        self.initialize(prob, w0, lbw, ubw, lbg, ubg)
 
-    def initialize(self, prob = None, w0 = None, lbw = None, ubw = None, lbg = None, ubg = None, params = None):
-        self.solver = cad.nlpsol('solver', 'ipopt', prob)
+    def initialize(self, prob = None, w0 = None, lbw = None, ubw = None, lbg = None, ubg = None):
+        opts = {'ipopt.print_level': int(self.quiet), 'print_time': int(self.quiet), 'ipopt.sb': 'no'}
+        self.solver = cad.nlpsol('solver', 'ipopt', prob, opts)
         self.lbw = cad.vertcat(*lbw)
         self.ubw = cad.vertcat(*ubw)
         self.lbg = cad.vertcat(*lbg)

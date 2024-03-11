@@ -663,8 +663,11 @@ class ConstantDCPRegion(DynamicCPRegion):
             return np.inf
 
         if t1 > 0 and t2 > 0:
-            return min(t1,t2)
-        return max(t1,t2)
+            t_star = min(t1,t2)
+        else:
+            t_star = max(t1,t2)
+        u_star = (xf - x0)/t_star - v
+        return t_star
 
     @staticmethod
     def PlanPath(waypoint_nodes : List[Node]) -> List[np.ndarray]:
@@ -756,6 +759,7 @@ class Target:
         self._phi : np.ndarray = None
         self.A : np.ndarray = None
         self.Q : np.ndarray = None
+        self.name : str = None
 
         self.assignRegion(region)
         self.assignPosition(pos)
@@ -808,8 +812,12 @@ class Target:
             assert(Q.ndim == 2)
         self.Q = Q
 
-    def plot(self, ax : plt.Axes = plt) -> PlotObject:
+    def plot(self, ax : plt.Axes = plt, annotate=True) -> PlotObject:
         po = PlotObject(ax.plot(self._p[0], self._p[1], 'ro'))
+
+        if annotate:
+            po.add(ax.text(self._p[0], self._p[1] + 0.05, self.name))
+
         return po
 
 class World:
