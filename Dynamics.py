@@ -14,7 +14,10 @@ class Trajectory:
         self.assert_dims(x, t)
         self.x = np.append(self.x, x, 1)
         self.t = np.append(self.t, t)
-            
+
+    def appendTrajectory(self, trj : 'Trajectory') -> None:
+        self.extend(trj.x, trj.t)
+
     def assert_dims(self, x : np.ndarray, t : np.ndarray) -> None:
         assert(x.ndim == 2); assert(t.ndim == 1)
         assert(x.shape[1] == t.shape[0])
@@ -25,16 +28,16 @@ class Trajectory:
     def getEndPoint(self):
         return self.x[:,-1]
 
-    def plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
+    def plot(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         for i in range(self.x.shape[0]):
             self._po.add(ax.plot(self.t.flatten(), self.x[i,:].flatten(), **kwargs))
         return self._po
 
-    def plotStateVsTime(self, idx, ax : plt.Axes, **kwargs) -> PlotObject:
+    def plotStateVsTime(self, idx, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         self._po.add(ax.plot(self.t.flatten(), self.x[idx,:].flatten(), **kwargs))
         return self._po
     
-    def plotStateVsState(self, idx1, idx2, ax : plt.Axes, **kwargs) -> PlotObject:
+    def plotStateVsState(self, idx1, idx2, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         self._po.add(ax.plot(self.x[idx1, :].flatten(), self.x[idx2, :].flatten(), **kwargs))
         return self._po
     

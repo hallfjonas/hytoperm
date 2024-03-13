@@ -10,12 +10,13 @@ import numpy as np
 
 class Experiment:
 
-    def __init__(self, domain : Domain = Domain()) -> None:
+    def __init__(self, name : str = "", domain : Domain = Domain()) -> None:
         self._vc = []                   # Voronoi centers
         self._voronoi = None            # Voronoi object
         self._world : World = World()   # world object
         self._agent : Agent = None      # agent object
         self._domain = domain           # domain object
+        self._name = name               # name of the experiment
         
     def AddRandomVoronoiPoints(self, M) -> None:
         self._vc = []

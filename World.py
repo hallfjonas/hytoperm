@@ -1,13 +1,15 @@
 
+from Plotters import *
+
 import numpy as np
 from typing import Tuple, List, Dict, Set
 import matplotlib.pyplot as plt 
 from abc import abstractclassmethod
-import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
-from Plotters import PlotObject
 import casadi as cad
 import math
+
+plotAttributes = PlotAttributes()
 
 class Domain:
     def __init__(self, xrange = [0,1.5], yrange = [0,1]):
@@ -125,11 +127,11 @@ class Region:
         pass
 
     @abstractclassmethod
-    def Plot(self, ax : plt.Axes, style='', **kwargs) -> PlotObject:
+    def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
         pass
 
     @abstractclassmethod
-    def Fill(self, ax : plt.Axes, style='', **kwargs) -> PlotObject:
+    def Fill(self, ax : plt.Axes, **kwargs) -> PlotObject:
         pass
 
     def GetGrid(self, domain : Domain, dx = 0.05, dy=0.05, mdtb = 0.1):
@@ -160,10 +162,11 @@ class Partition:
     def regions(self) -> Set[Region]:
         return self._regions
 
-    def Plot(self, ax : plt.Axes, style='', **kwargs) -> PlotObject:
+    def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
         po = PlotObject()
+        extended_kwargs = extend_keyword_args(plotAttributes.partition)
         for r in self.regions():
-            po.add(r.Plot(ax, style=style, **kwargs))
+            po.add(r.Plot(ax, **extended_kwargs))
         return po
     
 from DataStructures import Node
@@ -445,21 +448,21 @@ class CPRegion(Region):
     def PlanPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         return [x0, xf]
 
-    def Plot(self, ax : plt.Axes, style='', **kwargs) -> PlotObject:
+    def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
 
-        xs = self.GetConvexHull().points[self.GetConvexHull().vertices,0].tolist()
-        ys = self.GetConvexHull().points[self.GetConvexHull().vertices,1].tolist()
+        xs : list = self.GetConvexHull().points[self.GetConvexHull().vertices,0].tolist()
+        ys : list = self.GetConvexHull().points[self.GetConvexHull().vertices,1].tolist()
         xs.append(xs[0])
         ys.append(ys[0])
         if ax is None:
-            ax = plt
-        return PlotObject(ax.plot(xs, ys, style, **kwargs))
+            ax = plt.gca()
+        return PlotObject(ax.plot(xs, ys, **kwargs))
     
-    def PlotPoint(self, ax : plt.Axes = plt, style='', **kwargs) -> PlotObject:
-        return PlotObject(ax.plot(self.p()[0], self.p()[1], style, **kwargs))
+    def PlotPoint(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        return PlotObject(ax.plot(self.p()[0], self.p()[1], **kwargs))
 
-    def Fill(self, ax : plt.Axes = plt, style='', **kwargs) -> PlotObject:
-        return PlotObject(ax.fill(self.GetConvexHull().points[self.GetConvexHull().vertices,0], self.GetConvexHull().points[self.GetConvexHull().vertices,1], style, **kwargs))
+    def Fill(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        return PlotObject(ax.fill(self.GetConvexHull().points[self.GetConvexHull().vertices,0], self.GetConvexHull().points[self.GetConvexHull().vertices,1], **kwargs))
 
 class Dynamics:
     def __init__(self, nx : int, nz : int, nu : int):
@@ -540,7 +543,8 @@ class Dynamics:
                 DX[i,j]= F[0]
                 DY[i,j]= F[1]
 
-        return ax.quiver(X, Y, scale*DX, scale*DY, pivot='mid', **kwargs)
+        eka = extend_keyword_args(plotAttributes.vector_field, **kwargs)
+        return ax.quiver(X, Y, scale*DX, scale*DY, pivot='mid', **eka)
 
 class ConstantDynamics(Dynamics):
     def __init__(self, nx : int, nz : int, nu : int, v : np.ndarray):
@@ -812,8 +816,9 @@ class Target:
             assert(Q.ndim == 2)
         self.Q = Q
 
-    def plot(self, ax : plt.Axes = plt, annotate=True) -> PlotObject:
-        po = PlotObject(ax.plot(self._p[0], self._p[1], 'ro'))
+    def plot(self, ax : plt.Axes = plt, annotate=True, **kwargs) -> PlotObject:
+        eka = extend_keyword_args(plotAttributes.target, **kwargs)
+        po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))
 
         if annotate:
             po.add(ax.text(self._p[0], self._p[1] + 0.05, self.name))
@@ -867,6 +872,7 @@ class World:
         self._target_to_region[target] = region
         self._region_to_target[region] = target
     
+    # getters
     def regions(self) -> Set[Region]:
         return self._regions
     
@@ -897,16 +903,58 @@ class World:
                 regions.add(r)
         return regions
 
+    def get_meshgrid(self, dx = 0.005, dy = 0.005):
+        x = np.arange(self.domain().xmin()-0.5*dx, self.domain().xmax()+0.5*dx, dx)
+        y = np.arange(self.domain().ymin()-0.5*dy, self.domain().ymax()+0.5*dy, dy)
+        X, Y = np.meshgrid(x, y)
+        Z = np.nan*np.ones(X.shape)
+        return X, Y, Z
+
+    # plotters
     def PlotMissionSpace(self, ax) -> PlotObject:
         po = PlotObject()
+        
+        po.add(self.partition().Plot(ax))
+        eka = extend_keyword_args(plotAttributes.partition_background)
+        for region in self.regions():
+            has_target = False
+            for target in self.targets():
+                if target.region() == region:
+                    has_target = True
+                    break
+            if not has_target:
+                po.add(region.Fill(ax, **eka))
+        
         for target in self._targets:
             assert(isinstance(target, Target))
             po.add(target.plot(ax))
-
-        po.add(self.partition().Plot(ax, 'k-'))
 
         for region in self.regions():
             dynamics = region.dynamics()
             assert(isinstance(dynamics, Dynamics))
             d = 0.033
             dynamics.PlotVectorField(region.GetGrid(self.domain(),dx=d,dy=d,mdtb=d), ax, 0.6)
+
+    def plotDistToBoundary(self, ax : plt.Axes = plt) -> PlotObject:
+        X, Y, Z = self.get_meshgrid()
+        for i in range(X.shape[0]):
+            for j in range(Y.shape[1]):
+                p = np.array((X[i,j], Y[i,j]))
+                for region in self.regions():
+                    if region.Contains(p):
+                        Z[i,j] = region.DistToBoundary(p)
+        return PlotObject(ax.contourf(X, Y, Z, antialiased=True, alpha=0.5))
+
+    def plotTravelCostPerRegion(self, ax : plt.Axes = plt) -> PlotObject:
+        X, Y, Z = self.get_meshgrid()
+        for i in range(X.shape[0]):
+            for j in range(Y.shape[1]):
+                p = np.array((X[i,j], Y[i,j]))
+                for region in self.regions():
+                    assert(isinstance(region, CPRegion))
+                    if region.Contains(p):
+                        Z[i,j] = region.TravelCost(p, region.p())
+                        if Z[i,j] == np.inf:
+                            Z[i,j] = -region.TravelCost(region.p(), p)
+        return PlotObject(ax.contourf(X, Y, Z, antialiased=True, alpha=0.5))
+        

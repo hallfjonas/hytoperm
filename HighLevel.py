@@ -75,9 +75,6 @@ class RRT:
         self._rewire = False                # rewire
         self._cut = False                   # cut
 
-    def plot_options(self) -> PlotOptions:
-        return self._plot_options
-
     def PlanPath(self, t0, tf, ax : plt.Axes = None) -> Tuple[Set[Region], List[np.ndarray]]:
         
         targetRegions = self.world.GetRegions(tf)
@@ -305,15 +302,6 @@ class RRT:
             self.PlotBestPath()
             print("Rewired")
 
-    def BestTravelRegion(self, n0 : Node, nf : Node, regions : Set[Region]) -> Tuple[float, Region]:
-        best_tcp = np.inf
-        best_region = None
-        for region in regions:
-            tcp = region.TravelCost(n0.p(), nf.p())
-            if tcp < best_tcp:
-                best_tcp = tcp
-                best_region = region
-        return best_tcp, best_region
     def InitializePath(self, T : Tree, initialNode : Node) -> Tree:
         
         activeT = T.getRoot()
@@ -373,12 +361,6 @@ class RRT:
         if self.plot_options().par():
             self.VisualizeActiveRegions()
 
-    def PlotPath(self, ax : plt.Axes = plt) -> PlotObject:
-        return self.best_path.plotPathToRoot()
-    
-    def SampleActiveRegion(self) -> Region:
-        return self.active_regions[np.random.randint(0, len(self.active_regions))]
-
     def ClearEdgeLines(self) -> None:
         self.plot_options().ael().remove()
 
@@ -389,9 +371,30 @@ class RRT:
             if r.Contains(p):
                 self.active_regions.append(r)
 
+    # getters
     def GetNodesInRegion(self, r : Region) -> List[Tree]:
         return self._rttm[r]
 
+    def BestTravelRegion(self, n0 : Node, nf : Node, regions : Set[Region]) -> Tuple[float, Region]:
+        best_tcp = np.inf
+        best_region = None
+        for region in regions:
+            tcp = region.TravelCost(n0.p(), nf.p())
+            if tcp < best_tcp:
+                best_tcp = tcp
+                best_region = region
+        return best_tcp, best_region
+    
+    def SampleActiveRegion(self) -> Region:
+        return self.active_regions[np.random.randint(0, len(self.active_regions))]
+
+    def plot_options(self) -> PlotOptions:
+        return self._plot_options
+
+    # plotters
+    def PlotPath(self, ax : plt.Axes = plt) -> PlotObject:
+        return self.best_path.plotPathToRoot()
+    
     def VisualizeActiveRegions(self, ax : plt.Axes = plt) -> None:
         self.plot_options().arl().remove()
         for r in self.active_regions:

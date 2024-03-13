@@ -3,34 +3,35 @@ import os
 from Experiment import *
 from unittests import *
 
-exp_file = "experiments/ex2.p"
+exp_name = "ex2"
+exp_dir = "experiments"
+exp_filename = os.path.join(exp_dir, exp_name)
+pickle_extension = ".pickle"
+exp_file = exp_filename + pickle_extension
+res_file = exp_filename + "_results" + pickle_extension
 
 if not os.path.exists(exp_file):
-    ex = generate_partitioning(n_sets=10, seed=78)
+    ex = generate_partitioning(n_sets=5, seed=78)
+    ex._name = exp_filename
     assert(isinstance(ex, Experiment))
 
     target = ex._world.targets()[0]
     sensor = ex._agent.sensor()
 
     ex._agent.computeVisitingSequence()
+    plt.close()
     ex.serialize(exp_file)
 else:
     ex : Experiment = Experiment.deserialize(exp_file)
 
-fig, ax = plot_world(ex, with_sensor_quality=True, savefig=False)
-ex._agent.refineVisitingSequence()
+ex._agent._m
 ex._agent.initializeCycle()
-ex._agent.simulateToSteadyState(maxIter=2)
-ex._agent.plotControls()
-# ex._agent.gpp().PlotTSPSolution(ax, color='red', linewidth=2)
-ex._agent.plotSwitchingSegments(ax, color='green')
-ex._agent.plotMonitoringSegments(ax, color='blue')
-ex._agent.plotSwitchingPoints(ax, marker='o', color='red', markersize=5)
+ex._agent.plotSwitchingPoints()
+ex._agent.plotSwitchingSegments()
+ex._agent._cycle.simulate()
+ex._agent.simulateToSteadyState(maxIter=10)
 
-fig2, ax2 = plt.subplots()
-ex._agent.plotMSE(ax2)
-ax2.legend()
-
-print("Cycle time: ", ex._agent.getCycleTime())
+plt.close()
+ex.serialize(res_file)
 
 print("DONE!")

@@ -26,9 +26,7 @@ def empty_plot_figure():
 def shift_time():
     traj = Trajectory(np.array([[-10,20,0.2,0.01,-1.0]]), np.array([0,1,2,3,4]))
     traj.shiftTime(1)
-
-    assert(np.all(traj.t == np.array([1,2,3,4,5])))
-                    
+    assert(np.all(traj.t == np.array([1,2,3,4,5])))                 
 
 # Nice seeds for 10 sets and 0.5 fraction: 235
 def generate_partitioning(n_sets=10,fraction=0.5,seed=235) -> Experiment:
@@ -71,74 +69,48 @@ def plot_world(ex : Experiment, with_sensor_quality=False, savefig = False) -> T
         export('.sample_mission_space')
 
     if with_sensor_quality:
-        po = plot_sensor_quality_per_region(ex,ax)
+        po = ex._agent.plotSensorQuality(ax)
         if savefig:
             export('.sample_mission_space_w_quality')
 
     return fig, ax
 
+def plot_results(ex : Experiment, wsq = True, savefig = False, leave_open = True):
+    fig, ax = plot_world(ex, with_sensor_quality=wsq, savefig=False)
+    ex._agent.plotCycle(ax)
+    if savefig:
+        export(ex._name + '_cycle')
+
+    fig2, ax2 = plt.subplots()
+    ex._agent.plotMSE(ax2, add_labels=True)
+    ax2.legend()
+    if savefig:
+        export(ex._name + '_mse')
+
+    fig3, ax3 = plt.subplots()
+    ex._agent.plotControls(ax3)
+    if savefig:
+        export(ex._name + '_controls')
+
+    if leave_open:
+        plt.ioff()
+        plt.show()
+
 def test_plot_world(n_sets=10):
     ex = generate_partitioning(n_sets=n_sets)
     fig, ax = plot_world(ex)
-    return ex
-
-def get_meshgrid(ex : Experiment):
-    dx = 0.005; dy = 0.005
-    x = np.arange(ex._world.domain().xmin()-0.5*dx, ex._world.domain().xmax()+0.5*dx, dx)
-    y = np.arange(ex._world.domain().ymin()-0.5*dy, ex._world.domain().ymax()+0.5*dy, dy)
-    X, Y = np.meshgrid(x, y)
-    Z = np.nan*np.ones(X.shape)
-    return X, Y, Z
-
-def plot_dist_to_boundary(ex : Experiment, ax : plt.Axes = plt):
-    X, Y, Z = get_meshgrid(ex)
-    for i in range(X.shape[0]):
-        for j in range(Y.shape[1]):
-            p = np.array((X[i,j], Y[i,j]))
-            for region in ex._world.regions():
-                if region.Contains(p):
-                    Z[i,j] = region.DistToBoundary(p)
-    ax.contourf(X, Y, Z, antialiased=True, alpha=0.5)
-
-def plot_travel_cost_per_region(ex : Experiment, ax : plt.Axes = plt):
-    X, Y, Z = get_meshgrid(ex)
-    for i in range(X.shape[0]):
-        for j in range(Y.shape[1]):
-            p = np.array((X[i,j], Y[i,j]))
-            for region in ex._world.regions():
-                assert(isinstance(region, CPRegion))
-                if region.Contains(p):
-                    Z[i,j] = region.TravelCost(p, region.p())
-                    if Z[i,j] == np.inf:
-                        Z[i,j] = -region.TravelCost(region.p(), p)
-    cf = ax.contourf(X, Y, Z, antialiased=True, alpha=0.5)
-    # plt.colorbar(cf)    
-
-def plot_sensor_quality_per_region(ex : Experiment, ax : plt.Axes = plt) -> PlotObject:
-    X, Y, Z = get_meshgrid(ex)
-    sensor = ex._agent.sensor()
-    for i in range(X.shape[0]):
-        for j in range(Y.shape[1]):
-            p = np.array((X[i,j], Y[i,j]))
-            sensor.setPosition(p)
-            for target in ex._world.targets():
-                assert(isinstance(target, Target))
-                region = target.region()
-                if region.Contains(p):
-                    Z[i,j] = sensor.getSensingQuality(target)
-    return PlotObject(ax.contourf(X, Y, Z, antialiased=True, alpha=0.5))
-    # plt.colorbar(cf)
+    return ex  
 
 def test_dist_to_boundary(n_sets=10):
     ex = generate_partitioning(n_sets=n_sets)
     fig, ax = plot_world(ex)
-    plot_dist_to_boundary(ex, ax)
+    ex._world.plotDistToBoundary(ax)
     return ex
 
 def test_travel_cost():
     ex = generate_partitioning()
     fig, ax = plot_world(ex)
-    plot_travel_cost_per_region(ex, ax)
+    ex._world.plotTravelCostPerRegion(ax)
     return ex
     
 def test_rrt(max_iter = 1000, n_sets=20, plot = True) -> GlobalPathPlanner:
@@ -151,7 +123,7 @@ def test_rrt(max_iter = 1000, n_sets=20, plot = True) -> GlobalPathPlanner:
     fig, ax = plot_world(ex)
     gpp.PlanPath(ex._world.target(1).p(), ex._world.target(9).p(), max_iter, ax)
     export('.sample_rrt')
-    plot_travel_cost_per_region(ex, ax)
+    ex._world.plotTravelCostPerRegion(ex, ax)
     plt.tight_layout()
     export('.sample_rrt_w_travel_cost')
     return gpp
@@ -167,7 +139,7 @@ def test_tsp(n_sets=20, plot = False) -> GlobalPathPlanner:
     # gpp.tsp.PlotTargetDistances(ax)
     gpp.PlotTSPSolution(ax, color='red', linewidth=2)
     export('.sample_tsp')
-    po = plot_sensor_quality_per_region(ex, ax)
+    po = ex._agent.plotSensorQuality(ex, ax)
     gpp.PlotTSPSolution(ax, color='red', linewidth=2)
     export('.sample_tsp_w_sensing_quality')
     return gpp
@@ -182,12 +154,14 @@ def test_local_controller(n_sets=20) -> Experiment:
     phi = SwitchingPoint(target.region().RandomBoundaryPoint())
     psi = SwitchingPoint(target.region().RandomBoundaryPoint())
     tf = 10
-    Omega0 = np.eye(1)
-    lmp = MonitoringParameters(phi=phi,psi=psi,tf=tf,Omega0=Omega0)
+    Omega0 = {}
+    for target in ex._world.targets():
+        Omega0[target] = np.eye(1)
+    lmp = SwitchingParameters(phi=phi,psi=psi,tf=tf,Omega0=Omega0)
     mc = MonitoringController(target, sensor)
 
     mc.buildOptimalMonitoringSolver(target, sensor)
-    tp, tmse, tu = mc.optimalMonitoringControl(lmp)
+    tp, tmse, tomega, tu, cost = mc.optimalMonitoringControl(lmp)
 
     ex, ax = plot_world(ex, with_sensor_quality=False, savefig=False)
     tp.plotStateVsState(0,1, ax)

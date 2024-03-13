@@ -18,7 +18,7 @@ class Node:
         self._r : Set[Region] = set()       # regions
         self._ctr : float = costToRoot      # cost to root
         self._ctp : float = costToParent    # cost to parent
-        self._artp : Region = None          # active region to parent cost
+        self._rtp : Region = None          # active region to parent cost
         self._p : np.ndarray = None
         self.UpdatePosition(p)         
         self.UpdateRegions(r, active_region_to_parent)         
@@ -32,10 +32,10 @@ class Node:
     def activate_region_to_parent(self, r : Region) -> None:
         assert(isinstance(r, Region))
         assert(r in self._r)
-        self._artp = r
+        self._rtp = r
 
     def active_region_to_parent(self) -> Region:
-        return self._artp
+        return self._rtp
 
     def costToRoot(self) -> float:
         return self._ctr
@@ -47,15 +47,15 @@ class Node:
         assert(isinstance(p, np.ndarray))
         self._p = p
 
-    def UpdateRegions(self, r : Set[Region], artp : Region) -> None:
+    def UpdateRegions(self, r : Set[Region], rtp : Region) -> None:
         assert(isinstance(r, set))
         for region in r:
             self.AddRegion(region)
 
-        if (isinstance(artp, Region)):
-            self.activate_region_to_parent(artp)
+        if (isinstance(rtp, Region)):
+            self.activate_region_to_parent(rtp)
         else:
-            assert(artp is None)
+            assert(rtp is None)
 
     def AddRegion(self, r : Region) -> None:
         assert(isinstance(r, Region))
@@ -186,6 +186,15 @@ class Tree(object):
             Get node's all child nodes.
         """
         return self.__children
+
+    def hasParent(self):
+        """
+            Determine whether node has a parent node or not.
+        """
+        if self.__parent is None:
+            return False
+        else:
+            return True
 
     def getData(self) -> Node:
         """
