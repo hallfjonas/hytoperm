@@ -4,7 +4,7 @@ from pdfCropMargins import crop
 import os
 from dataclasses import dataclass
 
-def export(name, directory = '../figures/experiments', ext='.pdf') -> None:
+def export(name, directory = '.', ext='.pdf') -> None:
     out_dir = os.path.join(os.path.dirname(__file__), directory)
     file = os.path.join(out_dir, name + ext)
     plt.savefig(file)
@@ -55,9 +55,8 @@ class PlotAttributes:
     partition_background = PlotAttribute(c=get_cmap(sensor_quality.cmap)(0.001), a=sensor_quality.alpha)
     target_colors = ['#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628', '#984ea3', '#999999', '#e41a1c', '#dede00']
 
-def extend_keyword_args(pA : PlotAttribute, **kwargs) -> dict:
+def extend_keyword_args(p : dict, **kwargs) -> dict:
     eka = kwargs.copy()
-    p = pA.getAttributes()
     for key in p.keys():
         if not key in eka.keys() and p[key] is not None:
             eka[key] = p[key]

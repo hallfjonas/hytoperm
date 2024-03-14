@@ -10,11 +10,11 @@ class NLPSolver:
         self.ubg = None
         self.w0 = None
         self.params = None
-        self.quiet = quiet
+        self.print_level = 0 if quiet else 1
         self.initialize(prob, w0, lbw, ubw, lbg, ubg)
 
     def initialize(self, prob = None, w0 = None, lbw = None, ubw = None, lbg = None, ubg = None):
-        opts = {'ipopt.print_level': int(self.quiet), 'print_time': int(self.quiet), 'ipopt.sb': 'no'}
+        opts = {'ipopt.print_level': self.print_level, 'print_time': self.print_level}
         self.solver = cad.nlpsol('solver', 'ipopt', prob, opts)
         self.lbw = cad.vertcat(*lbw)
         self.ubw = cad.vertcat(*ubw)

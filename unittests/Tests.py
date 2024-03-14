@@ -29,7 +29,7 @@ def shift_time():
     assert(np.all(traj.t == np.array([1,2,3,4,5])))                 
 
 # Nice seeds for 10 sets and 0.5 fraction: 235
-def generate_partitioning(n_sets=10,fraction=0.5,seed=235) -> Experiment:
+def generate_experiment(n_sets=10,fraction=0.5,seed=235) -> Experiment:
     if seed is not None:
         np.random.seed(seed)
     ex = Experiment()
@@ -75,7 +75,7 @@ def plot_world(ex : Experiment, with_sensor_quality=False, savefig = False) -> T
 
     return fig, ax
 
-def plot_results(ex : Experiment, wsq = True, savefig = False, leave_open = True):
+def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = True):
     fig, ax = plot_world(ex, with_sensor_quality=wsq, savefig=False)
     ex._agent.plotCycle(ax)
     if savefig:
@@ -92,43 +92,47 @@ def plot_results(ex : Experiment, wsq = True, savefig = False, leave_open = True
     if savefig:
         export(ex._name + '_controls')
 
-    fig4, ax4 = plt.subplots(4,1)
+    fig4, ax4 = plt.subplots(4,1, sharex=True)
     gca : plt.Axes = ax4[0]
     ggn : plt.Axes = ax4[1]
     tva : plt.Axes = ax4[2]
     kkt : plt.Axes = ax4[3]
     ex._agent.plotGlobalCosts(ax4[0])
-    gca.set_title('Global Costs')
+    gca.set_ylabel('cycle cost')
     ex._agent.plotGlobalGradientNorms(ax4[1])
-    ggn.set_title('Global Gradient Norms')
-    ex._agent.plotTauVals(tva)
-    tva.set_title('Tau Values')
+    ggn.set_ylabel('grad. norm')
+    ex._agent.plotTauVals(tva, linewidth=2)
+    tva.set_ylabel('tau')
     ex._agent.plotKKTViolations(kkt)
-    kkt.set_title('KKT Violations')
+    kkt.set_yscale('symlog')
+    kkt.set_ylabel('KKT res.')
+    kkt.set_xlabel('iteration')
+    if savefig:
+        export(ex._name + '_optimization')
 
     if leave_open:
         plt.ioff()
         plt.show()
 
 def test_plot_world(n_sets=10):
-    ex = generate_partitioning(n_sets=n_sets)
+    ex = generate_experiment(n_sets=n_sets)
     fig, ax = plot_world(ex)
     return ex  
 
 def test_dist_to_boundary(n_sets=10):
-    ex = generate_partitioning(n_sets=n_sets)
+    ex = generate_experiment(n_sets=n_sets)
     fig, ax = plot_world(ex)
     ex._world.plotDistToBoundary(ax)
     return ex
 
 def test_travel_cost():
-    ex = generate_partitioning()
+    ex = generate_experiment()
     fig, ax = plot_world(ex)
     ex._world.plotTravelCostPerRegion(ax)
     return ex
     
 def test_rrt(max_iter = 1000, n_sets=20, plot = True) -> GlobalPathPlanner:
-    ex = generate_partitioning(n_sets=n_sets)
+    ex = generate_experiment(n_sets=n_sets)
     assert(isinstance(ex, Experiment))
     gpp = GlobalPathPlanner(ex._world)
     gpp._plot_options.toggle_all_plotting(plot)
@@ -143,7 +147,7 @@ def test_rrt(max_iter = 1000, n_sets=20, plot = True) -> GlobalPathPlanner:
     return gpp
 
 def test_tsp(n_sets=20, plot = False) -> GlobalPathPlanner:
-    ex = generate_partitioning(n_sets=n_sets)
+    ex = generate_experiment(n_sets=n_sets)
     assert(isinstance(ex, Experiment))
     gpp = GlobalPathPlanner(ex._world)
     gpp._plot_options.toggle_all_plotting(plot)
@@ -159,7 +163,7 @@ def test_tsp(n_sets=20, plot = False) -> GlobalPathPlanner:
     return gpp
 
 def test_local_controller(n_sets=20) -> Experiment:
-    ex = generate_partitioning(n_sets=n_sets)
+    ex = generate_experiment(n_sets=n_sets)
     assert(isinstance(ex, Experiment))
     
     target = ex._world.targets()[0]
@@ -182,7 +186,7 @@ def test_local_controller(n_sets=20) -> Experiment:
     return ex
 
 def test_cycle(n_sets=20) -> Experiment:
-    ex = generate_partitioning(n_sets=n_sets)
+    ex = generate_experiment(n_sets=n_sets)
     assert(isinstance(ex, Experiment))
     
     target = ex._world.targets()[0]
@@ -195,7 +199,7 @@ def test_cycle(n_sets=20) -> Experiment:
     return ex
 
 def test_bilevel_optimization(n_sets=20) -> Experiment:
-    ex = generate_partitioning(n_sets=n_sets)
+    ex = generate_experiment(n_sets=n_sets)
     assert(isinstance(ex, Experiment))
     
     target = ex._world.targets()[0]

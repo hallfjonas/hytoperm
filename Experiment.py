@@ -68,7 +68,7 @@ class Experiment:
                     print(f"Target {target_counter} too close to boundary. Skipping...")
                     continue
                 phi0 = np.array([1.0])
-                Q = np.array([1.0])
+                Q = np.array([0.8])
                 A = np.array([0.0])
                 target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
                 target.name = str(target_counter)

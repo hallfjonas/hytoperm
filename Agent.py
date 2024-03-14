@@ -523,6 +523,13 @@ class SwitchingSegment(TrajectorySegment):
     def update(self) -> None:
         self._cost = 0
         self._gradient_tau = 0
+
+        # Don't need to update the control or path, but reset to 0 relative time
+        t0 = self.uTrajectory.t[0]
+        self.uTrajectory.shiftTime(-t0)
+        self.pTrajectory.shiftTime(-t0)
+
+        # update mse trajectories
         for target in self._ucs.keys():
             mse, Omega, Ik, dIk_dtf = SimulateUnmonitoredOmega(self._ucs[target], self.params._tf, self.params._Omega0[target])
             self.updateMSETrajectory(target, mse)
@@ -582,9 +589,9 @@ class Cycle:
     def getTerminalCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._covAtCycleEnd.copy()
     
-    def steadyState(self) -> bool:
+    def steadyState(self, tol=1e-2) -> bool:
         for target in self._covAtCycleStart.keys():
-            if not np.allclose(self._covAtCycleStart[target], self._covAtCycleEnd[target], atol=1e-2):
+            if not np.allclose(self._covAtCycleStart[target], self._covAtCycleEnd[target], atol=tol):
                 return False
         return True
     
@@ -611,7 +618,7 @@ class Cycle:
 
     # plotters
     def plot(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
-        eka = extend_keyword_args(plotAttributes.agent, **kwargs)
+        eka = extend_keyword_args(plotAttributes.agent.getAttributes(), **kwargs)
         return self.pTrajectory.plotStateVsState(0, 1, ax, **eka)
     
     def plotControls(self, ax : plt.Axes = plt, add_monitoring_labels=True, **kwargs) -> PlotObject:
@@ -625,9 +632,9 @@ class Cycle:
         u1_pA = plotAttributes.u1_switch
         u2_pA = plotAttributes.u2_switch
         un_pA = plotAttributes.u_norm_switch
-        eka1 = extend_keyword_args(u1_pA, **kwargs)
-        eka2 = extend_keyword_args(u2_pA, **kwargs)
-        eka3 = extend_keyword_args(un_pA, **kwargs)
+        eka1 = extend_keyword_args(u1_pA.getAttributes(), **kwargs)
+        eka2 = extend_keyword_args(u2_pA.getAttributes(), **kwargs)
+        eka3 = extend_keyword_args(un_pA.getAttributes(), **kwargs)
         for ts in self._trajectorySegments:
             if not isinstance(ts, SwitchingSegment):
                 continue
@@ -642,9 +649,9 @@ class Cycle:
         u1_pA = plotAttributes.u1_monitor
         u2_pA = plotAttributes.u2_monitor
         un_pA = plotAttributes.u_norm_monitor
-        eka1 = extend_keyword_args(u1_pA, **kwargs)
-        eka2 = extend_keyword_args(u2_pA, **kwargs)
-        eka3 = extend_keyword_args(un_pA, **kwargs)
+        eka1 = extend_keyword_args(u1_pA.getAttributes(), **kwargs)
+        eka2 = extend_keyword_args(u2_pA.getAttributes(), **kwargs)
+        eka3 = extend_keyword_args(un_pA.getAttributes(), **kwargs)
         for ts in self._trajectorySegments:
             if not isinstance(ts, MonitoringSegment):
                 continue
@@ -663,15 +670,15 @@ class Cycle:
 
     def plotMSE(self, ax : plt.Axes = plt, add_labels=False, **kwargs) -> PlotObject:
         po = PlotObject()
-        hasLabel = kwargs.get('label') is not None
         i = 0
         for target in self.mseTrajectories.keys():
-            if add_labels and not hasLabel: 
-                kwargs['label'] = target.name
-            color = color=plotAttributes.target_colors[i]
-            po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, color=color, **kwargs))
+            eka = kwargs.copy()
+            if add_labels:
+                eka['label'] = target.name
+            eka = extend_keyword_args({'color': plotAttributes.target_colors[-i]}, **eka)
+            po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **eka))
             mseStart = self.mseTrajectories[target].getInitialValue() 
-            po.add(ax.hlines(mseStart, self._cycle_start, self._cycle_start + self.getDuration(), alpha=0.2, color=color))
+            po.add(ax.hlines(mseStart, self._cycle_start, self._cycle_start + self.getDuration(), alpha=0.2, color=eka['color']))
             i += 1
         if add_labels:
             plt.legend()
@@ -691,12 +698,18 @@ class Agent:
         self._lambda : Dict[int, float] = {}                                # map a target visit index to a monitoring duration dual
         self._kkt_residuals : Dict[int, float] = {}                         # map a target visit index to a KKT residual
         self._tau_min : Dict[int, float] = {}                               # map a target visit index to a minimum monitoring duration
-        self._alpha : float = 0.1                                           # step size for gradient descent    
-        self._beta : float = 1.0                                            # step size reduction factor for gradient descent
         self._global_costs : List[float] = []                               # global cost (per steady state cycle) 
         self._global_gradient_norms : List[float] = []                      # global gradient norm (per steady state cycle) 
         self._tau_vals : List[np.ndarray] = []                              # monitoring durations (per steady state cycle)
         self._kkt_violations : List[np.ndarray] = []                        # KKT residuals (per steady state cycle)
+        self._kkt_tolerance : float = 1e-1                                  # KKT tolerance
+        self._steady_state_iters : List[int] = []                           # number of iterations to reach steady state
+        self._alphas : List[float] = []                                     # step sizes (per steady state cycle)
+        self._alpha : float = 1.0                                           # step size for gradient descent    
+        self._sigma : float = 1e-1                                          # constraint regularization parameter
+        self._beta : float = 0.9                                            # step size reduction factor for gradient descent
+        self._tr : float = 0.5                                              # trust region radius
+        self._sim_to_steady_state_tol : float = 1e-2                        # tolerance for simulation to steady state
         
         # decomposition
         self._switchingSegments : List[SwitchingSegment] = []
@@ -744,23 +757,26 @@ class Agent:
         it = 0
         po = PlotObject()
         while True:
-            steady = self.simulateToSteadyState(maxIter=100)
+            steady, ssc = self.simulateToSteadyState(maxIter=100, tol=self._sim_to_steady_state_tol)
+            self._steady_state_iters.append(ssc)
 
             if not steady:
-                print("What to do here?...")
+                raise Exception("Did not reach steady state...")
 
             # po.remove()
             # po.add(self._cycle.plot())
             cycle_average_cost = self._cycle.getCost()/self._cycle.getDuration()
             self._global_costs.append(cycle_average_cost)
-            dJ_dt = self.updateMonitoringDurations()
+            dJ_dt = self.updateMonitoringDurations(it)
 
             # Compute first order stationarity condition
             for i in range(len(self._tvs)):
                 self._kkt_residuals[i] = dJ_dt[i] - self._lambda[i]
             self._kkt_violations.append(np.array(list(self._kkt_residuals.values())))
+            
+            self.printIteration(it)
 
-            if np.max(np.abs(self._kkt_violations[-1])) < 1e-2 and steady:
+            if np.max(np.abs(self._kkt_violations[-1])) < self._kkt_tolerance and steady:
                 print("Optimal cycle found!")
                 break
 
@@ -878,7 +894,7 @@ class Agent:
             segments.append(segment)
         return segments
 
-    def simulateToSteadyState(self, maxIter = 10) -> bool:
+    def simulateToSteadyState(self, tol, maxIter = 10) -> Tuple[bool, int]:
         it = 0
         omega_f = self._cycle.getInitialCovarianceMatrices()
         while True:
@@ -888,13 +904,11 @@ class Agent:
             self._cycle.simulate()
             omega_f = self._cycle.getTerminalCovarianceMatrices()
             
-            if self._cycle.steadyState():
-                print("Steady state reached after {} iterations...".format(it))
-                return True
+            if self._cycle.steadyState(tol=tol):
+                return True, it
 
             if it >= maxIter:
-                print("Maximum number of iterations reached...")
-                return False
+                return False, it
             
             self._cycle._cycle_start += self._cycle.getDuration()
     
@@ -906,18 +920,14 @@ class Agent:
         # global average cost gradient
         return (dJ_dt * T - J * np.ones(len(dJ_dt)))/T**2
 
-    def updateMonitoringDurations(self) -> None:
+    def updateMonitoringDurations(self, it) -> None:
         '''
         Simple projected gradient descend
         '''
         dJ_dt = self.globalCostGradient()
-        for i in range(len(self._tvs)):
-            if dJ_dt[i] > 0.2:
-                dJ_dt[i] = 0.2
-            if dJ_dt[i] < -0.2:
-                dJ_dt[i] = -0.2
-        print("Maximum norm of gradient: ", np.max(np.abs(dJ_dt)))
         self._global_gradient_norms.append(np.linalg.norm(dJ_dt))
+        if self._global_gradient_norms[-1] > self._tr:
+            dJ_dt = dJ_dt * self._tr / self._global_gradient_norms[-1]
         
         self._tau_vals.append(np.array([self._tau[i] for i in range(len(self._tvs))]))
         for i in range(len(self._tvs)):
@@ -925,9 +935,10 @@ class Agent:
                 self._lambda[i] = dJ_dt[i]
             else:
                 self._lambda[i] = 0
-                self._tau[i] = max(self._tau_min[i], self._tau[i] - self._alpha * dJ_dt[i])
+                self._tau[i] = max(self._tau_min[i] + self._sigma*(0.6**it), self._tau[i] - self._alpha * dJ_dt[i])
             self._monitoringSegments[i].params._tf = self._tau[i]
         self._alpha *= self._beta
+        self._alphas.append(self._alpha)
         return dJ_dt
 
     # Getters
@@ -974,11 +985,11 @@ class Agent:
     
     def plotSwitchingPoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
-        eka = extend_keyword_args(plotAttributes.phi, **kwargs)
+        eka = extend_keyword_args(plotAttributes.phi.getAttributes(), **kwargs)
         for ss in self._switchingSegments:
             po.add(ss.params._phi.plot(ax, **eka))
 
-        eka = extend_keyword_args(plotAttributes.psi, **kwargs)
+        eka = extend_keyword_args(plotAttributes.psi.getAttributes(), **kwargs)
         for ss in self._switchingSegments:
             po.add(ss.params._psi.plot(ax, **eka))
         return po
@@ -996,11 +1007,23 @@ class Agent:
         return PlotObject(ax.plot(self._global_gradient_norms, **kwargs))
     
     def plotTauVals(self, ax : plt.Axes, **kwargs) -> PlotObject:
-        # TODO: plot min tau vals
-        return PlotObject(ax.plot(self._tau_vals, **kwargs))
+        po = PlotObject()
+        tv = np.array(self._tau_vals)
+        for i in range(tv.shape[1]):
+            eka = extend_keyword_args({'color': plotAttributes.target_colors[-i]}, **kwargs)
+            po.add(ax.plot(tv[:,i], **eka))
+            eka = extend_keyword_args({'alpha' : 0.3}, **eka)
+            po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
+        return po
 
     def plotKKTViolations(self, ax : plt.Axes, **kwargs) -> PlotObject:
-        return PlotObject(ax.plot(self._kkt_violations, **kwargs))
+        po = PlotObject()
+        po.add(PlotObject(ax.plot(self._kkt_violations, **kwargs)))
+        po.add(PlotObject(ax.axhspan(-self._kkt_tolerance, self._kkt_tolerance, alpha=0.2, color='green')))
+        return po
+
+    def plotAlphas(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        return PlotObject(ax.plot(self._alphas, **kwargs))
 
     def plotSensorQuality(self, ax : plt.Axes, **kwargs) -> PlotObject:
         X, Y, Z = self._world.get_meshgrid()
@@ -1015,7 +1038,18 @@ class Agent:
                     region = target.region()
                     if region.Contains(p):
                         Z[i,j] = sensor.getSensingQuality(target)
-        eka = extend_keyword_args(plotAttributes.sensor_quality, **kwargs)
+        eka = extend_keyword_args(plotAttributes.sensor_quality.getAttributes(), **kwargs)
         cf = ax.contourf(X, Y, Z, **eka)
         # plt.colorbar(res)
         return PlotObject(cf)
+    
+    # printers
+    def printHeader(self) -> None:
+        print(" it | avrg cost | grad. nrm | step size | kkt res | steady ")
+              
+    def printIteration(self, it) -> None:
+        if it % 10 == 0:
+            self.printHeader()
+        print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:7.2e} | {:5d}".format(
+            it, self._global_costs[-1], self._global_gradient_norms[-1], self._alphas[-1], np.max(np.abs(self._kkt_violations[-1])), self._steady_state_iters[-1]
+        ))
