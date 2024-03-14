@@ -48,7 +48,7 @@ class Experiment:
             ranint = np.random.randint(0, 6)
             if ranint == -1:
                 sensor.setSensingQualityFunction(target, ConstantSensingQualityFunction())
-            elif ranint <= 1:
+            elif ranint <= -1:
                 sensor.setSensingQualityFunction(target, SinusoidalSensingQualityFunction(c1=np.random.uniform(3,20),c2=np.random.uniform(3,20)))
             else:
                 sensor.setSensingQualityFunction(target, GaussianSensingQualityFunction())
@@ -64,6 +64,9 @@ class Experiment:
             if np.random.uniform(0, 1) < fraction:
                 pos = region.p()
                 distToBoundary = region.DistToBoundary(pos)
+                if distToBoundary < 0.05:
+                    print(f"Target {target_counter} too close to boundary. Skipping...")
+                    continue
                 phi0 = np.array([1.0])
                 Q = np.array([1.0])
                 A = np.array([0.0])

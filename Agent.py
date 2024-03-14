@@ -56,7 +56,7 @@ class SinusoidalSensingQualityFunction(SensingQualityFunction):
 
     def __call__(self, p, q):
         delta = p - q
-        return cad.exp(-self._c3*cad.dot(delta,delta))*(cad.sin(self._c1*delta[0])**2 + cad.cos(self._c2*delta[1])**2)
+        return cad.exp(-self._c3*cad.dot(delta,delta))*(cad.sin(self._c1*delta[0])**2*cad.cos(self._c2*delta[1])**2)
 
 class Sensor:
     def __init__(self, p : np.ndarray = None) -> None:
@@ -208,7 +208,7 @@ def SimulateUnmonitoredOmega(fun : cad.Function, tf, Omega0):
 
     # generate trajectories
     t_grid = np.array([tf/N*k for k in range(N+1)]).flatten()
-    Ik = sim[0].full().flatten()
+    Ik = sim[0].full().flatten()[0]
     mseTrajectory = Trajectory(cadToNP(sim[1], no, N+1), t_grid)
     omegaTrajectory = Trajectory(cadToNP(sim[2], no*no, N+1), t_grid)
     
@@ -490,7 +490,7 @@ class MonitoringController:
         uTrajectory = Trajectory(u, t_grid)
 
         # extract trajectories
-        return pTrajectory, mseTrajectory, omegaTrajectory, uTrajectory, sol['f'].full().flatten(), sol['lam_p']
+        return pTrajectory, mseTrajectory, omegaTrajectory, uTrajectory, sol['f'].full().flatten()[0], sol['lam_p']
 
 class MonitoringSegment(TrajectorySegment):
     def __init__(self, target : Target, sensor : Sensor, ucs : Dict[Target, cad.Function], params : SwitchingParameters = None):
@@ -506,7 +506,7 @@ class MonitoringSegment(TrajectorySegment):
         self.updateTerminalCovarianceMatrix(self._target, omega.getEndPoint())
         
         self._cost = Jk
-        self._gradient_tau = -duals_p[4]
+        self._gradient_tau = -duals_p[4].full().flatten()
         for target in self._ucs.keys():
             if target == self._target:
                 continue
@@ -549,7 +549,7 @@ class Cycle:
             
     def simulate(self) -> None:
         t0 = self._cycle_start
-        omega0 = self._covAtCycleStart
+        omega0 = self._covAtCycleStart.copy()
         self.clearTrajectories()
         for ts in self._trajectorySegments:
             ts.updateInitialCovarianceMatrices(omega0)
@@ -567,16 +567,20 @@ class Cycle:
         return sum([ts.getDuration() for ts in self._trajectorySegments])
 
     def getCost(self) -> float:
-        return sum([ts.getCost() for ts in self._trajectorySegments])
+        return sum(ts.getCost() for ts in self._trajectorySegments)
     
     def getGradient(self):
-        return [ts.getGradient() for ts in self._trajectorySegments]
+        monSeg : List[TrajectorySegment] = []
+        for ts in self._trajectorySegments:
+            if isinstance(ts, MonitoringSegment):
+                monSeg.append(ts)
+        return np.array([ts.getGradient() for ts in monSeg]).flatten()
 
     def getInitialCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._covAtCycleStart
     
     def getTerminalCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
-        return self._covAtCycleEnd
+        return self._covAtCycleEnd.copy()
     
     def steadyState(self) -> bool:
         for target in self._covAtCycleStart.keys():
@@ -586,7 +590,7 @@ class Cycle:
     
     # modifiers
     def updateInitialCovarianceMatrices(self, omega0 : Dict[Target, np.ndarray]) -> None:
-        self._covAtCycleStart = omega0
+        self._covAtCycleStart = omega0.copy()
     
     def clearTrajectories(self) -> None:
         self.pTrajectory = None
@@ -660,10 +664,17 @@ class Cycle:
     def plotMSE(self, ax : plt.Axes = plt, add_labels=False, **kwargs) -> PlotObject:
         po = PlotObject()
         hasLabel = kwargs.get('label') is not None
+        i = 0
         for target in self.mseTrajectories.keys():
             if add_labels and not hasLabel: 
                 kwargs['label'] = target.name
-            po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **kwargs))
+            color = color=plotAttributes.target_colors[i]
+            po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, color=color, **kwargs))
+            mseStart = self.mseTrajectories[target].getInitialValue() 
+            po.add(ax.hlines(mseStart, self._cycle_start, self._cycle_start + self.getDuration(), alpha=0.2, color=color))
+            i += 1
+        if add_labels:
+            plt.legend()
         return po
     
 class Agent:
@@ -676,12 +687,16 @@ class Agent:
         self._cycle : Cycle = None
 
         # optimization parameters
-        self._tau : Dict[int, float] = {}                                   # map a target visit index to a monitoring durations
+        self._tau : Dict[int, float] = {}                                   # map a target visit index to a monitoring duration
+        self._lambda : Dict[int, float] = {}                                # map a target visit index to a monitoring duration dual
+        self._kkt_residuals : Dict[int, float] = {}                         # map a target visit index to a KKT residual
         self._tau_min : Dict[int, float] = {}                               # map a target visit index to a minimum monitoring duration
         self._alpha : float = 0.1                                           # step size for gradient descent    
-        self._beta : float = 0.9                                            # step size reduction factor for gradient descent
+        self._beta : float = 1.0                                            # step size reduction factor for gradient descent
         self._global_costs : List[float] = []                               # global cost (per steady state cycle) 
         self._global_gradient_norms : List[float] = []                      # global gradient norm (per steady state cycle) 
+        self._tau_vals : List[np.ndarray] = []                              # monitoring durations (per steady state cycle)
+        self._kkt_violations : List[np.ndarray] = []                        # KKT residuals (per steady state cycle)
         
         # decomposition
         self._switchingSegments : List[SwitchingSegment] = []
@@ -724,21 +739,36 @@ class Agent:
             i += 1
         self._tvs = tvs
     
-    def optimizeCycle(self) -> None:
+    def optimizeCycle(self, maxIter = 10) -> None:
         self.initializeCycle()
-
+        it = 0
+        po = PlotObject()
         while True:
-            steady = self.simulateToSteadyState()
+            steady = self.simulateToSteadyState(maxIter=100)
 
             if not steady:
                 print("What to do here?...")
 
-            self._global_costs.append(self._cycle.getCost())
-            max_diff = self.updateMonitoringDurations()
+            # po.remove()
+            # po.add(self._cycle.plot())
+            cycle_average_cost = self._cycle.getCost()/self._cycle.getDuration()
+            self._global_costs.append(cycle_average_cost)
+            dJ_dt = self.updateMonitoringDurations()
 
-            if max_diff < 1e-2 and steady:
+            # Compute first order stationarity condition
+            for i in range(len(self._tvs)):
+                self._kkt_residuals[i] = dJ_dt[i] - self._lambda[i]
+            self._kkt_violations.append(np.array(list(self._kkt_residuals.values())))
+
+            if np.max(np.abs(self._kkt_violations[-1])) < 1e-2 and steady:
                 print("Optimal cycle found!")
                 break
+
+            if it > maxIter:
+                print("Max iterations reached...")
+                break
+
+            it += 1
     
     def initializeCycle(self) -> None:
         
@@ -866,14 +896,13 @@ class Agent:
                 print("Maximum number of iterations reached...")
                 return False
             
+            self._cycle._cycle_start += self._cycle.getDuration()
+    
     def globalCostGradient(self):
         T = self._cycle.getDuration()
         J = self._cycle.getCost()
         dJ_dt = self._cycle.getGradient()
         
-        # global average cost
-        gc = J/T
-
         # global average cost gradient
         return (dJ_dt * T - J * np.ones(len(dJ_dt)))/T**2
 
@@ -882,14 +911,24 @@ class Agent:
         Simple projected gradient descend
         '''
         dJ_dt = self.globalCostGradient()
-        self._global_gradient_norms.append(np.linalg.norm(dJ_dt))
-        max_diff = 0
         for i in range(len(self._tvs)):
-            new_tau = max(self._tau_min[i], self._tau[i] - self._alpha * dJ_dt[i]) 
-            self._tau[i] = new_tau
-            max_diff = max(max_diff, abs(new_tau - self._tau[i]))
+            if dJ_dt[i] > 0.2:
+                dJ_dt[i] = 0.2
+            if dJ_dt[i] < -0.2:
+                dJ_dt[i] = -0.2
+        print("Maximum norm of gradient: ", np.max(np.abs(dJ_dt)))
+        self._global_gradient_norms.append(np.linalg.norm(dJ_dt))
+        
+        self._tau_vals.append(np.array([self._tau[i] for i in range(len(self._tvs))]))
+        for i in range(len(self._tvs)):
+            if self._tau[i] == self._tau_min[i] and dJ_dt[i] > 0:
+                self._lambda[i] = dJ_dt[i]
+            else:
+                self._lambda[i] = 0
+                self._tau[i] = max(self._tau_min[i], self._tau[i] - self._alpha * dJ_dt[i])
+            self._monitoringSegments[i].params._tf = self._tau[i]
         self._alpha *= self._beta
-        return max_diff
+        return dJ_dt
 
     # Getters
     def gpp(self) -> GlobalPathPlanner:
@@ -956,6 +995,13 @@ class Agent:
     def plotGlobalGradientNorms(self, ax : plt.Axes, **kwargs) -> PlotObject:
         return PlotObject(ax.plot(self._global_gradient_norms, **kwargs))
     
+    def plotTauVals(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        # TODO: plot min tau vals
+        return PlotObject(ax.plot(self._tau_vals, **kwargs))
+
+    def plotKKTViolations(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        return PlotObject(ax.plot(self._kkt_violations, **kwargs))
+
     def plotSensorQuality(self, ax : plt.Axes, **kwargs) -> PlotObject:
         X, Y, Z = self._world.get_meshgrid()
         sensor = self.sensor()
@@ -970,7 +1016,6 @@ class Agent:
                     if region.Contains(p):
                         Z[i,j] = sensor.getSensingQuality(target)
         eka = extend_keyword_args(plotAttributes.sensor_quality, **kwargs)
-        res = ax.contourf(X, Y, Z, **eka)
-        plt.colorbar(res)
-        PlotObject(res)
-        return 
+        cf = ax.contourf(X, Y, Z, **eka)
+        # plt.colorbar(res)
+        return PlotObject(cf)

@@ -92,6 +92,20 @@ def plot_results(ex : Experiment, wsq = True, savefig = False, leave_open = True
     if savefig:
         export(ex._name + '_controls')
 
+    fig4, ax4 = plt.subplots(4,1)
+    gca : plt.Axes = ax4[0]
+    ggn : plt.Axes = ax4[1]
+    tva : plt.Axes = ax4[2]
+    kkt : plt.Axes = ax4[3]
+    ex._agent.plotGlobalCosts(ax4[0])
+    gca.set_title('Global Costs')
+    ex._agent.plotGlobalGradientNorms(ax4[1])
+    ggn.set_title('Global Gradient Norms')
+    ex._agent.plotTauVals(tva)
+    tva.set_title('Tau Values')
+    ex._agent.plotKKTViolations(kkt)
+    kkt.set_title('KKT Violations')
+
     if leave_open:
         plt.ioff()
         plt.show()
@@ -176,12 +190,20 @@ def test_cycle(n_sets=20) -> Experiment:
 
     ex._agent.computeVisitingSequence()
     ex._agent.initializeCycle()
-    ex._agent.simulateCycle()
+    ex._agent._cycle.simulate()
+    plot_results(ex, wsq=False, savefig=False, leave_open=True)
+    return ex
 
-    fig, ax = plot_world(ex, with_sensor_quality=True, savefig=False)
-    ex._agent.plotCycle(ax)
+def test_bilevel_optimization(n_sets=20) -> Experiment:
+    ex = generate_partitioning(n_sets=n_sets)
+    assert(isinstance(ex, Experiment))
+    
+    target = ex._world.targets()[0]
+    sensor = ex._agent.sensor()
 
-    fig2, ax2 = empty_plot_figure()
-    ex._agent.plotMSE(ax2)
+    ex._agent.computeVisitingSequence()
+    ex._agent.optimizeCycle()
+
+    plot_results(ex, wsq=True, savefig=False, leave_open=True)
 
     return ex
