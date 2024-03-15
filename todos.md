@@ -2,9 +2,9 @@
 # Paper CDC 2024!! Let's goooo
 
 ## TOP X
-1. Write decomposition section (EOD March 15)
-2. Write global cost optimization section (EOD Match 15)
-3. Write introduction (EOD March 16)
+1. Create Overleaf Document
+2. Write decomposition section (EOD March 16)
+3. Write global cost optimization section (EOD Match 16)
 4. Write global planning section (EOD Match 17)
 5. Write results section 
 6. Write Future work section
@@ -38,6 +38,7 @@
     - steady state MSE plot
 
 ### future work
+- limitation: global optimization suboptimality due to missing optimization of switching points
 - adequate termination criterion/improved bilevel optimization
     - backtracking
     - cost descent
