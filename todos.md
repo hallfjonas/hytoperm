@@ -2,7 +2,10 @@
 # Paper CDC 2024!! Let's goooo
 
 ## TOP X
-1. Create Overleaf Document
+1. DONE BY EOD March 15
+1.1 Create Overleaf Document
+1.2 Create TSP vs init cycle vs optimal plot 
+1.3 pickle all individual stages!
 2. Write decomposition section (EOD March 16)
 3. Write global cost optimization section (EOD Match 16)
 4. Write global planning section (EOD Match 17)
