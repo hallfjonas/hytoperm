@@ -573,6 +573,12 @@ class Cycle:
     def getDuration(self) -> float:
         return sum([ts.getDuration() for ts in self._trajectorySegments])
 
+    def getStartTime(self) -> float:
+        return self._cycle_start
+    
+    def getEndTime(self) -> float:
+        return self._cycle_start + self.getDuration()
+
     def getCost(self) -> float:
         return sum(ts.getCost() for ts in self._trajectorySegments)
     
@@ -599,6 +605,16 @@ class Cycle:
     def updateInitialCovarianceMatrices(self, omega0 : Dict[Target, np.ndarray]) -> None:
         self._covAtCycleStart = omega0.copy()
     
+    def shiftTime(self, deltaT : float) -> None:
+        self._cycle_start += deltaT
+        for ts in self._trajectorySegments:
+            ts.shiftTime(deltaT)
+        if self.pTrajectory is not None:
+            self.pTrajectory.shiftTime(deltaT)
+            self.uTrajectory.shiftTime(deltaT)
+            for target in self.mseTrajectories.keys():
+                self.mseTrajectories[target].shiftTime(deltaT)
+
     def clearTrajectories(self) -> None:
         self.pTrajectory = None
         self.uTrajectory = None
@@ -656,6 +672,11 @@ class Cycle:
             if not isinstance(ts, MonitoringSegment):
                 continue
 
+            if ts == self._trajectorySegments[-1]:
+                eka1['label'] = '$u_1$'
+                eka2['label'] = '$u_2$'
+                eka3['label'] = '$\|u\|$'
+
             po.add(ts.uTrajectory.plotStateVsTime(0, ax, **eka1))
             po.add(ts.uTrajectory.plotStateVsTime(1, ax, **eka2))
             u_norm = np.sqrt(np.square(ts.uTrajectory.x[0,:])+np.square(ts.uTrajectory.x[1,:]))
@@ -696,20 +717,17 @@ class Agent:
         # optimization parameters
         self._tau : Dict[int, float] = {}                                   # map a target visit index to a monitoring duration
         self._lambda : Dict[int, float] = {}                                # map a target visit index to a monitoring duration dual
-        self._kkt_residuals : Dict[int, float] = {}                         # map a target visit index to a KKT residual
         self._tau_min : Dict[int, float] = {}                               # map a target visit index to a minimum monitoring duration
+        self._op : OptimizationParameters = OptimizationParameters()        # optimization parameters
+        
+        # optimization statistics
+        self._kkt_residuals : Dict[int, float] = {}                         # map a target visit index to a KKT residual
         self._global_costs : List[float] = []                               # global cost (per steady state cycle) 
         self._global_gradient_norms : List[float] = []                      # global gradient norm (per steady state cycle) 
         self._tau_vals : List[np.ndarray] = []                              # monitoring durations (per steady state cycle)
         self._kkt_violations : List[np.ndarray] = []                        # KKT residuals (per steady state cycle)
-        self._kkt_tolerance : float = 1e-1                                  # KKT tolerance
         self._steady_state_iters : List[int] = []                           # number of iterations to reach steady state
         self._alphas : List[float] = []                                     # step sizes (per steady state cycle)
-        self._alpha : float = 1.0                                           # step size for gradient descent    
-        self._sigma : float = 1e-1                                          # constraint regularization parameter
-        self._beta : float = 0.9                                            # step size reduction factor for gradient descent
-        self._tr : float = 0.5                                              # trust region radius
-        self._sim_to_steady_state_tol : float = 1e-2                        # tolerance for simulation to steady state
         
         # decomposition
         self._switchingSegments : List[SwitchingSegment] = []
@@ -752,16 +770,16 @@ class Agent:
             i += 1
         self._tvs = tvs
     
-    def optimizeCycle(self, maxIter = 10) -> None:
+    def optimizeCycle(self) -> None:
         self.initializeCycle()
         it = 0
         po = PlotObject()
         while True:
-            steady, ssc = self.simulateToSteadyState(maxIter=100, tol=self._sim_to_steady_state_tol)
+            steady, ssc = self.simulateToSteadyState(maxIter=self._op._steady_state_iters, tol=self._op._sim_to_steady_state_tol)
             self._steady_state_iters.append(ssc)
 
             if not steady:
-                raise Exception("Did not reach steady state...")
+                Warning("Did not reach steady state...")
 
             # po.remove()
             # po.add(self._cycle.plot())
@@ -776,11 +794,11 @@ class Agent:
             
             self.printIteration(it)
 
-            if np.max(np.abs(self._kkt_violations[-1])) < self._kkt_tolerance and steady:
+            if np.max(np.abs(self._kkt_violations[-1])) < self._op._kkt_tolerance and steady:
                 print("Optimal cycle found!")
                 break
 
-            if it > maxIter:
+            if it > self._op._optimization_iters:
                 print("Max iterations reached...")
                 break
 
@@ -789,9 +807,8 @@ class Agent:
     def initializeCycle(self) -> None:
         
         if (len(self._tvs) <= 1):
-            Warning("Expected at least two targets in the visiting sequence...")
-            return
-        
+            raise Exception("Expected at least two targets in the visiting sequence. Did you run 'computeVisitingSequence()'?")
+                    
         # create lists of trajectory segments
         self._switchingSegments, self._tvs = self.initializeSwitchingSegments()
         self._monitoringSegments = self.initializeMonitoringSegments()
@@ -885,7 +902,7 @@ class Agent:
             target = self._tvs[i]
             phi = self._switchingSegments[i].getEndPoint()
             psi = self._switchingSegments[(i+1) % len(self._switchingSegments)].getStartPoint()
-            tf = max(0.1, 2*target.region().TravelCost(phi, psi))
+            tf = max(0.1, 1.1*target.region().TravelCost(phi, psi))
             self._tau[i] = tf
             self._tau_min[i] = target.region().TravelCost(phi, psi)
 
@@ -926,8 +943,8 @@ class Agent:
         '''
         dJ_dt = self.globalCostGradient()
         self._global_gradient_norms.append(np.linalg.norm(dJ_dt))
-        if self._global_gradient_norms[-1] > self._tr:
-            dJ_dt = dJ_dt * self._tr / self._global_gradient_norms[-1]
+        if self._global_gradient_norms[-1] > self._op._tr:
+            dJ_dt = dJ_dt * self._op._tr / self._global_gradient_norms[-1]
         
         self._tau_vals.append(np.array([self._tau[i] for i in range(len(self._tvs))]))
         for i in range(len(self._tvs)):
@@ -935,10 +952,10 @@ class Agent:
                 self._lambda[i] = dJ_dt[i]
             else:
                 self._lambda[i] = 0
-                self._tau[i] = max(self._tau_min[i] + self._sigma*(0.6**it), self._tau[i] - self._alpha * dJ_dt[i])
+                self._tau[i] = max(self._tau_min[i] + self._op._sigma, self._tau[i] - self._op._alpha * dJ_dt[i])
             self._monitoringSegments[i].params._tf = self._tau[i]
-        self._alpha *= self._beta
-        self._alphas.append(self._alpha)
+        self._op._alpha *= self._op._beta
+        self._alphas.append(self._op._alpha)
         return dJ_dt
 
     # Getters
@@ -956,13 +973,7 @@ class Agent:
         for target in self.world().targets():
             Omegas[target] = np.eye((target.getNumberOfStates()))
         return Omegas        
-
-    def getEntrancePoint(self, idx : int) -> SwitchingPoint:
-        return self.swi
     
-    def getDeparturePoint(self, idx : int) -> SwitchingPoint:
-        return self._dpm[idx]
-
     # Plotters
     def plotMSE(self, ax : plt.Axes = plt, add_labels=False, **kwargs) -> PlotObject:
         po = PlotObject()
@@ -1019,7 +1030,7 @@ class Agent:
     def plotKKTViolations(self, ax : plt.Axes, **kwargs) -> PlotObject:
         po = PlotObject()
         po.add(PlotObject(ax.plot(self._kkt_violations, **kwargs)))
-        po.add(PlotObject(ax.axhspan(-self._kkt_tolerance, self._kkt_tolerance, alpha=0.2, color='green')))
+        po.add(PlotObject(ax.axhspan(-self._op._kkt_tolerance, self._op._kkt_tolerance, alpha=0.2, color='green')))
         return po
 
     def plotAlphas(self, ax : plt.Axes, **kwargs) -> PlotObject:

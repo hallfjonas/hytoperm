@@ -64,7 +64,7 @@ class Experiment:
             if np.random.uniform(0, 1) < fraction:
                 pos = region.p()
                 distToBoundary = region.DistToBoundary(pos)
-                if distToBoundary < 0.05:
+                if distToBoundary < 0.005:
                     print(f"Target {target_counter} too close to boundary. Skipping...")
                     continue
                 phi0 = np.array([1.0])
@@ -91,6 +91,7 @@ class Experiment:
         return self._world.PlotMissionSpace(ax)
 
     def serialize(self, filename : str) -> None:
+        plt.close()
         with open(filename, "wb") as f:
             pickle.dump(self, f)
     

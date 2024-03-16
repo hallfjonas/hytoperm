@@ -547,7 +547,7 @@ class GlobalPathPlanner:
         
         self.tsp.ComputeTSP()
         
-    def PlotTSPSolution(self, ax : plt.Axes = plt, annotate=False, style='', **kwargs) -> PlotObject:
+    def PlotTSPSolution(self, ax : plt.Axes = plt, annotate=False, **kwargs) -> PlotObject:
         if self.tsp._best_permutation is None:
             print("No TSP solution exists. Please run 'SolveTSP' first.")
             return None
@@ -555,12 +555,13 @@ class GlobalPathPlanner:
         if self.tsp._best_permutation is None:
             return
         po = PlotObject()
+        args = kwargs.copy()
         for i in range(0,len(self.tsp._best_permutation)):
             currTarget = self._world.targets()[self.tsp._best_permutation[i-1]]
             nextTarget = self._world.targets()[self.tsp._best_permutation[i]]
             currPath = self.target_paths[currTarget][nextTarget]
             assert(isinstance(currPath, Tree))
-            po.add(currPath.plotPathToRoot(ax=ax, style=style, plot_direction=True, **kwargs))
+            po.add(currPath.plotPathToRoot(ax=ax, plot_direction=True, **args))
             currPath = currPath.getParent()
             
             if annotate:

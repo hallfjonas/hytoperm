@@ -7,6 +7,7 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 from typing import Tuple
 from Plotters import export
 from Agent import *
+from experiments.experiment1 import plot_results
 
 def run(name, exec, **kwargs):
     print("Running test " + name + " ...")
@@ -29,7 +30,7 @@ def shift_time():
     assert(np.all(traj.t == np.array([1,2,3,4,5])))                 
 
 # Nice seeds for 10 sets and 0.5 fraction: 235
-def generate_experiment(n_sets=10,fraction=0.5,seed=235) -> Experiment:
+def generate_experiment(n_sets=15,fraction=0.5,seed=784) -> Experiment:
     if seed is not None:
         np.random.seed(seed)
     ex = Experiment()
@@ -61,7 +62,7 @@ def test_voronoi(M = 10):
 
     return
 
-def plot_world(ex : Experiment, with_sensor_quality=False, savefig = False) -> Tuple[Experiment, plt.Axes]:
+def plot_world(ex : Experiment, with_sensor_quality=False, savefig = False) -> Tuple[plt.Figure, plt.Axes]:
     fig, ax = empty_plot_figure()
     ex.PlotWorld(ax)
 
@@ -74,45 +75,6 @@ def plot_world(ex : Experiment, with_sensor_quality=False, savefig = False) -> T
             export('.sample_mission_space_w_quality')
 
     return fig, ax
-
-def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = True):
-    fig, ax = plot_world(ex, with_sensor_quality=wsq, savefig=False)
-    ex._agent.plotCycle(ax)
-    if savefig:
-        export(ex._name + '_cycle')
-
-    fig2, ax2 = plt.subplots()
-    ex._agent.plotMSE(ax2, add_labels=True)
-    ax2.legend()
-    if savefig:
-        export(ex._name + '_mse')
-
-    fig3, ax3 = plt.subplots()
-    ex._agent.plotControls(ax3)
-    if savefig:
-        export(ex._name + '_controls')
-
-    fig4, ax4 = plt.subplots(4,1, sharex=True)
-    gca : plt.Axes = ax4[0]
-    ggn : plt.Axes = ax4[1]
-    tva : plt.Axes = ax4[2]
-    kkt : plt.Axes = ax4[3]
-    ex._agent.plotGlobalCosts(ax4[0])
-    gca.set_ylabel('cycle cost')
-    ex._agent.plotGlobalGradientNorms(ax4[1])
-    ggn.set_ylabel('grad. norm')
-    ex._agent.plotTauVals(tva, linewidth=2)
-    tva.set_ylabel('tau')
-    ex._agent.plotKKTViolations(kkt)
-    kkt.set_yscale('symlog')
-    kkt.set_ylabel('KKT res.')
-    kkt.set_xlabel('iteration')
-    if savefig:
-        export(ex._name + '_optimization')
-
-    if leave_open:
-        plt.ioff()
-        plt.show()
 
 def test_plot_world(n_sets=10):
     ex = generate_experiment(n_sets=n_sets)

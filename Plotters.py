@@ -4,8 +4,10 @@ from pdfCropMargins import crop
 import os
 from dataclasses import dataclass
 
-def export(name, directory = '.', ext='.pdf') -> None:
+def export(name, directory = '/home/jonas/PhD/papers/CDC2024/figures/experiments', ext='.pdf') -> None:
     out_dir = os.path.join(os.path.dirname(__file__), directory)
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
     file = os.path.join(out_dir, name + ext)
     plt.savefig(file)
 
@@ -43,10 +45,10 @@ class PlotAttributes:
     partition = PlotAttribute(c='black')
     phi = PlotAttribute(c='green', m='d', ms=10)
     psi = PlotAttribute(c='yellow', m='d', ms=10)
-    u1_switch = PlotAttribute(c='blue', ls='-')
+    u1_switch = PlotAttribute(c=agent.color, ls='-')
     u2_switch = PlotAttribute(c=u1_switch.color, ls='--')
     u_norm_switch = PlotAttribute(u1_switch.color, ls='-', a=0.3)
-    u1_monitor = PlotAttribute(c='red', ls='-')
+    u1_monitor = PlotAttribute(c=u1_switch.color, ls='-')
     u2_monitor = PlotAttribute(c=u1_monitor.color, ls=u2_switch.linestyle)
     u_norm_monitor = PlotAttribute(c=u1_monitor.color, ls='-', a=0.3)
     vector_field = PlotAttribute(c='black', a=0.3)

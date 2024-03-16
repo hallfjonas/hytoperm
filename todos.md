@@ -2,15 +2,15 @@
 # Paper CDC 2024!! Let's goooo
 
 ## TOP X
-1. DONE BY EOD March 15
-1.1 Create Overleaf Document
-1.2 Create TSP vs init cycle vs optimal plot 
-1.3 pickle all individual stages!
-2. Write decomposition section (EOD March 16)
-3. Write global cost optimization section (EOD Match 16)
-4. Write global planning section (EOD Match 17)
-5. Write results section 
-6. Write Future work section
+1. DONE BY EOD March 16
+1.1 Write decomposition section
+1.2 Write global cost optimization section
+1.3 Include small results
+1.4 Investigate 'nlp_g failed Inf detected for output g'
+    - check this https://github.com/casadi/casadi/wiki/FAQ:-Why-am-I-getting-%22NaN-detected%22in-my-optimization%3F
+2. Write global planning section (EOD Match 17)
+3. Write results section 
+4. Write Future work section
 
 ## Coding Todos
 1. Clean up controls plot
