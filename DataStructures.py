@@ -474,7 +474,7 @@ class Tree(object):
         else:
             return np.concatenate((self.getData().p().reshape(2,1), self.getParent().getPathToRoot()), axis=1)
 
-    def plotPathToRoot(self, po : PlotObject = None, ax : plt.Axes = plt, annotate_cost = False, plot_direction = False, style ='', **kwargs) -> PlotObject:
+    def plotPathToRoot(self, po : PlotObject = None, ax : plt.Axes = plt, annotate_cost = False, plot_direction = False, **kwargs) -> PlotObject:
         """
             Plots the path to the root.
         """
@@ -484,15 +484,15 @@ class Tree(object):
         if po is None:
             po = PlotObject()
         
-        po.add(self.plotPathToParent(ax, annotate_cost=annotate_cost, plot_direction=plot_direction, style=style, **kwargs))
-        self.getParent().plotPathToRoot(po, ax, annotate_cost=annotate_cost, plot_direction=plot_direction, style=style, **kwargs)
+        po.add(self.plotPathToParent(ax, annotate_cost=annotate_cost, plot_direction=plot_direction, **kwargs))
+        self.getParent().plotPathToRoot(po, ax, annotate_cost=annotate_cost, plot_direction=plot_direction, **kwargs)
         return po
 
-    def PlotTree(self, ax : plt.Axes = plt) -> PlotObject:
+    def PlotTree(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
         queue = [self]
         while queue:
             node = queue.pop(0)
-            po.add(node.plotPathToParent(ax))
+            po.add(node.plotPathToParent(ax, **kwargs))
             queue.extend(node.getChildren())
         return po

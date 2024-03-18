@@ -673,87 +673,6 @@ class ConstantDCPRegion(DynamicCPRegion):
         u_star = (xf - x0)/t_star - v
         return t_star
 
-    @staticmethod
-    def PlanPath(waypoint_nodes : List[Node]) -> List[np.ndarray]:
-        '''
-        This function plans a path between two points given a sequence of DCPRegions
-        
-        Args:
-            waypoint_nodes: a list of initial waypoint nodes.
-
-        Returns:
-            A list of waypoints.
-        '''
-
-        n_alpha = len(waypoint_nodes)-2
-        alpha = cad.SX.sym('alpha', n_alpha)
-        alpha0 = np.zeros(n_alpha)
-        J = 0; Jks = []
-
-        waypoints = [waypoint_nodes[0].p()]
-        active_waypoint = waypoint_nodes[0]
-        active_region = waypoint_nodes[0].active_region_to_parent()
-        active_waypoint_pos = active_waypoint.p()
-        
-        for i in range(n_alpha):
-
-            # make assertion on the active way point
-            if active_waypoint.costToRoot() == np.inf:  
-                return None, None
-            assert(isinstance(active_region, ConstantDCPRegion))
-            new_waypoint = waypoint_nodes[i+1]
-
-            next_region = new_waypoint.active_region_to_parent()
-            if next_region is None:
-                assert(len(new_waypoint.regions()) == 1)
-                next_region = list(new_waypoint.regions())[0]
-            assert(next_region is not None)
-            assert(isinstance(next_region, ConstantDCPRegion))
-
-            # update the linear combination boundaries
-            # if we are in a sliding mode, then the boundary points remain the same
-            if next_region != active_region:
-                p, q = active_region.GetOrthogonalConstraintNodes(next_region.p() - active_region.p())
-            else:
-                print("Sliding mode")
-                assert(p is not None and q is not None)
-            # express new waypoint in terms of alpha            
-            new_waypoint_pos = p + alpha[i] * (q - p)
-            waypoints.append(new_waypoint_pos)
-            alpha0[i] = np.linalg.norm(waypoint_nodes[i+1].p() - p)/np.linalg.norm(q-p)
-
-            # compute cost of traveling to new waypoint
-            Jk = active_region.TravelCostAD(active_waypoint_pos, new_waypoint_pos)
-            Jks.append(cad.Function('Jk', [alpha], [Jk]))
-            J = J + Jk
-
-            # update active waypoint
-            active_waypoint = new_waypoint
-            active_waypoint_pos = new_waypoint_pos
-            active_region = next_region
-
-        waypoints.append(waypoint_nodes[-1].p())
-        Jk = active_region.TravelCostAD(active_waypoint.p(), waypoint_nodes[-1].p())
-        Jks.append(cad.Function('Jk', [alpha], [Jk]))
-        J = J + Jk
-
-        nlp = {'x': alpha, 'f': J}
-        opts = {'ipopt.print_level':0, 'print_time':0}
-        solver = cad.nlpsol('solver', 'ipopt', nlp, opts)
-        sol = solver(x0=alpha0, lbx=np.zeros(n_alpha), ubx=np.ones(n_alpha))
-
-        full_waypoints = [waypoint_nodes[0].p()]
-        local_travel_costs = []
-        for i in range(1,len(waypoints)):
-            waypoint = waypoints[i]
-            wpf = cad.Function('waypoint', [alpha], [waypoint])
-            full_waypoints.append(wpf(sol['x']).full().flatten())
-            local_travel_costs.append(Jks[i-1](sol['x']).full().flatten()[0])
-            if math.isnan(local_travel_costs[-1]):
-                return None, None
-
-        return full_waypoints, local_travel_costs
-
 class Target:
     
     def __init__(self, pos : np.ndarray, region : Region = None, phi0 : np.ndarray = None, A : np.ndarray = None, Q : np.ndarray = None) -> None:
@@ -821,7 +740,20 @@ class Target:
         po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))
 
         if annotate:
-            po.add(ax.text(self._p[0], self._p[1] + 0.05, self.name))
+            dx = 0; dy = 0.05
+            if self.name == '4':
+                dx = 0.05
+                dy = -0.025
+            if self.name == '3':
+                dx = -0.025
+                dy = -0.075
+            if self.name == '2':
+                dx = -0.07
+                dy = -0.05
+            if self.name == '1':
+                dx = 0.0
+                dy = 0.04
+            po.add(ax.text(self._p[0] + dx, self._p[1] + dy, self.name))
 
         return po
 
@@ -911,7 +843,7 @@ class World:
         return X, Y, Z
 
     # plotters
-    def PlotMissionSpace(self, ax) -> PlotObject:
+    def PlotMissionSpace(self, ax, add_target_labels=False) -> PlotObject:
         po = PlotObject()
         
         po.add(self.partition().Plot(ax))
@@ -927,7 +859,7 @@ class World:
         
         for target in self._targets:
             assert(isinstance(target, Target))
-            po.add(target.plot(ax))
+            po.add(target.plot(ax, annotate=add_target_labels))
 
         for region in self.regions():
             dynamics = region.dynamics()
@@ -957,4 +889,3 @@ class World:
                         if Z[i,j] == np.inf:
                             Z[i,j] = -region.TravelCost(region.p(), p)
         return PlotObject(ax.contourf(X, Y, Z, antialiased=True, alpha=0.5))
-        

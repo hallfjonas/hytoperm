@@ -2,15 +2,13 @@
 # Paper CDC 2024!! Let's goooo
 
 ## TOP X
-1. DONE BY EOD March 16
-1.1 Write decomposition section
-1.2 Write global cost optimization section
-1.3 Include small results
-1.4 Investigate 'nlp_g failed Inf detected for output g'
+1. DONE BY EOD March 18
+1.1 Write results section 
+1.2 Negative result?
+2. DONE BY EOD March 19
+2.1 Write Future work section
+2.1 Investigate 'nlp_g failed Inf detected for output g'
     - check this https://github.com/casadi/casadi/wiki/FAQ:-Why-am-I-getting-%22NaN-detected%22in-my-optimization%3F
-2. Write global planning section (EOD Match 17)
-3. Write results section 
-4. Write Future work section
 
 ## Coding Todos
 1. Clean up controls plot

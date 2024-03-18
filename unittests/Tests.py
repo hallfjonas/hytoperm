@@ -5,24 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np  
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from typing import Tuple
-from Plotters import export
 from Agent import *
-from experiments.experiment1 import plot_results
+from experiments.experiment_small import plot_results
 
 def run(name, exec, **kwargs):
     print("Running test " + name + " ...")
     exec(**kwargs)
     print("Test " + name + " passed ...")
-
-def empty_plot_figure():
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal', 'box')
-    fig.tight_layout()
-    plt.axis('off')
-    plt.ion()
-    plt.show()
-    fig.tight_layout()
-    return fig, ax
 
 def shift_time():
     traj = Trajectory(np.array([[-10,20,0.2,0.01,-1.0]]), np.array([0,1,2,3,4]))
@@ -62,34 +51,20 @@ def test_voronoi(M = 10):
 
     return
 
-def plot_world(ex : Experiment, with_sensor_quality=False, savefig = False) -> Tuple[plt.Figure, plt.Axes]:
-    fig, ax = empty_plot_figure()
-    ex.PlotWorld(ax)
-
-    if savefig:
-        export('.sample_mission_space')
-
-    if with_sensor_quality:
-        po = ex._agent.plotSensorQuality(ax)
-        if savefig:
-            export('.sample_mission_space_w_quality')
-
-    return fig, ax
-
 def test_plot_world(n_sets=10):
     ex = generate_experiment(n_sets=n_sets)
-    fig, ax = plot_world(ex)
+    fig, ax = ex.PlotWorld()
     return ex  
 
 def test_dist_to_boundary(n_sets=10):
     ex = generate_experiment(n_sets=n_sets)
-    fig, ax = plot_world(ex)
+    fig, ax = ex.PlotWorld()
     ex._world.plotDistToBoundary(ax)
     return ex
 
 def test_travel_cost():
     ex = generate_experiment()
-    fig, ax = plot_world(ex)
+    fig, ax = ex.PlotWorld()
     ex._world.plotTravelCostPerRegion(ax)
     return ex
     
@@ -100,12 +75,10 @@ def test_rrt(max_iter = 1000, n_sets=20, plot = True) -> GlobalPathPlanner:
     gpp._plot_options.toggle_all_plotting(plot)
     gpp._plot_options._par = False
     gpp._plot_options._psr = False
-    fig, ax = plot_world(ex)
+    fig, ax = ex.PlotWorld()
     gpp.PlanPath(ex._world.target(1).p(), ex._world.target(9).p(), max_iter, ax)
-    export('.sample_rrt')
     ex._world.plotTravelCostPerRegion(ex, ax)
     plt.tight_layout()
-    export('.sample_rrt_w_travel_cost')
     return gpp
 
 def test_tsp(n_sets=20, plot = False) -> GlobalPathPlanner:
@@ -113,15 +86,12 @@ def test_tsp(n_sets=20, plot = False) -> GlobalPathPlanner:
     assert(isinstance(ex, Experiment))
     gpp = GlobalPathPlanner(ex._world)
     gpp._plot_options.toggle_all_plotting(plot)
-    fig, ax = empty_plot_figure()
-    ex.PlotWorld(ax)
+    fig, ax = ex.PlotWorld(ax)
     gpp.SolveTSP(ax)
     # gpp.tsp.PlotTargetDistances(ax)
     gpp.PlotTSPSolution(ax, color='red', linewidth=2)
-    export('.sample_tsp')
     po = ex._agent.plotSensorQuality(ex, ax)
     gpp.PlotTSPSolution(ax, color='red', linewidth=2)
-    export('.sample_tsp_w_sensing_quality')
     return gpp
 
 def test_local_controller(n_sets=20) -> Experiment:
@@ -143,7 +113,7 @@ def test_local_controller(n_sets=20) -> Experiment:
     mc.buildOptimalMonitoringSolver(target, sensor)
     tp, tmse, tomega, tu, cost = mc.optimalMonitoringControl(lmp)
 
-    ex, ax = plot_world(ex, with_sensor_quality=False, savefig=False)
+    ex, ax = ex.PlotWorld(with_sensor_quality=False, savefig=False)
     tp.plotStateVsState(0,1, ax)
     return ex
 

@@ -56,7 +56,7 @@ class SinusoidalSensingQualityFunction(SensingQualityFunction):
 
     def __call__(self, p, q):
         delta = p - q
-        return cad.exp(-self._c3*cad.dot(delta,delta))*(cad.sin(self._c1*delta[0])**2*cad.cos(self._c2*delta[1])**2)
+        return cad.exp(-self._c3*cad.dot(delta,delta))*0.5*(cad.sin(self._c1*delta[0])**2 + cad.cos(self._c2*delta[1])**2)
 
 class Sensor:
     def __init__(self, p : np.ndarray = None) -> None:
@@ -597,7 +597,7 @@ class Cycle:
     
     def steadyState(self, tol=1e-2) -> bool:
         for target in self._covAtCycleStart.keys():
-            if not np.allclose(self._covAtCycleStart[target], self._covAtCycleEnd[target], atol=tol):
+            if self._covAtCycleEnd is None or not np.allclose(self._covAtCycleStart[target], self._covAtCycleEnd[target], atol=tol):
                 return False
         return True
     
@@ -654,10 +654,10 @@ class Cycle:
         for ts in self._trajectorySegments:
             if not isinstance(ts, SwitchingSegment):
                 continue
-            po.add(ts.uTrajectory.plotStateVsTime(0, ax, **eka1))
-            po.add(ts.uTrajectory.plotStateVsTime(1, ax, **eka2))
             u_norm = np.sqrt(np.square(ts.uTrajectory.x[0,:])+np.square(ts.uTrajectory.x[1,:]))
             po.add(ax.plot(ts.uTrajectory.t, u_norm, **eka3))
+            po.add(ts.uTrajectory.plotStateVsTime(0, ax, **eka1))
+            po.add(ts.uTrajectory.plotStateVsTime(1, ax, **eka2))
         return po
     
     def plotMonitoringControls(self, ax : plt.Axes, add_monitoring_labels=True, **kwargs) -> PlotObject:
@@ -677,10 +677,10 @@ class Cycle:
                 eka2['label'] = '$u_2$'
                 eka3['label'] = '$\|u\|$'
 
-            po.add(ts.uTrajectory.plotStateVsTime(0, ax, **eka1))
-            po.add(ts.uTrajectory.plotStateVsTime(1, ax, **eka2))
             u_norm = np.sqrt(np.square(ts.uTrajectory.x[0,:])+np.square(ts.uTrajectory.x[1,:]))
             po.add(ax.plot(ts.uTrajectory.t, u_norm, **eka3))
+            po.add(ts.uTrajectory.plotStateVsTime(0, ax, **eka1))
+            po.add(ts.uTrajectory.plotStateVsTime(1, ax, **eka2))
    
             if add_monitoring_labels:
                 tText = np.median(ts.uTrajectory.t)
@@ -775,7 +775,7 @@ class Agent:
         it = 0
         po = PlotObject()
         while True:
-            steady, ssc = self.simulateToSteadyState(maxIter=self._op._steady_state_iters, tol=self._op._sim_to_steady_state_tol)
+            steady, ssc = self.simulateToSteadyState(maxIter=self._op._steady_state_iters)
             self._steady_state_iters.append(ssc)
 
             if not steady:
@@ -911,7 +911,7 @@ class Agent:
             segments.append(segment)
         return segments
 
-    def simulateToSteadyState(self, tol, maxIter = 10) -> Tuple[bool, int]:
+    def simulateToSteadyState(self, maxIter = 100) -> Tuple[bool, int]:
         it = 0
         omega_f = self._cycle.getInitialCovarianceMatrices()
         while True:
@@ -921,7 +921,7 @@ class Agent:
             self._cycle.simulate()
             omega_f = self._cycle.getTerminalCovarianceMatrices()
             
-            if self._cycle.steadyState(tol=tol):
+            if self._cycle.steadyState(tol=self._op._sim_to_steady_state_tol):
                 return True, it
 
             if it >= maxIter:
@@ -942,7 +942,7 @@ class Agent:
         Simple projected gradient descend
         '''
         dJ_dt = self.globalCostGradient()
-        self._global_gradient_norms.append(np.linalg.norm(dJ_dt))
+        self._global_gradient_norms.append(np.linalg.norm(dJ_dt, ord=np.inf))
         if self._global_gradient_norms[-1] > self._op._tr:
             dJ_dt = dJ_dt * self._op._tr / self._global_gradient_norms[-1]
         
@@ -976,9 +976,7 @@ class Agent:
     
     # Plotters
     def plotMSE(self, ax : plt.Axes = plt, add_labels=False, **kwargs) -> PlotObject:
-        po = PlotObject()
-        self._cycle.plotMSE(ax=ax, add_labels=add_labels, **kwargs)
-        return po
+        return self._cycle.plotMSE(ax=ax, add_labels=add_labels, **kwargs)
     
     def plotControls(self, ax : plt.Axes = plt, add_monitoring_labels=False, **kwargs) -> PlotObject:
         return self._cycle.plotControls(ax, add_monitoring_labels=add_monitoring_labels, **kwargs)
@@ -1023,7 +1021,7 @@ class Agent:
         for i in range(tv.shape[1]):
             eka = extend_keyword_args({'color': plotAttributes.target_colors[-i]}, **kwargs)
             po.add(ax.plot(tv[:,i], **eka))
-            eka = extend_keyword_args({'alpha' : 0.3}, **eka)
+            eka = extend_keyword_args({'alpha' : 0.75, 'linestyle' : '--'}, **eka)
             po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
         return po
 
@@ -1056,7 +1054,9 @@ class Agent:
     
     # printers
     def printHeader(self) -> None:
-        print(" it | avrg cost | grad. nrm | step size | kkt res | steady ")
+        print("----|-----------|-----------|-----------|----------|--------")
+        print(" it | avrg cost | grad. nrm | step size | kkt viol | steady ")
+        print("----|-----------|-----------|-----------|----------|--------")
               
     def printIteration(self, it) -> None:
         if it % 10 == 0:

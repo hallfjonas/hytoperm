@@ -1,6 +1,7 @@
 
 from World import *
 from Agent import *
+from experiments.config_small import exporter
 
 import pickle
 import matplotlib.pyplot as plt
@@ -45,10 +46,7 @@ class Experiment:
     def AssignRandomAgent(self) -> None:
         sensor = Sensor()
         for target in self._world.targets():
-            ranint = np.random.randint(0, 6)
-            if ranint == -1:
-                sensor.setSensingQualityFunction(target, ConstantSensingQualityFunction())
-            elif ranint <= -1:
+            if target.name == '3':
                 sensor.setSensingQualityFunction(target, SinusoidalSensingQualityFunction(c1=np.random.uniform(3,20),c2=np.random.uniform(3,20)))
             else:
                 sensor.setSensingQualityFunction(target, GaussianSensingQualityFunction())
@@ -57,23 +55,27 @@ class Experiment:
             sensor.setMeasurementMatrix(target, np.eye(1))
         self._agent = Agent(self._world, sensor=sensor)
 
-    def AddRandomTargets(self, fraction=0.5) -> None:
-        target_counter = 1
+    def AddRandomTargets(self, n = None, fraction = 0.5) -> None:
+        target_counter = 0
+        if n is None:
+            assert(fraction is not None)
+            n = self._world.NR() * fraction
         for region in self._world.regions():
-            assert(isinstance(region, CPRegion))
-            if np.random.uniform(0, 1) < fraction:
-                pos = region.p()
-                distToBoundary = region.DistToBoundary(pos)
-                if distToBoundary < 0.005:
-                    print(f"Target {target_counter} too close to boundary. Skipping...")
-                    continue
-                phi0 = np.array([1.0])
-                Q = np.array([0.8])
-                A = np.array([0.0])
-                target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
-                target.name = str(target_counter)
-                self.AddTarget(target)
-                target_counter += 1
+            if target_counter == n:
+                break
+           
+            pos = region.p()
+            distToBoundary = region.DistToBoundary(pos)
+            if distToBoundary < 0.005:
+                print(f"Target too close to boundary. Skipping...")
+                continue
+            phi0 = np.array([1.0])
+            Q = np.array([0.8])
+            A = np.array([0.0])
+            target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
+            target.name = str(target_counter+1)
+            self.AddTarget(target)
+            target_counter += 1
 
     def AddTarget(self, target : Target) -> None:
         assert(isinstance(target, Target))
@@ -83,12 +85,26 @@ class Experiment:
     def voronoi(self) -> Voronoi:
         return self._voronoi
 
-    def PlotWorld(self, ax : plt.Axes = None) -> PlotObject:
-        if ax is None:
-            ax = plt.gca()
-        ax.set_xlim(self._domain.xmin()*1.1, self._domain.xmax()*1.1)
-        ax.set_ylim(self._domain.ymin()*1.1, self._domain.ymax()*1.1)
-        return self._world.PlotMissionSpace(ax)
+    def PlotWorld(self, ax : plt.Axes = None, with_sensor_quality=False, savefig = False, add_target_labels=True) -> Tuple[plt.Figure, plt.Axes]:
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal', 'box')
+        fig.tight_layout()
+        plt.axis('off')
+        plt.ion()
+        plt.show()
+        fig.tight_layout()
+    
+        ax.set_xlim(self._domain.xmin()*1.01, self._domain.xmax()*1.01)
+        ax.set_ylim(self._domain.ymin()*1.01, self._domain.ymax()*1.01)
+        self._world.PlotMissionSpace(ax, add_target_labels=add_target_labels)
+
+        if with_sensor_quality:
+            self._agent.plotSensorQuality(ax)
+        if savefig:
+            exporter.export('.sample_mission_space_w_quality')
+
+        return fig, ax
+        return fig, ax
 
     def serialize(self, filename : str) -> None:
         plt.close()

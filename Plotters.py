@@ -4,15 +4,35 @@ from pdfCropMargins import crop
 import os
 from dataclasses import dataclass
 
-def export(name, directory = '/home/jonas/PhD/papers/CDC2024/figures/experiments', ext='.pdf') -> None:
-    out_dir = os.path.join(os.path.dirname(__file__), directory)
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    file = os.path.join(out_dir, name + ext)
-    plt.savefig(file)
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.size'] = 13
 
-    if ext == '.pdf':
-        crop(["-p", "20", "-u", "-s", str(file), "-o", str(out_dir)])
+class Exporter:
+    def __init__(self) -> None:
+        self.WIDTH = 7
+        self.HEIGHT = 7
+        self.DPI = 300
+        self.FONTSIZE = 14
+        self.EXT = '.pdf'
+        self.DIR = '/home/jonas/PhD/papers/CDC2024/figures/experiments'
+
+    def prep_dir(self, out_dir : str) -> None:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+
+    def export(self, name, fig = None) -> None:
+        self.prep_dir(self.DIR)
+        file = os.path.join(self.DIR, name + self.EXT)
+        
+        if fig is not None:
+            fig.set_size_inches(self.WIDTH, self.HEIGHT)
+
+        plt.savefig(file, bbox_inches='tight', dpi=self.DPI)
+        self.crop_margins(file)
+
+    def crop_margins(self, file) -> None:
+        if self.EXT == '.pdf':
+            crop(["-p", "20", "-u", "-s", str(file), "-o", str(self.DIR)])
 
 class PlotAttribute:
     def __init__(self, c='black', ls='-', lw=2, m=None, ms=None, a=1, cm=None, aa=None) -> None:
@@ -45,12 +65,12 @@ class PlotAttributes:
     partition = PlotAttribute(c='black')
     phi = PlotAttribute(c='green', m='d', ms=10)
     psi = PlotAttribute(c='yellow', m='d', ms=10)
-    u1_switch = PlotAttribute(c=agent.color, ls='-')
-    u2_switch = PlotAttribute(c=u1_switch.color, ls='--')
-    u_norm_switch = PlotAttribute(u1_switch.color, ls='-', a=0.3)
-    u1_monitor = PlotAttribute(c=u1_switch.color, ls='-')
-    u2_monitor = PlotAttribute(c=u1_monitor.color, ls=u2_switch.linestyle)
-    u_norm_monitor = PlotAttribute(c=u1_monitor.color, ls='-', a=0.3)
+    u1_switch = PlotAttribute(c='salmon', ls='-')
+    u2_switch = PlotAttribute(c='mediumaquamarine', ls='--')
+    u_norm_switch = PlotAttribute('black', ls='-', lw=3)
+    u1_monitor = PlotAttribute(c=u1_switch.color, ls=u1_switch.linestyle)
+    u2_monitor = PlotAttribute(c=u2_switch.color, ls=u2_switch.linestyle)
+    u_norm_monitor = PlotAttribute(c=u_norm_switch.color, ls=u_norm_switch.linestyle, a=u_norm_switch.alpha, lw=u_norm_switch.linewidth)
     vector_field = PlotAttribute(c='black', a=0.3)
     cmap = 'viridis'
     sensor_quality = PlotAttribute(aa=True, a=0.4, cm=cmap)
