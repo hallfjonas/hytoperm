@@ -3,6 +3,8 @@ from Plotters import Exporter
 
 # Experiment generation
 NAME = "large"
+
+# SEED SUCKSSS!
 SEED=785
 NSETS=20
 NTARGETS=None
