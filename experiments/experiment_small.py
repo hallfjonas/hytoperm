@@ -2,7 +2,7 @@
 import os
 from Experiment import *
 from unittests import *
-from experiments.config_small import *
+from experiments.small.config import *
 from matplotlib.ticker import MaxNLocator
 
 

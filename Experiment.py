@@ -1,7 +1,7 @@
 
 from World import *
 from Agent import *
-from experiments.config_small import exporter
+from experiments.small.config import exporter
 
 import pickle
 import matplotlib.pyplot as plt

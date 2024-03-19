@@ -6,9 +6,10 @@
 1.0 Investigate 'nlp_g failed Inf detected for output g'
     - check this https://github.com/casadi/casadi/wiki/FAQ:-Why-am-I-getting-%22NaN-detected%22in-my-optimization%3F
 1.1 Change large seed 785 to something else and create new results for large space!!
-1.1 Write results section 
-1.2 Negative result?
-1.3 Write Future work section
+1.2 Write results section 
+1.3 Negative result?
+1.4 Write Future work section
+1.5 Make comparison: 1 steady state iter (i.e., change every cycle ) vs 100
 
 ## Coding Todos
 1.0 Investigate 'nlp_g failed Inf detected for output g'

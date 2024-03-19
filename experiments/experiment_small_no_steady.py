@@ -2,9 +2,9 @@
 import os
 from Experiment import *
 from unittests import *
-from experiments.large_failed.config import *
-
+from experiments.small_no_steady.config import *
 from matplotlib.ticker import MaxNLocator
+
 
 ##################################
 ## NO NEED TO MAKE CHANGES HERE ##
@@ -25,7 +25,9 @@ exp_res_file = os.path.join(exp_dir, exp_res_filename + pickle_extension)
 # adapt the optimization parameters
 op = OptimizationParameters()
 op._kkt_tolerance = 1e-3
-op._optimization_iters = 9
+op._optimization_iters = 100
+op._steady_state_iters = 2
+op._beta = 0.97
 
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
@@ -183,6 +185,11 @@ def optimization_plot(ex : Experiment, savefig = True):
     gca : plt.Axes = ax4[0]
     ex._agent.plotGlobalCosts(ax4[0], linewidth=2)
     gca.set_ylabel('$J(\\tau_k)$')
+    for i in range(len(ex._agent._isSteadyState)):
+        if ex._agent._isSteadyState[i]:
+            gca.axvspan(i, i+1, color='green', alpha=0.2)
+        else:
+            gca.axvspan(i, i+1, color='red', alpha=0.2)
 
     ggn : plt.Axes = ax4[1]
     ex._agent.plotGlobalGradientNorms(ax4[1], linewidth=2)
@@ -196,6 +203,8 @@ def optimization_plot(ex : Experiment, savefig = True):
     tva.set_xlabel('$\mathrm{outer~iteration~}k$')
     tva.set_xlim(0, len(ex._agent._tau_vals)-1)
     tva.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
     
     # plot the KKT violations
     # kkt : plt.Axes = ax4[3]
@@ -206,6 +215,34 @@ def optimization_plot(ex : Experiment, savefig = True):
     if savefig:
         exporter.HEIGHT = exporter.WIDTH*0.9
         exporter.export('optimization', fig4)
+
+def steady_vs_non(steady : Experiment, non_steady : Experiment, savefig = True):
+    fig4, ax4 = plt.subplots(3,1, sharex=True)
+
+    # global cost plot
+    gca : plt.Axes = ax4[0]
+    steady._agent.plotGlobalCosts(ax4[0], linewidth=2, color='orange')
+    non_steady._agent.plotGlobalCosts(ax4[0], linewidth=2, color='blue')
+    gca.set_ylabel('$J(\\tau_k)$')
+    
+    ggn : plt.Axes = ax4[1]
+    steady._agent.plotGlobalGradientNorms(ax4[1], linewidth=2, color='orange')
+    non_steady._agent.plotGlobalGradientNorms(ax4[1], linewidth=2, color='blue')
+    ggn.set_ylabel('$\\| \\nabla_\\tau J(\\tau_k) \\|_\\infty$')
+    ggn.set_yscale('log')
+    
+    # plot the tau values
+    tva : plt.Axes = ax4[2]
+    steady._agent.plotTauVals(tva, linewidth=2)
+    non_steady._agent.plotTauVals(tva, linewidth=2, linestyle='--')
+    tva.set_ylabel('$ \\tau_k $')
+    tva.set_xlabel('$\mathrm{outer~iteration~}k$')
+    # tva.set_xlim(0, len(ex._agent._tau_vals)-1)
+    tva.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    if savefig:
+        exporter.HEIGHT = exporter.WIDTH*0.9
+        exporter.export('steady_vs_non_steady', fig4)
 
 def rrt_plot(savefig = True):
     ex = load_high_level_solution(load_experiment())
@@ -218,7 +255,8 @@ def rrt_plot(savefig = True):
         exporter.export('rrt', fig)
 
 if __name__ == '__main__':
-    tsp_vs_init_vs_opti()
-    plot_results(load_optimized_cycle(load_high_level_solution(load_experiment())))
-    mse_inti_vs_opti() 
-    rrt_plot()
+    non_steady = load_optimized_cycle(load_high_level_solution(load_experiment()))
+    steady = Experiment.deserialize("experiments/small/exp_res.pickle")
+    steady_vs_non(steady, non_steady)
+    plt.ioff()
+    plt.show()

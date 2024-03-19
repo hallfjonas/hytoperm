@@ -12,7 +12,7 @@ class NLPSolver:
         self.ubg = None
         self.w0 = None
         self.params = None
-        self.print_level = 0 if quiet else 1
+        self.print_level = 0 if quiet else 4
         self.initialize(prob, w0, lbw, ubw, lbg, ubg)
 
     def initialize(self, prob = None, w0 = None, lbw = None, ubw = None, lbg = None, ubg = None):
@@ -35,5 +35,5 @@ class OptimizationParameters:
         self._beta : float = 0.9                                            # step size reduction factor for gradient descent
         self._tr : float = 0.5                                              # trust region radius
         self._sim_to_steady_state_tol : float = 1e-1                        # tolerance for simulation to steady state
-        self._steady_state_iters : int = 100                                 # maximum number of iterations for steady state simulation
-        self._optimization_iters : int = 100                               # maximum number of iterations for optimization
+        self._steady_state_iters : int = 100                                # maximum number of iterations for steady state simulation
+        self._optimization_iters : int = 100                                # maximum number of iterations for optimization
