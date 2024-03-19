@@ -106,6 +106,23 @@ class Experiment:
         return fig, ax
         return fig, ax
 
+    def zoomToTargetRegion(self, ax : plt.Axes, name : str):
+        target = self._world.getTarget(name)
+        region = target.region()
+        xrange = [np.inf, -np.inf]
+        yrange = [np.inf, -np.inf]
+        i = 0
+        while i < 100:
+            i += 1
+            p = region.RandomBoundaryPoint()
+            xrange[0] = min(xrange[0], p[0])
+            xrange[1] = max(xrange[1], p[0])
+            yrange[0] = min(yrange[0], p[1])
+            yrange[1] = max(yrange[1], p[1])
+
+        ax.set_xlim(xrange[0] - 0.01, xrange[1] + 0.01)
+        ax.set_ylim(yrange[0] - 0.01, yrange[1] + 0.01)
+
     def serialize(self, filename : str) -> None:
         plt.close()
         with open(filename, "wb") as f:

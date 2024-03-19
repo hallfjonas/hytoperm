@@ -811,6 +811,12 @@ class World:
     def targets(self) -> List[Target]:
         return self._targets
         
+    def getTarget(self, name : str) -> Target:
+        for t in self._targets:
+            if t.name == name:
+                return t
+        return None
+
     def partition(self) -> Partition:
         return self._partition
     
