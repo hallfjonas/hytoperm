@@ -448,7 +448,7 @@ class MonitoringController:
         prob = {'f': J, 'x': cad.vertcat(*w), 'g': cad.vertcat(*g), 'p': params}
         
         # Allocate an NLP solver
-        self.solver = NLPSolver(prob, w0, lbw, ubw, lbg, ubg)
+        self.solver = NLPSolver(prob, w0, lbw, ubw, lbg, ubg, quiet=True)
         self.nx = nx
         self.nu = nu
         self.no = no
@@ -728,7 +728,8 @@ class Agent:
         self._kkt_violations : List[np.ndarray] = []                        # KKT residuals (per steady state cycle)
         self._steady_state_iters : List[int] = []                           # number of iterations to reach steady state
         self._alphas : List[float] = []                                     # step sizes (per steady state cycle)
-        
+        self._isSteadyState : List[bool] = []                               # steady state reached (per steady state cycle)
+
         # decomposition
         self._switchingSegments : List[SwitchingSegment] = []
         self._monitoringSegments : List[MonitoringSegment] = []
@@ -777,6 +778,7 @@ class Agent:
         while True:
             steady, ssc = self.simulateToSteadyState(maxIter=self._op._steady_state_iters)
             self._steady_state_iters.append(ssc)
+            self._isSteadyState.append(steady)
 
             if not steady:
                 Warning("Did not reach steady state...")
