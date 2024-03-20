@@ -227,7 +227,7 @@ if __name__ == '__main__':
     poM = opti._agent.plotMonitoringSegments(color='cyan', linewidth=2)
     poM._objs[0].set_label('$\mathrm{monitoring~segments}$')
     poSP = opti._agent.plotSwitchingPoints(ax)
-    poSP._objs[0].set_label('$\mathrm{entry~points~}a^{\\varphi}$')
+    poSP._objs[0].set_label('$\mathrm{entrance~points~}a^{\\varphi}$')
     poSP._objs[-1].set_label('$\mathrm{departure~points~}a^{\\psi}$')
     plt.legend(loc='lower left', framealpha=1)
     exporter.export('decomposition', fig)
