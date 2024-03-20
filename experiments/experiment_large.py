@@ -2,7 +2,7 @@
 import os
 from Experiment import *
 from unittests import *
-from experiments.large_failed.config import *
+from experiments.large.config import *
 
 from matplotlib.ticker import MaxNLocator
 
@@ -24,8 +24,11 @@ exp_res_file = os.path.join(exp_dir, exp_res_filename + pickle_extension)
 
 # adapt the optimization parameters
 op = OptimizationParameters()
-op._kkt_tolerance = 1e-3
-op._optimization_iters = 9
+op._kkt_tolerance = 1e-1
+op._sim_to_steady_state_tol = 1e-1
+op._optimization_iters = 100
+op._steady_state_iters = 1
+op._beta = 0.95
 
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)

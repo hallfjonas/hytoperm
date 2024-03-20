@@ -2,14 +2,23 @@
 # Paper CDC 2024!! Let's goooo
 
 ## TOP X
-1. DONE BY EOD March 19
-1.0 Investigate 'nlp_g failed Inf detected for output g'
+1. DONE BY EOD March 20
+1.1 Write results section (include large results?)
+1.2 Write Conclusion section
+1.3 change k in outer iterations optimization plot (in paper figures)
+
+2. Use large results that I have. 
+2.1 Make comparison: 1 steady state iter (i.e., change every cycle ) vs 100?
+2.2 Show the comparison for two tau values (one different one similar)
+2.3 Show that they converge to same cost but different configuration
+2.4 Local optimality clearly a challenge
+
+3. Investigate 'nlp_g failed Inf detected for output g'
     - check this https://github.com/casadi/casadi/wiki/FAQ:-Why-am-I-getting-%22NaN-detected%22in-my-optimization%3F
-1.1 Change large seed 785 to something else and create new results for large space!!
-1.2 Write results section 
-1.3 Negative result?
-1.4 Write Future work section
-1.5 Make comparison: 1 steady state iter (i.e., change every cycle ) vs 100
+
+4. Explore sensitivity towards intialization of monitoring durations
+4.1 Randomize initial monitoring durations.
+4.2 Show optimized cost for 100 experiments... (small example)
 
 ## Coding Todos
 1.0 Investigate 'nlp_g failed Inf detected for output g'

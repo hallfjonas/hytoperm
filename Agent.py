@@ -785,8 +785,6 @@ class Agent:
 
             # po.remove()
             # po.add(self._cycle.plot())
-            cycle_average_cost = self._cycle.getCost()/self._cycle.getDuration()
-            self._global_costs.append(cycle_average_cost)
             dJ_dt = self.updateMonitoringDurations(it)
 
             # Compute first order stationarity condition
@@ -919,11 +917,16 @@ class Agent:
         while True:
             it += 1
 
-            self._cycle.updateInitialCovarianceMatrices(omega_f)
             self._cycle.simulate()
             omega_f = self._cycle.getTerminalCovarianceMatrices()
             
-            if self._cycle.steadyState(tol=self._op._sim_to_steady_state_tol):
+            cycle_average_cost = self._cycle.getCost()/self._cycle.getDuration()
+            self._global_costs.append(cycle_average_cost)
+            
+            isSteady = self._cycle.steadyState(tol=self._op._sim_to_steady_state_tol)
+            self._cycle.updateInitialCovarianceMatrices(omega_f)
+
+            if isSteady:
                 return True, it
 
             if it >= maxIter:

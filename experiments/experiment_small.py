@@ -131,10 +131,14 @@ def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = False
     # shift cycle to relative time
     startTime = ex._agent._cycle.getStartTime()
     ex._agent._cycle.shiftTime(-startTime)
+    mse_and_controls_plot(ex, savefig=savefig)
+    return
 
     world_plot(ex, with_sensor_quality=wsq, savefig=savefig)
+    
     mse_plot(ex, savefig=savefig)
     controls_plot(ex, savefig=savefig)
+
     optimization_plot(ex, savefig=savefig)
 
     # Shift back to absolute time
@@ -151,6 +155,24 @@ def world_plot(ex : Experiment, with_sensor_quality = True, savefig = True):
     if savefig:
         exporter.HEIGHT = exporter.WIDTH
         exporter.export('cycle', fig)
+
+def mse_and_controls_plot(ex : Experiment, savefig = True):
+    fig, ax = plt.subplots(2,1, sharex=True)
+    ex._agent.plotMSE(ax[0], add_labels=True, linewidth=2)
+    ax[0].set_ylabel('$tr(\Omega_i(t))$')
+    ax[0].set_ylim(top=1.35*ax[0].get_ylim()[1])
+    ax[0].set_xlim(0, ex._agent._cycle.getDuration())
+    ax[0].legend(loc="upper right", ncol=len(ex._world.targets()))
+
+    ex._agent.plotControls(ax[1])
+    ax[1].set_ylim(-1.1, 2.0)
+    ax[1].set_ylabel('$\mathrm{control~input}$')
+    ax[1].set_xlim(0, ex._agent._cycle.getDuration())
+    plt.legend(loc="upper right", ncol=3)
+    ax[1].set_xlabel('$t~[s]$')
+    if savefig:
+        exporter.HEIGHT = exporter.WIDTH*0.66
+        exporter.export('mse_and_controls', fig)
 
 def mse_plot(ex : Experiment, savefig = True):
     fig2, ax2 = plt.subplots()
@@ -182,18 +204,18 @@ def optimization_plot(ex : Experiment, savefig = True):
     # global cost plot
     gca : plt.Axes = ax4[0]
     ex._agent.plotGlobalCosts(ax4[0], linewidth=2)
-    gca.set_ylabel('$J(\\tau_k)$')
+    gca.set_ylabel('$J(\\tau)$')
 
     ggn : plt.Axes = ax4[1]
     ex._agent.plotGlobalGradientNorms(ax4[1], linewidth=2)
-    ggn.set_ylabel('$\\| \\nabla_\\tau J(\\tau_k) \\|_\\infty$')
+    ggn.set_ylabel('$\\| \\nabla_\\tau J(\\tau) \\|_\\infty$')
     ggn.set_yscale('log')
     
     # plot the tau values
     tva : plt.Axes = ax4[2]
     ex._agent.plotTauVals(tva, linewidth=2)
-    tva.set_ylabel('$ \\tau_k $')
-    tva.set_xlabel('$\mathrm{outer~iteration~}k$')
+    tva.set_ylabel('$ \\tau$')
+    tva.set_xlabel('$\mathrm{outer~iteration}$')
     tva.set_xlim(0, len(ex._agent._tau_vals)-1)
     tva.xaxis.set_major_locator(MaxNLocator(integer=True))
     
@@ -204,7 +226,7 @@ def optimization_plot(ex : Experiment, savefig = True):
     # kkt.set_ylabel('KKT res.')
     # kkt.set_xlabel('iteration')
     if savefig:
-        exporter.HEIGHT = exporter.WIDTH*0.9
+        exporter.HEIGHT = exporter.WIDTH*0.8
         exporter.export('optimization', fig4)
 
 def rrt_plot(savefig = True):
@@ -218,7 +240,8 @@ def rrt_plot(savefig = True):
         exporter.export('rrt', fig)
 
 if __name__ == '__main__':
-    tsp_vs_init_vs_opti()
     plot_results(load_optimized_cycle(load_high_level_solution(load_experiment())))
+    quit()
+    tsp_vs_init_vs_opti()
     mse_inti_vs_opti() 
     rrt_plot()
