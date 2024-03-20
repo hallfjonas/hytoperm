@@ -994,15 +994,28 @@ class Agent:
             po.add(ms.pTrajectory.plotStateVsState(0, 1, ax, **kwargs))
         return po
     
-    def plotSwitchingPoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+    def plotEntryPoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
         eka = extend_keyword_args(plotAttributes.phi.getAttributes(), **kwargs)
-        for ss in self._switchingSegments:
-            po.add(ss.params._phi.plot(ax, **eka))
-
+        for ms in self._monitoringSegments:
+            po.add(ms.params._phi.plot(ax, **eka))
+        return po
+    
+    def plotDeparturePoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        po = PlotObject()
         eka = extend_keyword_args(plotAttributes.psi.getAttributes(), **kwargs)
-        for ss in self._switchingSegments:
-            po.add(ss.params._psi.plot(ax, **eka))
+        for ms in self._monitoringSegments:
+            po.add(ms.params._psi.plot(ax, **eka))
+        return po
+
+    def plotSwitchingPoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        po = PlotObject()
+        for ms in self._monitoringSegments:
+            eka = extend_keyword_args(plotAttributes.phi.getAttributes(), **kwargs)
+            po.add(ms.params._phi.plot(ax, **eka))
+            
+            eka = extend_keyword_args(plotAttributes.psi.getAttributes(), **kwargs)
+            po.add(ms.params._psi.plot(ax, **eka))
         return po
 
     def plotSwitchingSegments(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:

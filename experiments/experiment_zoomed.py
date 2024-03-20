@@ -27,6 +27,7 @@ op = OptimizationParameters()
 op._kkt_tolerance = 1e-3
 op._optimization_iters = 9
 
+exporter.HEIGHT = exporter.WIDTH*0.66
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
 
@@ -220,9 +221,13 @@ def rrt_plot(savefig = True):
 if __name__ == '__main__':
     opti = load_optimized_cycle(load_high_level_solution(load_experiment()))
     fig, ax = opti.PlotWorld(with_sensor_quality=True, add_target_labels=False)
-    opti._agent.plotCycle()
-    opti._agent.plotSwitchingPoints()
-
-    opti.zoomToTargetRegion(ax, '3')
-    exporter.HEIGHT = exporter.WIDTH*0.7
-    exporter.export('zoomed', fig)
+    
+    poS = opti._agent.plotSwitchingSegments(color='salmon', linewidth=2)
+    poS._objs[0].set_label('$\mathrm{switching~segments}$')
+    poM = opti._agent.plotMonitoringSegments(color='cyan', linewidth=2)
+    poM._objs[0].set_label('$\mathrm{monitoring~segments}$')
+    poSP = opti._agent.plotSwitchingPoints(ax)
+    poSP._objs[0].set_label('$\mathrm{entry~points~}a^{\\varphi}$')
+    poSP._objs[-1].set_label('$\mathrm{departure~points~}a^{\\psi}$')
+    plt.legend(loc='lower left', framealpha=1)
+    exporter.export('decomposition', fig)
