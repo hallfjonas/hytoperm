@@ -5,9 +5,9 @@ from Plotters import Exporter
 NAME = "large"
 
 # SEED SUCKSSS!
-SEED=458
-NSETS=12
-NTARGETS=None
+SEED=11
+NSETS=20
+NTARGETS=2
 FRACTION= 0.75 if NTARGETS is None else NTARGETS/NSETS
 
 # Experiment name and output directory

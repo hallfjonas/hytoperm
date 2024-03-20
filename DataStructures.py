@@ -202,7 +202,7 @@ class Tree(object):
         """
         return self.__data
     
-    def getNode(self, content, includeself = True):
+    def getNode(self, content, includeself = True) -> Node:
         """
                          
             Get the first matching item(including self) whose data is equal to content. 

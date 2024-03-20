@@ -849,7 +849,7 @@ class World:
         return X, Y, Z
 
     # plotters
-    def PlotMissionSpace(self, ax, add_target_labels=False) -> PlotObject:
+    def PlotMissionSpace(self, ax, add_target_labels=False, fill_empty_regions=True) -> PlotObject:
         po = PlotObject()
         
         po.add(self.partition().Plot(ax))
@@ -860,10 +860,11 @@ class World:
                 if target.region() == region:
                     has_target = True
                     break
-            if not has_target:
+            if not has_target and fill_empty_regions:
                 po.add(region.Fill(ax, **eka))
         
         for target in self._targets:
+            continue
             assert(isinstance(target, Target))
             po.add(target.plot(ax, annotate=add_target_labels))
 

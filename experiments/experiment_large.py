@@ -221,7 +221,25 @@ def rrt_plot(savefig = True):
         exporter.export('rrt', fig)
 
 if __name__ == '__main__':
-    tsp_vs_init_vs_opti()
-    plot_results(load_optimized_cycle(load_high_level_solution(load_experiment())))
-    mse_inti_vs_opti() 
-    rrt_plot()
+    
+    if True or not os.path.exists(exp_file):
+        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex._name = exp_filename
+        assert(isinstance(ex, Experiment))
+        ex.serialize(exp_file)
+    else:
+        ex : Experiment = Experiment.deserialize(exp_file)
+
+    fig, ax = ex.PlotWorld(fill_empty_regions=False)
+    rrt = RRT(ex._world.regions())
+    rrt._plot_options = PlotOptions()
+    rrt._plot_options.toggle_all_plotting(False)
+    r, p = rrt.PlanPath(ex._world.targets()[0].p(), ex._world.targets()[1].p())
+
+    rrt.best_path.getRoot().PlotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
+    rrt.best_path.plotPathToRoot(ax=ax, color='red', linewidth=2, alpha=1)
+    rrt.best_path.getData().Plot(ax=ax, color='green', marker='o', markersize=10)
+    rrt.best_path.getRoot().getData().Plot(ax=ax, color='yellow', marker='*', markersize=10)
+    exporter.HEIGHT = exporter.WIDTH*0.8
+    plt.show()
+    exporter.export('rrt', fig)

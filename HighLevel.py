@@ -151,7 +151,7 @@ class RRT:
                     found_potential_parent = True
                     cost_to_parent = shared_region.TravelCost(sampleNodePos, n.getData().p())
                     cost_to_root = n.getData().costToRoot() + cost_to_parent
-                    if cost_to_root < min(best_cost_to_root, self.best_cost):
+                    if cost_to_root < min(best_cost_to_root, np.inf*self.best_cost):
                         best_cost_to_root = cost_to_root
                         cost_to_best_parent = cost_to_parent
                         best_parent = n

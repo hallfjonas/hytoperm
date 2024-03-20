@@ -85,7 +85,7 @@ class Experiment:
     def voronoi(self) -> Voronoi:
         return self._voronoi
 
-    def PlotWorld(self, ax : plt.Axes = None, with_sensor_quality=False, savefig = False, add_target_labels=True) -> Tuple[plt.Figure, plt.Axes]:
+    def PlotWorld(self, ax : plt.Axes = None, with_sensor_quality=False, savefig = False, add_target_labels=True, fill_empty_regions=True) -> Tuple[plt.Figure, plt.Axes]:
         fig, ax = plt.subplots()
         ax.set_aspect('equal', 'box')
         fig.tight_layout()
@@ -96,14 +96,13 @@ class Experiment:
     
         ax.set_xlim(self._domain.xmin()*1.01, self._domain.xmax()*1.01)
         ax.set_ylim(self._domain.ymin()*1.01, self._domain.ymax()*1.01)
-        self._world.PlotMissionSpace(ax, add_target_labels=add_target_labels)
+        self._world.PlotMissionSpace(ax, add_target_labels=add_target_labels, fill_empty_regions=fill_empty_regions)
 
         if with_sensor_quality:
             self._agent.plotSensorQuality(ax)
         if savefig:
             exporter.export('.sample_mission_space_w_quality')
 
-        return fig, ax
         return fig, ax
 
     def zoomToTargetRegion(self, ax : plt.Axes, name : str):
