@@ -864,7 +864,6 @@ class World:
                 po.add(region.Fill(ax, **eka))
         
         for target in self._targets:
-            continue
             assert(isinstance(target, Target))
             po.add(target.plot(ax, annotate=add_target_labels))
 
