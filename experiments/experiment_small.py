@@ -2,7 +2,7 @@
 import os
 from Experiment import *
 from unittests import *
-from experiments.small.config import *
+from experiments.small_comparison.config import *
 from matplotlib.ticker import MaxNLocator
 
 
@@ -14,7 +14,7 @@ exp_dir = os.path.join("experiments", exp_name)
 exp_filename = "exp"
 exp_hl_filename = exp_filename + "_hl"
 exp_init_filename = exp_filename + "_init" 
-exp_res_filename = exp_filename + "_res"
+exp_res_filename = exp_filename + "_non_steady"
 pickle_extension = ".pickle"
 
 exp_file = os.path.join(exp_dir, exp_filename + pickle_extension)
@@ -24,8 +24,8 @@ exp_res_file = os.path.join(exp_dir, exp_res_filename + pickle_extension)
 
 # adapt the optimization parameters
 op = OptimizationParameters()
-op._kkt_tolerance = 1e-3
-op._optimization_iters = 9
+op._kkt_tolerance = 1e-1
+op._optimization_iters = 100
 
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
@@ -132,8 +132,7 @@ def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = False
     startTime = ex._agent._cycle.getStartTime()
     ex._agent._cycle.shiftTime(-startTime)
     mse_and_controls_plot(ex, savefig=savefig)
-    return
-
+    
     world_plot(ex, with_sensor_quality=wsq, savefig=savefig)
     
     mse_plot(ex, savefig=savefig)
@@ -203,28 +202,34 @@ def optimization_plot(ex : Experiment, savefig = True):
     
     # global cost plot
     gca : plt.Axes = ax4[0]
-    ex._agent.plotGlobalCosts(ax4[0], linewidth=2)
-    gca.set_ylabel('$J(\\tau)$')
-
+    gca.plot([ i+1 for i in range(len(ex._agent._global_costs))], ex._agent._global_costs, linewidth=2)
+    gca.set_ylabel('$J$')
+    
+    # gradient plot
     ggn : plt.Axes = ax4[1]
-    ex._agent.plotGlobalGradientNorms(ax4[1], linewidth=2)
-    ggn.set_ylabel('$\\| \\nabla_\\tau J(\\tau) \\|_\\infty$')
+    xticks = np.cumsum(ex._agent._steady_state_iters)
+    ggn.step(xticks, ex._agent._global_gradient_norms, linewidth=2, color='blue')
+    ggn.set_ylabel('$\\| \\nabla_\\tau J \\|_\\infty$')
     ggn.set_yscale('log')
     
     # plot the tau values
     tva : plt.Axes = ax4[2]
-    ex._agent.plotTauVals(tva, linewidth=2)
+    xtau = np.concatenate(([1], xticks))
+    ytau = np.concatenate(([ex._agent._tau_vals[0][:]], np.array(ex._agent._tau_vals)))
+    
+    for i in range(ytau.shape[1]):
+        tva.step(xtau, ytau[:,i], linewidth=2, color=plotAttributes.target_colors[-i])
     tva.set_ylabel('$ \\tau$')
-    tva.set_xlabel('$\mathrm{outer~iteration}$')
-    tva.set_xlim(0, len(ex._agent._tau_vals)-1)
+    tva.set_xlabel('$\mathrm{cycle}$')
+    tva.set_xlim(min(xtau), max(xtau))
     tva.xaxis.set_major_locator(MaxNLocator(integer=True))
     
-    # plot the KKT violations
-    # kkt : plt.Axes = ax4[3]
-    # ex._agent.plotKKTViolations(kkt)
-    # kkt.set_yscale('symlog') 
-    # kkt.set_ylabel('KKT res.')
-    # kkt.set_xlabel('iteration')
+    # add steady state lines
+    ex._agent.addSteadyStateLines(ax4[0], alpha=0.1, color='black')
+    ex._agent.addSteadyStateLines(ax4[1], alpha=0.1, color='black')
+    ex._agent.addSteadyStateLines(ax4[2], alpha=0.1, color='black')
+    
+
     if savefig:
         exporter.HEIGHT = exporter.WIDTH*0.8
         exporter.export('optimization', fig4)
@@ -241,7 +246,6 @@ def rrt_plot(savefig = True):
 
 if __name__ == '__main__':
     plot_results(load_optimized_cycle(load_high_level_solution(load_experiment())))
-    quit()
     tsp_vs_init_vs_opti()
     mse_inti_vs_opti() 
-    rrt_plot()
+    # rrt_plot()

@@ -2,7 +2,7 @@
 import os
 from Experiment import *
 from unittests import *
-from experiments.small.config import *
+from experiments.small_comparison.config import *
 from matplotlib.ticker import MaxNLocator
 
 
@@ -14,7 +14,7 @@ exp_dir = os.path.join("experiments", exp_name)
 exp_filename = "exp"
 exp_hl_filename = exp_filename + "_hl"
 exp_init_filename = exp_filename + "_init" 
-exp_res_filename = exp_filename + "_res"
+exp_res_filename = exp_filename + "_steady"
 pickle_extension = ".pickle"
 
 exp_file = os.path.join(exp_dir, exp_filename + pickle_extension)

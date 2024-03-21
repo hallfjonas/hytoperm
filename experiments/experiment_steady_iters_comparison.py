@@ -2,9 +2,8 @@
 import os
 from Experiment import *
 from unittests import *
-from experiments.large_no_steady.config import *
+from experiments.large_comparison.config import *
 from matplotlib.ticker import MaxNLocator
-
 
 ##################################
 ## NO NEED TO MAKE CHANGES HERE ##
@@ -21,13 +20,6 @@ exp_hl_file = os.path.join(exp_dir, exp_filename + pickle_extension)
 exp_res_steady_file = os.path.join(exp_dir, exp_steady_filename + pickle_extension)
 exp_res_non_steady_filename = os.path.join(exp_dir, exp_non_steady_filename + pickle_extension)
 
-# adapt the optimization parameters
-op = OptimizationParameters()
-op._kkt_tolerance = 1e-1
-op._sim_to_steady_state_tol = 1e-1
-op._optimization_iters = 100
-op._beta = 0.95
-
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
 
@@ -43,10 +35,10 @@ def load_hl_sol() -> Experiment:
     return ex
 
 # Steady state
-def load_solution(filename, op) -> Experiment:
+def load_solution(filename, op : OptimizationParameters) -> Experiment:
     if not os.path.exists(filename):
         ex = load_hl_sol()
-        ex._agent._op = op
+        ex._agent._op = op.copy()
         ex._agent.optimizeCycle()
         ex.serialize(filename)
     else:
@@ -135,38 +127,43 @@ def optimization_plot(ex : Experiment, savefig = True):
         exporter.export('optimization', fig4)
 
 def steady_vs_non(steady : Experiment, non_steady : Experiment, savefig = True):
-    fig4, ax4 = plt.subplots(3,1, sharex=True)
+    fig4, ax4 = plt.subplots(2,1, sharex=True)
+
+    xticks_steady = np.cumsum(steady._agent._steady_state_iters)
+    xticks_non_steady = np.cumsum(non_steady._agent._steady_state_iters)
 
     # global cost plot
     gca : plt.Axes = ax4[0]
-    steady._agent.plotGlobalCosts(gca, linewidth=2, color='orange', label='$\mathrm{with~steady~state~iterations}$')
+    gca.plot([i+1 for i in range(len(steady._agent._global_costs))], steady._agent._global_costs, linewidth=2, color='orange', label='$\mathrm{with~steady~state~iterations}$')
+    gca.plot([i+1 for i in range(len(non_steady._agent._global_costs))], non_steady._agent._global_costs, linewidth=2, color='blue', label='$\mathrm{no~steady~state~iterations}$')
+    gca.set_ylabel('$J$')
+    # gca.legend(loc='lower right')
     
-    non_steady._agent.plotGlobalCosts(gca, linewidth=2, color='blue', label='$\mathrm{no~steady~state~iterations}$')
-    gca.set_ylabel('$J(\\tau)$')
-    gca.legend(loc='lower right')
-    
-    ggn : plt.Axes = ax4[1]
-    xticks_steady = np.cumsum(steady._agent._steady_state_iters)
-    ggn.step(xticks_steady, steady._agent._global_gradient_norms, linewidth=2, color='orange')
-    
-    xticks_non_steady = np.cumsum(non_steady._agent._steady_state_iters)
-    ggn.step(xticks_non_steady, non_steady._agent._global_gradient_norms, linewidth=2, color='blue')
-    ggn.set_ylabel('$\\| \\nabla_\\tau J(\\tau) \\|_\\infty$')
-    ggn.set_yscale('log')
-    
+    # gradient plot
+    # ggn : plt.Axes = ax4[1]
+    # ggn.step(xticks_steady, steady._agent._global_gradient_norms, linewidth=2, color='orange')
+    # ggn.step(xticks_non_steady, non_steady._agent._global_gradient_norms, linewidth=2, color='blue')
+    # ggn.set_ylabel('$\\| \\nabla_\\tau J \\|_\\infty$')
+    # ggn.set_yscale('log')
+    # ggn.set_yticks([0.1, 1.0])
+    # ggn.set_yticklabels(['$0.1$', '$1.0$'])
+        
     # plot the tau values
-    tva : plt.Axes = ax4[2]
+    tva : plt.Axes = ax4[1]
     xtau_steady = np.concatenate(([1], xticks_steady))
     ytau_steady = np.concatenate(([steady._agent._tau_vals[0][0]], np.array(steady._agent._tau_vals)[:,0]))
-    
     tva.step(xtau_steady, ytau_steady, linewidth=2, color='orange')
     tva.step(xticks_non_steady, np.array(non_steady._agent._tau_vals)[:,0], linewidth=2, color='blue')
-    tva.set_ylabel('$ \\tau$')
+    tva.set_ylabel('$ \\tau_1$')
     tva.set_xlabel('$\mathrm{cycle~}$')
     tva.xaxis.set_major_locator(MaxNLocator(integer=True))
-
+    
+    # add steady state lines
+    steady._agent.addSteadyStateLines(ax4[0], alpha=0.1, color='black')
+    steady._agent.addSteadyStateLines(ax4[1], alpha=0.1, color='black')
+    
     if savefig:
-        exporter.HEIGHT = exporter.WIDTH*0.8
+        exporter.HEIGHT = exporter.WIDTH*0.8*2/3
         exporter.export('optimization_steady_vs_non_steady', fig4)
 
 if __name__ == '__main__':
@@ -178,7 +175,7 @@ if __name__ == '__main__':
     steady = load_solution(exp_res_steady_file, op)
 
     # compare cycle
-    fig, ax = steady.PlotWorld(steady, with_sensor_quality=True, savefig=False)
+    fig, ax = steady.PlotWorld(steady, with_sensor_quality=True, add_target_labels=False, savefig=False)
     steady._agent.plotCycle(ax, linestyle='-', color='orange', linewidth=2, label='$\mathrm{with~steady~state~iterations}$')
     non_steady._agent.plotCycle(ax, linestyle='--', color='blue', linewidth=2, label='$\mathrm{no~steady~state~iterations}$')
     exporter.export('world_steady_vs_non_steady', fig)
@@ -189,7 +186,7 @@ if __name__ == '__main__':
     steady._agent.plotMSE(ax2, add_labels=True, linewidth=2)
     non_steady._agent._cycle.shiftTime(-non_steady._agent._cycle._cycle_start)
     non_steady._agent.plotMSE(ax2, add_labels=True, linewidth=2, linestyle='--')
-    exporter.HEIGHT = exporter.WIDTH*0.66
+    exporter.HEIGHT = exporter.WIDTH*0.33
     exporter.export('mse_steady_vs_non_steady', fig2)
 
     # optimization comparison plot

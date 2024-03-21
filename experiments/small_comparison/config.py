@@ -1,13 +1,12 @@
 import os 
 from Plotters import Exporter
+from Optimization import OptimizationParameters
 
 # Experiment generation
-NAME = "steady_vs_nonsteady"
-
-# SEED SUCKSSS! (458 is ok!)
-SEED=345
-NSETS=12
-NTARGETS=None
+NAME = "small_comparison"
+SEED=235
+NSETS=10
+NTARGETS=4
 FRACTION= 0.75 if NTARGETS is None else NTARGETS/NSETS
 
 # Experiment name and output directory
@@ -21,3 +20,10 @@ WIDTH = 6.5
 exporter = Exporter()
 exporter.DIR = out_dir
 exporter.WIDTH = WIDTH
+
+# adapt the optimization parameters
+op = OptimizationParameters()
+op._kkt_tolerance = 1e-1
+op._sim_to_steady_state_tol = 1e-1
+op._optimization_iters = 100
+op._beta = 0.95

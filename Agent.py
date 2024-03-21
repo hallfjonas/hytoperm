@@ -1033,14 +1033,16 @@ class Agent:
     def plotGlobalGradientNorms(self, ax : plt.Axes, **kwargs) -> PlotObject:
         return PlotObject(ax.plot(self._global_gradient_norms, **kwargs))
     
-    def plotTauVals(self, ax : plt.Axes, **kwargs) -> PlotObject:
+    def plotTauVals(self, ax : plt.Axes, add_lower_bounds=True, **kwargs) -> PlotObject:
         po = PlotObject()
         tv = np.array(self._tau_vals)
         for i in range(tv.shape[1]):
             eka = extend_keyword_args({'color': plotAttributes.target_colors[-i]}, **kwargs)
             po.add(ax.plot(tv[:,i], **eka))
-            eka = extend_keyword_args({'alpha' : 0.75, 'linestyle' : '--'}, **eka)
-            po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
+
+            if add_lower_bounds:
+                eka = extend_keyword_args({'alpha' : 0.75, 'linestyle' : '--'}, **eka)
+                po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
         return po
 
     def plotKKTViolations(self, ax : plt.Axes, **kwargs) -> PlotObject:
@@ -1070,6 +1072,13 @@ class Agent:
         # plt.colorbar(res)
         return PlotObject(cf)
     
+    def addSteadyStateLines(self, ax : plt.Axes, **kwargs) -> PlotObject:
+        cumsum = np.cumsum(self._steady_state_iters)
+        po = PlotObject()
+        for i in range(len(cumsum)):
+            po.add(ax.axvline(cumsum[i], **kwargs))
+        return po
+
     # printers
     def printHeader(self) -> None:
         print("----|-----------|-----------|-----------|----------|--------")

@@ -2,10 +2,15 @@
 # Paper CDC 2024!! Let's goooo
 
 ## TOP X
-1. DONE BY EOD March 20
-1.1 Write results section (include large results?)
-1.2 Write Conclusion section
-1.3 change k in outer iterations optimization plot (in paper figures)
+1. DONE BY EOD March 21
+- Write one paragraph steady vs non-steady (without judgement)
+    - trade-off: 
+        - steady: computation cost per cycle is lower and gradients are more precise
+        - non-steady: convergence rate
+    - 
+- in numerical results 
+-
+
 
 2. Use large results that I have. 
 2.1 Make comparison: 1 steady state iter (i.e., change every cycle ) vs 100?

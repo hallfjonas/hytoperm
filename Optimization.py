@@ -32,8 +32,21 @@ class OptimizationParameters:
         self._kkt_tolerance : float = 1e-1                                  # KKT tolerance
         self._alpha : float = 1.0                                           # step size for gradient descent    
         self._sigma : float = 1e-1                                          # constraint regularization parameter
-        self._beta : float = 0.9                                            # step size reduction factor for gradient descent
+        self._beta : float = 0.95                                            # step size reduction factor for gradient descent
         self._tr : float = 0.5                                              # trust region radius
         self._sim_to_steady_state_tol : float = 1e-1                        # tolerance for simulation to steady state
         self._steady_state_iters : int = 100                                # maximum number of iterations for steady state simulation
         self._optimization_iters : int = 100                                # maximum number of iterations for optimization
+
+    def copy(self):
+        op = OptimizationParameters()
+        op._kkt_tolerance = self._kkt_tolerance
+        op._alpha = self._alpha
+        op._sigma = self._sigma
+        op._beta = self._beta
+        op._tr = self._tr
+        op._sim_to_steady_state_tol = self._sim_to_steady_state_tol
+        op._steady_state_iters = self._steady_state_iters
+        op._optimization_iters = self._optimization_iters
+        return op
+        
