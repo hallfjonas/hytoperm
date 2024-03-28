@@ -85,7 +85,7 @@ def tsp_vs_init_vs_opti(leave_open=False):
     fig, ax = hl.PlotWorld(with_sensor_quality=True)
 
     po = PlotObject()
-    po.add(hl._agent.gpp().PlotTSPSolution(ax=ax, annotate=False, color='red', linewidth=2.5, alpha=0.5))
+    po.add(hl._agent.gpp().plotTSPSolution(ax=ax, annotate=False, color='red', linewidth=2.5, alpha=0.5))
     po._objs[0].set_label('$\mathrm{TSP}$')
     exporter.export("tsp", fig=fig)
 
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     rrt = RRT(ex._world.regions())
     rrt._plot_options = PlotOptions()
     rrt._plot_options.toggle_all_plotting(False)
-    r, p = rrt.PlanPath(ex._world.targets()[0].p(), ex._world.targets()[1].p())
+    r, p = rrt.planPath(ex._world.targets()[0].p(), ex._world.targets()[1].p())
 
     rrt.best_path.getRoot().PlotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
     rrt.best_path.plotPathToRoot(ax=ax, color='red', linewidth=2, alpha=1)

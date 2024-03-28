@@ -76,7 +76,7 @@ def test_rrt(max_iter = 1000, n_sets=20, plot = True) -> GlobalPathPlanner:
     gpp._plot_options._par = False
     gpp._plot_options._psr = False
     fig, ax = ex.PlotWorld()
-    gpp.PlanPath(ex._world.target(1).p(), ex._world.target(9).p(), max_iter, ax)
+    gpp.planPath(ex._world.target(1).p(), ex._world.target(9).p(), max_iter, ax)
     ex._world.plotTravelCostPerRegion(ex, ax)
     plt.tight_layout()
     return gpp
@@ -87,11 +87,11 @@ def test_tsp(n_sets=20, plot = False) -> GlobalPathPlanner:
     gpp = GlobalPathPlanner(ex._world)
     gpp._plot_options.toggle_all_plotting(plot)
     fig, ax = ex.PlotWorld(ax)
-    gpp.SolveTSP(ax)
-    # gpp.tsp.PlotTargetDistances(ax)
-    gpp.PlotTSPSolution(ax, color='red', linewidth=2)
+    gpp.solveTSP(ax)
+    # gpp.tsp.plotTargetDistances(ax)
+    gpp.plotTSPSolution(ax, color='red', linewidth=2)
     po = ex._agent.plotSensorQuality(ex, ax)
-    gpp.PlotTSPSolution(ax, color='red', linewidth=2)
+    gpp.plotTSPSolution(ax, color='red', linewidth=2)
     return gpp
 
 def test_local_controller(n_sets=20) -> Experiment:

@@ -647,8 +647,8 @@ class Agent:
         self._gpp._plot_options.toggle_all_plotting(False)
    
     def computeVisitingSequence(self) -> None:
-        self.gpp().SolveTSP()
-        self._tvs = self.gpp().tsp.getTargetVisitingSequence()
+        self.gpp().solveTSP()
+        self._tvs = self.gpp().tsp().getTargetVisitingSequence()
 
     def refineVisitingSequence(self) -> None:
         # If we switch through another target region along the way

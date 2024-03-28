@@ -51,6 +51,7 @@ class PlotOptions:
         self._par = bool
         self._psr = bool
 
+
 class RRT:
     def __init__(self, regions : Set[Region], best_cost : float = np.inf) -> None:
         self.regions : Set[Region] = regions        # all regions
@@ -58,7 +59,7 @@ class RRT:
         self.best_cost : float = best_cost          # best cost
         self.active_regions = []                    # active regions
         self.world = World()                        # world
-        self.target_distances : np.ndarray = None   # target distances
+        self._target_distances : np.ndarray = None   # target distances
         
         self.world.SetRegions(self.regions)         # set regions
 
@@ -75,7 +76,7 @@ class RRT:
         self._rewire = False                # rewire
         self._cut = False                   # cut
 
-    def PlanPath(self, t0, tf, ax : plt.Axes = None) -> Tuple[Set[Region], List[np.ndarray]]:
+    def planPath(self, t0, tf, ax : plt.Axes = None) -> Tuple[Set[Region], List[np.ndarray]]:
         
         targetRegions = self.world.GetRegions(tf)
         initialRegions = self.world.GetRegions(t0)
@@ -211,7 +212,7 @@ class RRT:
             init_waypoints.append(active.getData())
             active = active.getParent()
 
-        wps, tcs = ConstantDCPRegion.PlanPath(init_waypoints)
+        wps, tcs = ConstantDCPRegion.planPath(init_waypoints)
         if wps is None:
             # failed to obtain a solution
             return
@@ -421,36 +422,56 @@ class RRT:
             
             if n.getParent() is not None:
                 self.plot_options().ael().add(n.plotPathToParent(ax, color = 'black', linewidth = 1, alpha = 0.5))
- 
+
+
 class TSP:
     def __init__(self, targets : List[Target]) -> None:
-        self.targets = targets
-        self.target_distances = np.zeros((len(targets), len(targets)))
+        self._targets = targets
+        self._target_distances = np.zeros((len(targets), len(targets)))
         self._best_permutation = None
         self._best_distance = np.inf
 
-    def remove_targets(self, indices : List[int]) -> None:
+    # getters       
+    def getTargetVisitingSequence(self) -> List[Target]:
+        tvs = []
+        for p in self._best_permutation:
+            tvs.append(self._targets[p])
+        return tvs
+    
+    def targetDistances(self) -> np.ndarray:
+        return self._target_distances
+
+    # setters
+    def setTargetDistance(self, i : int, j : int, d : float) -> None:
+        self._target_distances[i,j] = float(d)
+
+    # modifiers
+    def removeTargets(self, indices : List[int]) -> None:
         print("Removing {0} invalid targets".format(len(indices)))
-        self.targets = [self.targets[i] for i in range(len(self.targets)) if i not in indices]
-        self.target_distances = np.delete(self.target_distances, indices, axis=0)
-        self.target_distances = np.delete(self.target_distances, indices, axis=1)
+        self._targets = []
+        for i in range(len(self._targets)):
+            if i not in indices:
+                self._targets.append(self._targets[i])
+        self._target_distances = np.delete(self._target_distances, indices, axis=0)
+        self._target_distances = np.delete(self._target_distances, indices, axis=1)
                 
-    def ComputeTSP(self, exact = True):        
+    def computeTSP(self, exact = True):        
         if exact:
-            permutation, distance = solve_tsp_dynamic_programming(self.target_distances)
+            permutation, distance = solve_tsp_dynamic_programming(self._target_distances)
         else:
-            permutation, distance = solve_tsp_simulated_annealing(self.target_distances)
+            permutation, distance = solve_tsp_simulated_annealing(self._target_distances)
         
         if distance < self._best_distance:
             self._best_distance = distance
             self._best_permutation = permutation
         
         return permutation, distance
-    
-    def PlotTargetDistances(self, ax : plt.Axes = plt, style='', **kwargs) -> PlotObject:
+
+    # plotters    
+    def plotTargetDistances(self, ax : plt.Axes = plt, style='', **kwargs) -> PlotObject:
         po = PlotObject()
-        for i in range(self.target_distances.shape[0]):
-            for j in range(self.target_distances.shape[1]):
+        for i in range(self._target_distances.shape[0]):
+            for j in range(self._target_distances.shape[1]):
                 if i == j:
                     continue
                 p = self.targets[i].p()
@@ -458,24 +479,32 @@ class TSP:
                 delta = -(q - p)/np.linalg.norm(q-p)
                 po.add(ax.plot([p[0], q[0]], [p[1],  q[1]], **kwargs))
                 po.add(ax.quiver(p[0], p[1], delta[0], delta[1], pivot='tip', angles='xy', **kwargs))
-                po.add(ax.annotate(f"{self.target_distances[i,j]:.2f}", ((p[0]+q[0])/2, (p[1]+q[1])/2), fontsize=12, color='black'))
+                po.add(ax.annotate(f"{self._target_distances[i,j]:.2f}", ((p[0]+q[0])/2, (p[1]+q[1])/2), fontsize=12, color='black'))
         return po
         
-    def getTargetVisitingSequence(self) -> List[Target]:
-        tvs = []
-        for p in self._best_permutation:
-            tvs.append(self.targets[p])
-        return tvs
-    
+
 class GlobalPathPlanner:
     def __init__(self, world : World) -> None:
         self._world = world
-        self.tsp : TSP = None
-        self.plot = False
-        self.target_paths : Dict[Target, Dict[Target, Tree]]= {}
+        self._tsp : TSP = None
+        self._target_paths : Dict[Target, Dict[Target, Tree]]= {}
         self._plot_options = PlotOptions()
-        
-    def PlanPath(self, t0 : np.ndarray, tf : np.ndarray, max_iter = 500, ax : plt.Axes = plt) -> Tuple[Set[Region], List[np.ndarray]]:
+
+    # getters
+    def tsp(self) -> TSP:
+        return self._tsp
+    
+    def targetPaths(self) -> Dict[Target, Dict[Target, Tree]]:
+        return self._target_paths
+
+    # modifiers
+    def planPath(
+            self, 
+            t0 : np.ndarray, 
+            tf : np.ndarray, 
+            max_iter = 500, 
+            ax : plt.Axes = plt
+        ) -> Tuple[Set[Region], List[np.ndarray]]:
         
         initialRegions = self._world.GetRegions(t0)
         targetRegions = self._world.GetRegions(tf)
@@ -484,15 +513,15 @@ class GlobalPathPlanner:
         for i_reg in initialRegions:
             for t_reg in targetRegions:
                 if i_reg == t_reg:
-                    return i_reg, i_reg.PlanPath(t0, tf)
+                    return i_reg, i_reg.planPath(t0, tf)
         
         # Otherwise use global planner
         rrt = RRT(self._world.regions())
         rrt._plot_options = self._plot_options
         rrt._max_iter = max_iter
-        return rrt.PlanPath(t0, tf, ax)
+        return rrt.planPath(t0, tf, ax)
 
-    def RemoveUnreachableTargets(self) -> None:
+    def removeUnreachableTargets(self) -> None:
         remove_targets = []
         reachable = {}
         
@@ -503,7 +532,7 @@ class GlobalPathPlanner:
             for j in range(self._world.NT()):
                 if i == j:
                     continue
-                if self.tsp.target_distances[i,j] < np.inf:
+                if self._tsp.targetDistances()[i,j] < np.inf:
                     reachable[j] = True
                     break
 
@@ -511,45 +540,51 @@ class GlobalPathPlanner:
             if not reachable[j]:
                 remove_targets.append(j)
 
-        self.tsp.remove_targets(remove_targets)
+        self._tsp.removeTargets(remove_targets)
 
-    def RemoveUnescapableTargets(self) -> None:
+    def removeUnescapableTargets(self) -> None:
         remove_targets = []
         for i in range(self._world.NT()):
             i_escapable = False
             for j in range(self._world.NT()):
                 if i == j:
                     continue
-                if self.tsp.target_distances[i,j] < np.inf:
+                if self._tsp.targetDistances()[i,j] < np.inf:
                     i_escapable = True
                     break
             if not i_escapable:
                 remove_targets.append(i)
-        self.tsp.remove_targets(remove_targets)
+        self._tsp.removeTargets(remove_targets)
 
-    def SolveTSP(self) -> None:
+    def solveTSP(self) -> None:
 
-        if self.tsp is None:
-            self.tsp = TSP(self._world.targets())
+        if self._tsp is None:
+            self._tsp = TSP(self._world.targets())
 
         for i in range(self._world.NT()):
             target_i = self._world.targets()[i]
             self.target_paths[target_i] = {}
             for j in range(self._world.NT()):
                 if i == j:
-                    self.tsp.target_distances[i,j] = 0
+                    self._tsp.setTargetDistance(i,j,0)
                     continue
                 target_j = self._world.targets()[j]
-                plannedPath = self.PlanPath(target_i.p(), target_j.p())
+                plannedPath = self.planPath(target_i.p(), target_j.p())
                 self.target_paths[target_i][target_j] = plannedPath[0] 
-                self.tsp.target_distances[i,j] = plannedPath[1]
-                print(f"Distance from {i} to {j} is {self.tsp.target_distances[i,j]}")
+                self._tsp.setTargetDistance(i,j,plannedPath[1])
+                print(f"Distance from {i} to {j} is {plannedPath[1]}")
         
-        self.tsp.ComputeTSP()
-        
-    def PlotTSPSolution(self, ax : plt.Axes = plt, annotate=False, **kwargs) -> PlotObject:
+        self._tsp.computeTSP()
+
+    # plotters    
+    def plotTSPSolution(
+            self, 
+            ax : plt.Axes = plt, 
+            annotate=False, 
+            **kwargs
+        ) -> PlotObject:
         if self.tsp._best_permutation is None:
-            print("No TSP solution exists. Please run 'SolveTSP' first.")
+            print("No TSP solution exists. Please run 'solveTSP' first.")
             return None
         
         if self.tsp._best_permutation is None:
@@ -568,4 +603,3 @@ class GlobalPathPlanner:
                 po.add(ax.annotate(f"{i}", (currPath.getData().p()[0], currPath.getData().p()[1]), fontsize=12, color='black'))
 
         return po
-    

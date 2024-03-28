@@ -82,7 +82,7 @@ def tsp_vs_init_vs_opti(leave_open=False):
     fig, ax = hl.PlotWorld(with_sensor_quality=True)
 
     po = PlotObject()
-    po.add(hl._agent.gpp().PlotTSPSolution(ax=ax, annotate=False, color='red', linewidth=2.5, alpha=0.5))
+    po.add(hl._agent.gpp().plotTSPSolution(ax=ax, annotate=False, color='red', linewidth=2.5, alpha=0.5))
     po._objs[0].set_label('$\mathrm{TSP}$')
     exporter.export("tsp", fig=fig)
 

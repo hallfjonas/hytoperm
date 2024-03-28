@@ -102,7 +102,7 @@ class Region:
         pass
 
     @abstractclassmethod
-    def PlanPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         '''
         This function plans a path between two points in the region.
         
@@ -445,7 +445,7 @@ class CPRegion(Region):
     def TravelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         return np.linalg.norm(xf - x0)
 
-    def PlanPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         return [x0, xf]
 
     def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
