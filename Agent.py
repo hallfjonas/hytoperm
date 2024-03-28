@@ -634,7 +634,7 @@ class Cycle:
 
     # plotters
     def plot(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
-        eka = extend_keyword_args(plotAttributes.agent.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(plotAttributes.agent.getAttributes(), **kwargs)
         return self.pTrajectory.plotStateVsState(0, 1, ax, **eka)
     
     def plotControls(self, ax : plt.Axes = plt, add_monitoring_labels=True, **kwargs) -> PlotObject:
@@ -648,9 +648,9 @@ class Cycle:
         u1_pA = plotAttributes.u1_switch
         u2_pA = plotAttributes.u2_switch
         un_pA = plotAttributes.u_norm_switch
-        eka1 = extend_keyword_args(u1_pA.getAttributes(), **kwargs)
-        eka2 = extend_keyword_args(u2_pA.getAttributes(), **kwargs)
-        eka3 = extend_keyword_args(un_pA.getAttributes(), **kwargs)
+        eka1 = extendKeywordArgs(u1_pA.getAttributes(), **kwargs)
+        eka2 = extendKeywordArgs(u2_pA.getAttributes(), **kwargs)
+        eka3 = extendKeywordArgs(un_pA.getAttributes(), **kwargs)
         for ts in self._trajectorySegments:
             if not isinstance(ts, SwitchingSegment):
                 continue
@@ -665,9 +665,9 @@ class Cycle:
         u1_pA = plotAttributes.u1_monitor
         u2_pA = plotAttributes.u2_monitor
         un_pA = plotAttributes.u_norm_monitor
-        eka1 = extend_keyword_args(u1_pA.getAttributes(), **kwargs)
-        eka2 = extend_keyword_args(u2_pA.getAttributes(), **kwargs)
-        eka3 = extend_keyword_args(un_pA.getAttributes(), **kwargs)
+        eka1 = extendKeywordArgs(u1_pA.getAttributes(), **kwargs)
+        eka2 = extendKeywordArgs(u2_pA.getAttributes(), **kwargs)
+        eka3 = extendKeywordArgs(un_pA.getAttributes(), **kwargs)
         for ts in self._trajectorySegments:
             if not isinstance(ts, MonitoringSegment):
                 continue
@@ -696,7 +696,7 @@ class Cycle:
             eka = kwargs.copy()
             if add_labels:
                 eka['label'] = target.name
-            eka = extend_keyword_args({'color': plotAttributes.target_colors[-i]}, **eka)
+            eka = extendKeywordArgs({'color': plotAttributes.target_colors[-i]}, **eka)
             po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **eka))
             mseStart = self.mseTrajectories[target].getInitialValue() 
             po.add(ax.hlines(mseStart, self._cycle_start, self._cycle_start + self.getDuration(), alpha=0.2, color=eka['color']))
@@ -999,14 +999,14 @@ class Agent:
     
     def plotEntryPoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
-        eka = extend_keyword_args(plotAttributes.phi.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(plotAttributes.phi.getAttributes(), **kwargs)
         for ms in self._monitoringSegments:
             po.add(ms.params._phi.plot(ax, **eka))
         return po
     
     def plotDeparturePoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
-        eka = extend_keyword_args(plotAttributes.psi.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(plotAttributes.psi.getAttributes(), **kwargs)
         for ms in self._monitoringSegments:
             po.add(ms.params._psi.plot(ax, **eka))
         return po
@@ -1014,10 +1014,10 @@ class Agent:
     def plotSwitchingPoints(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         po = PlotObject()
         for ms in self._monitoringSegments:
-            eka = extend_keyword_args(plotAttributes.phi.getAttributes(), **kwargs)
+            eka = extendKeywordArgs(plotAttributes.phi.getAttributes(), **kwargs)
             po.add(ms.params._phi.plot(ax, **eka))
             
-            eka = extend_keyword_args(plotAttributes.psi.getAttributes(), **kwargs)
+            eka = extendKeywordArgs(plotAttributes.psi.getAttributes(), **kwargs)
             po.add(ms.params._psi.plot(ax, **eka))
         return po
 
@@ -1037,11 +1037,11 @@ class Agent:
         po = PlotObject()
         tv = np.array(self._tau_vals)
         for i in range(tv.shape[1]):
-            eka = extend_keyword_args({'color': plotAttributes.target_colors[-i]}, **kwargs)
+            eka = extendKeywordArgs({'color': plotAttributes.target_colors[-i]}, **kwargs)
             po.add(ax.plot(tv[:,i], **eka))
 
             if add_lower_bounds:
-                eka = extend_keyword_args({'alpha' : 0.75, 'linestyle' : '--'}, **eka)
+                eka = extendKeywordArgs({'alpha' : 0.75, 'linestyle' : '--'}, **eka)
                 po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
         return po
 
@@ -1067,7 +1067,7 @@ class Agent:
                     region = target.region()
                     if region.Contains(p):
                         Z[i,j] = sensor.getSensingQuality(target)
-        eka = extend_keyword_args(plotAttributes.sensor_quality.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(plotAttributes.sensor_quality.getAttributes(), **kwargs)
         cf = ax.contourf(X, Y, Z, **eka)
         # plt.colorbar(res)
         return PlotObject(cf)

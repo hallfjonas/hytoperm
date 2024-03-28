@@ -164,7 +164,7 @@ class Partition:
 
     def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
         po = PlotObject()
-        extended_kwargs = extend_keyword_args(plotAttributes.partition.getAttributes())
+        extended_kwargs = extendKeywordArgs(plotAttributes.partition.getAttributes())
         for r in self.regions():
             po.add(r.Plot(ax, **extended_kwargs))
         return po
@@ -543,7 +543,7 @@ class Dynamics:
                 DX[i,j]= F[0]
                 DY[i,j]= F[1]
 
-        eka = extend_keyword_args(plotAttributes.vector_field.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(plotAttributes.vector_field.getAttributes(), **kwargs)
         return ax.quiver(X, Y, scale*DX, scale*DY, pivot='mid', **eka)
 
 class ConstantDynamics(Dynamics):
@@ -736,7 +736,7 @@ class Target:
         self.Q = Q
 
     def plot(self, ax : plt.Axes = plt, annotate=True, **kwargs) -> PlotObject:
-        eka = extend_keyword_args(plotAttributes.target.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(plotAttributes.target.getAttributes(), **kwargs)
         po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))
 
         if annotate:
@@ -853,7 +853,7 @@ class World:
         po = PlotObject()
         
         po.add(self.partition().Plot(ax))
-        eka = extend_keyword_args(plotAttributes.partition_background.getAttributes())
+        eka = extendKeywordArgs(plotAttributes.partition_background.getAttributes())
         for region in self.regions():
             has_target = False
             for target in self.targets():
