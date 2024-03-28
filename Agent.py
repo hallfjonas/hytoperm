@@ -3,121 +3,7 @@ from World import *
 from Dynamics import *
 from HighLevel import *
 from Optimization import *
-
-class SensingQualityFunction:
-    def __init__(self):
-        pass
-
-    @abstractclassmethod
-    def __call__(self, p, q):
-        pass
-
-class ConstantSensingQualityFunction(SensingQualityFunction):
-    def __init__(self, c = 1):
-        self._c : float = None
-        self.assign_constant(c)
-
-    def assign_constant(self, c : float) -> None:
-        assert(c >= 0)
-        assert(c <= 1)
-        self._c = c
-
-    def __call__(self, p, q):
-        return self._c
-    
-class GaussianSensingQualityFunction(SensingQualityFunction):
-    def __init__(self, c = 50):
-        self._c : float = None
-        self.assign_constant(c)
-
-    def assign_constant(self, c : float) -> None:
-        assert(c > 0)
-        self._c = c
-
-    def __call__(self, p, q):
-        delta = p - q
-        sqr_dist = cad.dot(delta, delta)
-        return cad.exp(-self._c*sqr_dist)
-
-class SinusoidalSensingQualityFunction(SensingQualityFunction):
-    def __init__(self, c1 = 3.0, c2 = 20.0, c3 = 40.0):
-        self._c1 : float = None
-        self._c2 : float = None
-        self._c3 : float = None
-        self.assign_constants(c1, c2, c3)
-
-    def assign_constants(self, c1 : float, c2 : float, c3 : float) -> None:
-        assert(c1 > 0)
-        assert(c2 > 0)
-        assert(c3 > 0)
-        self._c1 = c1
-        self._c2 = c2
-        self._c3 = c3
-
-    def __call__(self, p, q):
-        delta = p - q
-        return cad.exp(-self._c3*cad.dot(delta,delta))*0.5*(cad.sin(self._c1*delta[0])**2 + cad.cos(self._c2*delta[1])**2)
-
-class Sensor:
-    def __init__(self, p : np.ndarray = None) -> None:
-        self._p : np.ndarray = None
-        self._ttsqm : Dict[Target, SensingQualityFunction] = {}     # target to sensing quality function mapper
-        self._ttHm : Dict[Target, np.ndarray] = {}                  # target to measurement matrix mapper
-        self._ttRm : Dict[Target, np.ndarray] = {}                  # target to measurement noise mapper
-        self._ttRinvm : Dict[Target, np.ndarray] = {}               # target to measurement noise inverse mapper
-        
-        if p is not None:
-            self.setPosition(p)
-
-    def getPosition(self) -> np.ndarray:
-        return self._p
-    
-    def setPosition(self, p : np.ndarray) -> None:
-        assert(isinstance(p, np.ndarray))
-        self._p = p
-
-    def targetToSQFMapper(self) -> Dict[Target, SensingQualityFunction]:
-        return self._ttsqm
-        
-    def drawNoise(self, target : Target) -> np.ndarray:
-        return np.random.multivariate_normal(0, self.getMeasurementNoiseMatrix(target))
-
-    def sensingQualityFunction(self, target : Target) -> SensingQualityFunction:
-        return self.targetToSQFMapper()[target]
-
-    def setSensingQualityFunction(self, target : Target, sqf : SensingQualityFunction) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(sqf, SensingQualityFunction))
-        self.targetToSQFMapper()[target] = sqf
-
-    def getSensingQuality(self, target : Target) -> float:
-        return self.sensingQualityFunction(target)(self.getPosition(), target.p())
-
-    def setNoiseMatrix(self, target : Target, R : np.ndarray) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(R, np.ndarray))
-        self._ttRm[target] = R
-        self._ttRinvm[target] = np.linalg.inv(R)
-
-    def setMeasurementMatrix(self, target : Target, H : np.ndarray) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(H, np.ndarray))
-        self._ttHm[target] = H
-
-    def getMeasurementMatrix(self, target : Target) -> np.ndarray:
-        return self._ttHm[target]
-
-    def getMeasurementNoiseMatrix(self, target : Target) -> np.ndarray:
-        return self._ttRm[target]
-
-    def getMeasurementNoiseInverseMatrix(self, target : Target) -> np.ndarray:
-        return self._ttRinvm[target]
-
-    def getMeasurement(self, p : np.ndarray, target : Target):
-        q = target.p()
-        quality = self.getSensingQuality(target)(p, q)
-        H = self.getMeasurementMatrix(target)
-        return quality * H @ target.internalState() + np.random.normal(0, 0.1, H.shape[0])   
+from Sensor import *
 
 def OmegaDot(p, Omega, target : Target, sensor : Sensor, inTargetRegion = False):
     A = target.A
@@ -130,7 +16,8 @@ def OmegaDot(p, Omega, target : Target, sensor : Sensor, inTargetRegion = False)
         return unmonitored  - mf*mf*Omega @ H.T @ R_inv @ H @ Omega
     return unmonitored
 
-def UnmonitoredOmegaSimulator(target : Target, sensor : Sensor, N) -> cad.Function:
+
+def unmonitoredOmegaSimulator(target : Target, sensor : Sensor, N) -> cad.Function:
     # states
     no = target.getNumberOfStates()
     Omega = cad.SX.sym('Omega', no*no)
@@ -189,6 +76,7 @@ def UnmonitoredOmegaSimulator(target : Target, sensor : Sensor, N) -> cad.Functi
     omegaSim = cad.Function('OmegaSim', [params], [J, cad.vertcat(*mse), cad.vertcat(*OmegaTrajectory)], ['p'], ['Ik', 'mse', 'OmegaTrajectory'])
     return omegaSim
 
+
 def cadToNP(x : cad.SX, nrow=None, ncol=None) -> np.ndarray:
     if nrow is None:
         return x.full().flatten()
@@ -196,7 +84,8 @@ def cadToNP(x : cad.SX, nrow=None, ncol=None) -> np.ndarray:
         return x.full().flatten().reshape(-1,nrow)
     return np.reshape(x.full().flatten(), (nrow, ncol), order='F')
 
-def SimulateUnmonitoredOmega(fun : cad.Function, tf, Omega0):
+
+def simulateUnmonitoredOmega(fun : cad.Function, tf, Omega0):
     
     # set params and evaluate
     params = cad.vertcat(tf, np.matrix(Omega0).getA1())
@@ -217,6 +106,7 @@ def SimulateUnmonitoredOmega(fun : cad.Function, tf, Omega0):
 
     return mseTrajectory, omegaTrajectory, Ik, dIk_dtf
 
+
 class SwitchingPoint:
     def __init__(self, p : np.ndarray):
         self._p : np.ndarray = p
@@ -229,6 +119,7 @@ class SwitchingPoint:
             kwargs['marker'] = 'o'
         return PlotObject(ax.plot(self._p[0], self._p[1], **kwargs))
 
+
 class SwitchingParameters:
     def __init__(self, phi : SwitchingPoint, psi : SwitchingPoint, tf : float, Omega0 : Dict[Target, np.ndarray] = {}, N = 100):
         self._phi : SwitchingPoint = phi
@@ -237,6 +128,7 @@ class SwitchingParameters:
         self._tf : float = tf
         self._N = N
 
+
 class CovarianceParameters:
     def __init__(self, target : Target, sensor : Sensor, Omega0 : np.ndarray):
         self.A : np.ndarray = target.A
@@ -244,6 +136,7 @@ class CovarianceParameters:
         self.H : np.ndarray = sensor.getMeasurementMatrix(target)
         self.R_inv : np.ndarray = sensor.getMeasurementNoiseInverseMatrix(target)
         self.sqf : SensingQualityFunction = sensor.sensingQualityFunction(target)
+
 
 class TrajectorySegment:
     def __init__(self, ucs : Dict[Target, cad.Function], params : SwitchingParameters = None):
@@ -299,6 +192,7 @@ class TrajectorySegment:
     # plotters
     def plotInMissionSpace(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
         return self.pTrajectory.plotStateVsState(0, 1, ax, **kwargs)
+
 
 class MonitoringController:
     def __init__(self, target : Target, sensor : Sensor, N : int = 100) -> None:
@@ -492,6 +386,7 @@ class MonitoringController:
         # extract trajectories
         return pTrajectory, mseTrajectory, omegaTrajectory, uTrajectory, sol['f'].full().flatten()[0], sol['lam_p']
 
+
 class MonitoringSegment(TrajectorySegment):
     def __init__(self, target : Target, sensor : Sensor, ucs : Dict[Target, cad.Function], params : SwitchingParameters = None):
         self._target : Target = target
@@ -510,11 +405,12 @@ class MonitoringSegment(TrajectorySegment):
         for target in self._ucs.keys():
             if target == self._target:
                 continue
-            mse, Omega, Ik, dIk_dt = SimulateUnmonitoredOmega(self._ucs[target], self.params._tf, self.params._Omega0[target])
+            mse, Omega, Ik, dIk_dt = simulateUnmonitoredOmega(self._ucs[target], self.params._tf, self.params._Omega0[target])
             self.updateMSETrajectory(target, mse)
             self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
             self._cost += Ik
             self._gradient_tau += dIk_dt       
+
 
 class SwitchingSegment(TrajectorySegment):
     def __init__(self, ucs : Dict[Target, cad.Function], params : SwitchingParameters = None):
@@ -531,11 +427,12 @@ class SwitchingSegment(TrajectorySegment):
 
         # update mse trajectories
         for target in self._ucs.keys():
-            mse, Omega, Ik, dIk_dtf = SimulateUnmonitoredOmega(self._ucs[target], self.params._tf, self.params._Omega0[target])
+            mse, Omega, Ik, dIk_dtf = simulateUnmonitoredOmega(self._ucs[target], self.params._tf, self.params._Omega0[target])
             self.updateMSETrajectory(target, mse)
             self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
             self._cost += Ik
             self._gradient_tau += dIk_dtf
+
 
 class Cycle:
     def __init__(self, ts : List[TrajectorySegment], omega0 : Dict[Target, np.ndarray] = {}, t0 : float = 0.0, counter : int = 0):
@@ -704,7 +601,8 @@ class Cycle:
         if add_labels:
             plt.legend()
         return po
-    
+
+  
 class Agent:
     def __init__(self, world : World, sensor : Sensor) -> None:
         self._world : World = world
@@ -743,7 +641,7 @@ class Agent:
 
     def initialize(self) -> None:
         for target in self.world().targets():
-            self._ucs[target] = UnmonitoredOmegaSimulator(target, self.sensor(), self._N)
+            self._ucs[target] = unmonitoredOmegaSimulator(target, self.sensor(), self._N)
         
         self._gpp = GlobalPathPlanner(self.world())
         self._gpp._plot_options.toggle_all_plotting(False)

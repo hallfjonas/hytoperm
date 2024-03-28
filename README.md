@@ -17,3 +17,5 @@ We split the problem into an
     - they return a `PlotObject` containing all plot objects that were added by the function
     - they take at least the arguments ax and **kwargs. ax is assumed to be either None or a matplotlib Axes. If ax is None then the matplotlib function `gca` is invoked to retrieve the current active Axes.
 - Each class definition is seperated by two lines
+- Respect the 80 column limit in all code files. Exceptions:
+    - property comments 
