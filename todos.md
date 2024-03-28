@@ -1,58 +1,24 @@
 
-# Paper CDC 2024!! Let's goooo
 
 ## TOP X
-1. DONE BY EOD March 21
-- Write one paragraph steady vs non-steady (without judgement)
-    - trade-off: 
-        - steady: computation cost per cycle is lower and gradients are more precise
-        - non-steady: convergence rate
-    - 
-- in numerical results 
--
+1. unification of property and member names
+2. documentation
+3. warm starting the tree structure in HighLevelPlanner
+    - one tree per target to capture how to reach that target quickest from anywhere in the mission space
+4. improve code quality: 
+    - automated getters and setters in python?
+    - improve plot functions (increase flexibility)
+    - ensure that all plot functions work coherently
 
+## Coding Todos (Mar 28 2024)
+1. unification of property and member names
+2. organize files, classes, functions 
+3. documentation
 
-2. Use large results that I have. 
-2.1 Make comparison: 1 steady state iter (i.e., change every cycle ) vs 100?
-2.2 Show the comparison for two tau values (one different one similar)
-2.3 Show that they converge to same cost but different configuration
-2.4 Local optimality clearly a challenge
-
-3. Investigate 'nlp_g failed Inf detected for output g'
-    - check this https://github.com/casadi/casadi/wiki/FAQ:-Why-am-I-getting-%22NaN-detected%22in-my-optimization%3F
-
-4. Explore sensitivity towards intialization of monitoring durations
-4.1 Randomize initial monitoring durations.
-4.2 Show optimized cost for 100 experiments... (small example)
-
-## Coding Todos
-1.0 Investigate 'nlp_g failed Inf detected for output g'
-    - check this https://github.com/casadi/casadi/wiki/FAQ:-Why-am-I-getting-%22NaN-detected%22in-my-optimization%3F
-
-## writing specifications
-### contributions
-- vector fields (in problem formulation)
-- sensing regions (in view of target fading effects or similar) (in problem formulation)
-- optimization scheme (own section)
-
-### global planning:
-
-### decomposition into local control problems:
-
-### optimizing the global cost (bilevel optimization)
-
-### experiments:
-- illustrative small:
-    - negative result: put in small failed and discuss IPOPT and u bound
-    - controls plot cleaned up
-- demonstrative medium sized:
-    - with sinusoidal sensing (if it is reliable enough)
-    - find good balance between Q and sensing quality
-    - three plots: TSP Sol, Initial Cycle, Optimal Cycle
-    - steady state MSE plot
 
 ### future work
-- limitation: global optimization suboptimality due to missing optimization of switching points
+- optimize switching points/switching segments
+- update global planner online (intertwined with optimization of switching segments)
 - adequate termination criterion/improved bilevel optimization
     - backtracking
     - cost descent
@@ -60,17 +26,12 @@
 - utilization of non-smooth OCP solvers on switching level
 - relaxing vector field assumption || v || < || u|| 
     - come up with conditions for existence of solutions
-
-## needs more testing
+- explore sensitivity wrt initialization of monitoring durations
 
 ## Nice to have
-- improve optimization convergence
-    - the numerical gradients near an active constraint (tau >= min_tau) is off. Why?
-    - slowly allow the constraints to become active
-    - can I get a dual variable somehow?
-    - does it make sense to implement an interior point method?
 - warm starting for monitoring segments
     - maybe not too important as we are utilizing IPOPT
-- warm starting the tree structure in HighLevelPlanner
-    - one tree per target to generate capture how to reach that target quickest...
 - remove the constraints in CPRegion that are not required (would make constraint activation much more efficient)
+- 1.0 Investigate 'nlp_g failed Inf detected for output g'
+    - check this https://github.com/casadi/casadi/wiki/FAQ:-Why-am-I-getting-%22NaN-detected%22in-my-optimization%3F
+    - doesn't seem to affect optimization as of right now...
