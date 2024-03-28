@@ -1,16 +1,16 @@
 '''
-pyTree: A list-derived TREE data structure in Python 
-
-Created on Aug 21, 2012
-
-@author: yoyzhou
+The tree data structures used for the high level planner. 
 '''
+
+# internal imports
+from World import Region
+from Plotters import PlotObject
+
+# external imports
 import collections
 import numpy as np
 import matplotlib.pyplot as plt
-from World import Region
-from typing import List, Set
-from Plotters import PlotObject
+from typing import Set
 
 class Node:
     
@@ -23,25 +23,27 @@ class Node:
         self.UpdatePosition(p)         
         self.UpdateRegions(r, active_region_to_parent)         
 
+    # getters
     def p(self) -> np.ndarray:
         return self._p
     
     def regions(self) -> Set[Region]:
         return self._r
         
-    def activate_region_to_parent(self, r : Region) -> None:
-        assert(isinstance(r, Region))
-        assert(r in self._r)
-        self._rtp = r
-
-    def active_region_to_parent(self) -> Region:
-        return self._rtp
-
     def costToRoot(self) -> float:
         return self._ctr
     
     def costToParent(self) -> float:
         return self._ctp
+
+    def active_region_to_parent(self) -> Region:
+        return self._rtp
+    
+    # modifiers
+    def activate_region_to_parent(self, r : Region) -> None:
+        assert(isinstance(r, Region))
+        assert(r in self._r)
+        self._rtp = r
 
     def UpdatePosition(self, p : np.ndarray) -> None:
         assert(isinstance(p, np.ndarray))
@@ -75,7 +77,25 @@ class Node:
         for r in self.regions():
             po.add(ax.plot(r.p()[0], r.p()[1], 'gx'))
         return po
+'''
+pyTree: A list-derived TREE data structure in Python 
 
+Created on Aug 21, 2012
+
+@author: yoyzhou
+
+Modifications made (Jonas Hall):
+    - every data property is a Node object
+    - new methods:
+        - setParent
+        - hasParent
+        - getData
+        - getNodesInRegion
+        - getNeighborhood
+        - cut
+        - getPathToRoot
+        - plot functions
+'''
 class Tree(object):
     '''
         A Python implementation of Tree data structure 
