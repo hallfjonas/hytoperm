@@ -101,7 +101,7 @@ class PlotAttributes:
     partition = PlotAttribute(c='black')
     vector_field = PlotAttribute(c='black', a=0.3)
     cmap = 'viridis'
-    sensor_quality = PlotAttribute(aa=True, a=0.4, cm=cmap)
+    sensor_quality = PlotAttribute(aa=True,a=0.4,cm=cmap,c=None,ls=None,lw=None)
     partition_background = PlotAttribute(
         c=get_cmap(sensor_quality.cmap)(0.001), 
         a=sensor_quality.alpha

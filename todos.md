@@ -10,11 +10,13 @@
     - improve plot functions (increase flexibility)
     - ensure that all plot functions work coherently
 
-## Coding Todos (Mar 28 2024)
+## Coding Todos (Mar 29 2024)
 1. unification of property and member names
+    - Agent
+    - World
+    - HighLevel
 2. organize files, classes, functions 
 3. documentation
-
 
 ### future work
 - optimize switching points/switching segments

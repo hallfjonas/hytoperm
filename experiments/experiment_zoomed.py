@@ -34,7 +34,7 @@ if not os.path.exists(exp_dir):
 # Generate experiment
 def load_experiment() -> Experiment:
     if not os.path.exists(exp_file):
-        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
         assert(isinstance(ex, Experiment))
         ex.serialize(exp_file)

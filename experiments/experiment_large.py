@@ -36,7 +36,7 @@ if not os.path.exists(exp_dir):
 # Generate experiment
 def load_experiment() -> Experiment:
     if not os.path.exists(exp_file):
-        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
         assert(isinstance(ex, Experiment))
         ex.serialize(exp_file)
@@ -223,7 +223,7 @@ def rrt_plot(savefig = True):
 if __name__ == '__main__':
     
     if True or not os.path.exists(exp_file):
-        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
         assert(isinstance(ex, Experiment))
         ex.serialize(exp_file)
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     fig, ax = ex.PlotWorld(fill_empty_regions=False)
     rrt = RRT(ex._world.regions())
     rrt._plot_options = PlotOptions()
-    rrt._plot_options.toggle_all_plotting(False)
+    rrt._plot_options.toggleAllPlotting(False)
     r, p = rrt.planPath(ex._world.targets()[0].p(), ex._world.targets()[1].p())
 
     rrt.best_path.getRoot().PlotTree(ax=ax, color='black', linewidth=1, alpha=0.2)

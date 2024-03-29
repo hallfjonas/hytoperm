@@ -26,7 +26,7 @@ if not os.path.exists(exp_dir):
 # Generate experiment
 def load_hl_sol() -> Experiment:
     if not os.path.exists(exp_hl_file):
-        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
         ex._agent.computeVisitingSequence()
         ex.serialize(exp_hl_file)

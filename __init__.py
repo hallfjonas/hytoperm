@@ -1,3 +1,3 @@
 from World import *
 from DataStructures import *
-from HighLevel import *
+from GlobalPlanning import *

@@ -2,15 +2,17 @@
 The tree data structures used for the high level planner. 
 '''
 
-# internal imports
-from World import Region
-from Plotters import PlotObject
-
 # external imports
+from __future__ import annotations
 import collections
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Set
+
+# internal imports
+from World import Region
+from Plotters import PlotObject
+
 
 class Node:
     
@@ -69,8 +71,8 @@ class Node:
     def UpdateCostToParent(self, costToParent : float):
         self._ctp = costToParent
 
-    def Plot(self, ax : plt.Axes = plt, style='ro', **kwargs) -> PlotObject:
-        return PlotObject(ax.plot(self.p()[0], self.p()[1], style, **kwargs))
+    def Plot(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+        return PlotObject(ax.plot(self.p()[0], self.p()[1], **kwargs))
 
     def PlotAffiliatedRegions(self, ax : plt.Axes = plt) -> PlotObject:
         po = PlotObject()
@@ -108,7 +110,7 @@ class Tree(object):
         '''
         self.__data = data
         self.__children = []
-        self.__parent=None  #private parent attribute
+        self.__parent : Tree = None                                             # private parent attribute
                 
         if children: #construct a Tree with child or children
             if isinstance(children, Tree):
@@ -183,7 +185,7 @@ class Tree(object):
         self.getData().UpdateCostToParent(costToParent)
         self.getData().UpdateCostToRoot(costToParent + parent.getData().costToRoot())        
 
-    def getParent(self):
+    def getParent(self) -> Tree:
         """
             Get node's parent node.
         """

@@ -1,7 +1,7 @@
       
 from World import *
 from Dynamics import *
-from HighLevel import *
+from GlobalPlanning import *
 from Optimization import *
 from Sensor import *
 
@@ -613,25 +613,25 @@ class Agent:
         self._cycle : Cycle = None
 
         # optimization parameters
-        self._tau : Dict[int, float] = {}                                   # map a target visit index to a monitoring duration
-        self._lambda : Dict[int, float] = {}                                # map a target visit index to a monitoring duration dual
-        self._tau_min : Dict[int, float] = {}                               # map a target visit index to a minimum monitoring duration
-        self._op : OptimizationParameters = OptimizationParameters()        # optimization parameters
+        self._tau : Dict[int, float] = {}                                       # map a target visit index to a monitoring duration
+        self._lambda : Dict[int, float] = {}                                    # map a target visit index to a monitoring duration dual
+        self._tau_min : Dict[int, float] = {}                                   # map a target visit index to a minimum monitoring duration
+        self._op : OptimizationParameters = OptimizationParameters()            # optimization parameters
         
         # optimization statistics
-        self._kkt_residuals : Dict[int, float] = {}                         # map a target visit index to a KKT residual
-        self._global_costs : List[float] = []                               # global cost (per steady state cycle) 
-        self._global_gradient_norms : List[float] = []                      # global gradient norm (per steady state cycle) 
-        self._tau_vals : List[np.ndarray] = []                              # monitoring durations (per steady state cycle)
-        self._kkt_violations : List[np.ndarray] = []                        # KKT residuals (per steady state cycle)
-        self._steady_state_iters : List[int] = []                           # number of iterations to reach steady state
-        self._alphas : List[float] = []                                     # step sizes (per steady state cycle)
-        self._isSteadyState : List[bool] = []                               # steady state reached (per steady state cycle)
+        self._kkt_residuals : Dict[int, float] = {}                             # map a target visit index to a KKT residual
+        self._global_costs : List[float] = []                                   # global cost (per steady state cycle) 
+        self._global_gradient_norms : List[float] = []                          # global gradient norm (per steady state cycle) 
+        self._tau_vals : List[np.ndarray] = []                                  # monitoring durations (per steady state cycle)
+        self._kkt_violations : List[np.ndarray] = []                            # KKT residuals (per steady state cycle)
+        self._steady_state_iters : List[int] = []                               # number of iterations to reach steady state
+        self._alphas : List[float] = []                                         # step sizes (per steady state cycle)
+        self._isSteadyState : List[bool] = []                                   # steady state reached (per steady state cycle)
 
         # decomposition
         self._switchingSegments : List[SwitchingSegment] = []
         self._monitoringSegments : List[MonitoringSegment] = []
-        self._N = 100                                                       # number of discretization nodes per region
+        self._N = 100                                                           # number of discretization nodes per region
 
         # simulation functions for forward integration of covariance matrices
         self._ucs : Dict[Target, cad.Function] = {}
@@ -644,7 +644,7 @@ class Agent:
             self._ucs[target] = unmonitoredOmegaSimulator(target, self.sensor(), self._N)
         
         self._gpp = GlobalPathPlanner(self.world())
-        self._gpp._plot_options.toggle_all_plotting(False)
+        self._gpp._plot_options.toggleAllPlotting(False)
    
     def computeVisitingSequence(self) -> None:
         self.gpp().solveTSP()

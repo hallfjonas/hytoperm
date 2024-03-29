@@ -1,13 +1,16 @@
 
-from World import *
-from Agent import *
-from experiments.small.config import exporter
-
+# external imports
+from __future__ import annotations
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib import figure
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
+
+from World import *
+from Agent import *
+from experiments.small.config import exporter
+
 
 class Experiment:
 
@@ -85,7 +88,7 @@ class Experiment:
     def voronoi(self) -> Voronoi:
         return self._voronoi
 
-    def PlotWorld(self, ax : plt.Axes = None, with_sensor_quality=False, savefig = False, add_target_labels=True, fill_empty_regions=True) -> Tuple[plt.Figure, plt.Axes]:
+    def PlotWorld(self, with_sensor_quality=False, savefig = False, add_target_labels=True, fill_empty_regions=True) -> Tuple[plt.Figure, plt.Axes]:
         fig, ax = plt.subplots()
         ax.set_aspect('equal', 'box')
         fig.tight_layout()
@@ -127,6 +130,20 @@ class Experiment:
         with open(filename, "wb") as f:
             pickle.dump(self, f)
     
+    # static methods
+    @staticmethod
+    def generate(n_sets=15, fraction=0.5, seed=784) -> Experiment:
+        if seed is not None:
+            np.random.seed(seed)
+        ex = Experiment()
+        ex.AddRandomVoronoiPoints(n_sets)
+        ex.GeneratePartitioning()
+        ex.AddRandomTargets(fraction=fraction)
+        ex.AssignRandomAgent()
+        return ex
+
+    @staticmethod
     def deserialize(fileame : str):
         with open(fileame, "rb") as f:
             return pickle.load(f)
+        
