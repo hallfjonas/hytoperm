@@ -1,10 +1,11 @@
+
+# external imports
 from matplotlib.cm import get_cmap
 import matplotlib.pyplot as plt
 from pdfCropMargins import crop
 import os
 from dataclasses import dataclass
 
-plt.rcParams['text.usetex'] = True
 
 '''
 Exporter: A class for export automation of matplotlib figures.
@@ -62,9 +63,9 @@ class PlotAttribute:
             m=None, 
             ms=None, 
             a=1, 
-            cm=None, 
+            cm=None,
             aa=None
-        ) -> None:
+            ) -> None:
         self.color = c
         self.linestyle = ls
         self.linewidth = lw
@@ -128,7 +129,7 @@ class PlotAttributes:
 
 
 '''
-extendKeywordArgs: Extend a dictionary with keyword arguments.
+extendKwargs: Extend a dictionary with keyword arguments.
 
 Created on: Mar 28 2024
 
@@ -152,7 +153,8 @@ Created on: Mar 28 2024
 
 @author: Jonas Hall
 
-@details: This container class can be used to store matplotlib objects to simplify their removal later on.
+@details: This container class can be used to store matplotlib objects to 
+    simplify their removal later on.
 '''
 class PlotObject:
     def __init__(self, *args) -> None:
@@ -174,3 +176,19 @@ class PlotObject:
         for obj in self._objs:
             obj.remove()
         self._objs.clear()
+
+
+'''
+getAxes: Get the current axis.
+
+Created on: Apr 1 2024
+
+@author: Jonas Hall
+
+@details: Returns the current axis if ax is None, otherwise returns ax.
+'''
+def getAxes(ax : plt.Axes = None) -> plt.Axes:
+    if ax is None:
+        ax = plt.gca()
+    assert(isinstance(ax, plt.Axes))
+    return ax

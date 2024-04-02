@@ -38,7 +38,7 @@ def load_hl_sol() -> Experiment:
 def load_solution(filename, op : OptimizationParameters) -> Experiment:
     if not os.path.exists(filename):
         ex = load_hl_sol()
-        ex._agent._op = op.copy()
+        ex._agent.op = op.copy()
         ex._agent.optimizeCycle()
         ex.serialize(filename)
     else:
@@ -46,7 +46,7 @@ def load_solution(filename, op : OptimizationParameters) -> Experiment:
     return ex
 
 # Create optimization plots
-def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = False):
+def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False):
     
     # shift cycle to relative time
     startTime = ex._agent._cycle.getStartTime()
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     steady = load_solution(exp_res_steady_file, op)
 
     # compare cycle
-    fig, ax = steady.PlotWorld(steady, with_sensor_quality=True, add_target_labels=False, savefig=False)
+    fig, ax = steady.plotWorld(steady, with_sensor_quality=True, add_target_labels=False)
     steady._agent.plotCycle(ax, linestyle='-', color='orange', linewidth=2, label='$\mathrm{with~steady~state~iterations}$')
     non_steady._agent.plotCycle(ax, linestyle='--', color='blue', linewidth=2, label='$\mathrm{no~steady~state~iterations}$')
     exporter.export('world_steady_vs_non_steady', fig)

@@ -11,19 +11,25 @@ from typing import Set
 
 # internal imports
 from World import Region
-from Plotters import PlotObject
+from Plotters import PlotObject, getAxes
 
 
 class Node:
-    
-    def __init__(self, p : np.ndarray, r : Set[Region], active_region_to_parent : Region = None, costToRoot : float = 0, costToParent : float = 0) -> None:
-        self._r : Set[Region] = set()       # regions
-        self._ctr : float = costToRoot      # cost to root
-        self._ctp : float = costToParent    # cost to parent
-        self._rtp : Region = None          # active region to parent cost
+    def __init__(
+            self, 
+            p : np.ndarray, 
+            r : Set[Region], 
+            active_region_to_parent : Region = None, 
+            costToRoot : float = 0, 
+            costToParent : float = 0
+            ) -> None:
+        self._r : Set[Region] = set()                                           # regions
+        self._ctr : float = costToRoot                                          # cost to root
+        self._ctp : float = costToParent                                        # cost to parent
+        self._rtp : Region = None                                               # active region to parent cost
         self._p : np.ndarray = None
-        self.UpdatePosition(p)         
-        self.UpdateRegions(r, active_region_to_parent)         
+        self.updatePosition(p)         
+        self.updateRegions(r, active_region_to_parent)         
 
     # getters
     def p(self) -> np.ndarray:
@@ -38,7 +44,7 @@ class Node:
     def costToParent(self) -> float:
         return self._ctp
 
-    def active_region_to_parent(self) -> Region:
+    def activeRegionToParent(self) -> Region:
         return self._rtp
     
     # modifiers
@@ -47,34 +53,36 @@ class Node:
         assert(r in self._r)
         self._rtp = r
 
-    def UpdatePosition(self, p : np.ndarray) -> None:
+    def updatePosition(self, p : np.ndarray) -> None:
         assert(isinstance(p, np.ndarray))
         self._p = p
 
-    def UpdateRegions(self, r : Set[Region], rtp : Region) -> None:
+    def updateRegions(self, r : Set[Region], rtp : Region) -> None:
         assert(isinstance(r, set))
         for region in r:
-            self.AddRegion(region)
+            self.addRegion(region)
 
         if (isinstance(rtp, Region)):
             self.activate_region_to_parent(rtp)
         else:
             assert(rtp is None)
 
-    def AddRegion(self, r : Region) -> None:
+    def addRegion(self, r : Region) -> None:
         assert(isinstance(r, Region))
         self._r.add(r)
         
-    def UpdateCostToRoot(self, costToRoot : float):
+    def updateCostToRoot(self, costToRoot : float):
         self._ctr = costToRoot
 
-    def UpdateCostToParent(self, costToParent : float):
+    def updateCostToParent(self, costToParent : float):
         self._ctp = costToParent
 
-    def Plot(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
         return PlotObject(ax.plot(self.p()[0], self.p()[1], **kwargs))
 
-    def PlotAffiliatedRegions(self, ax : plt.Axes = plt) -> PlotObject:
+    def plotAffiliatedRegions(self, ax : plt.Axes = None) -> PlotObject:
+        ax = getAxes(ax)
         po = PlotObject()
         for r in self.regions():
             po.add(ax.plot(r.p()[0], r.p()[1], 'gx'))
@@ -106,7 +114,8 @@ class Tree(object):
     def __init__(self, data : Node, children = None):
         '''
         @param data: content of this node
-        @param children: sub node(s) of Tree, could be None, child (single) or children (multiple)
+        @param children: sub node(s) of Tree, could be None, child (single) or 
+            children (multiple)
         '''
         self.__data = data
         self.__children = []
@@ -131,13 +140,15 @@ class Tree(object):
         
             
         """
-            Hide the __parent and __children attribute from using dot assignment.
-            To add __children, please use addChild or addChildren method; And
-            node's parent isn't assignable
+            Hide the __parent and __children attribute from using dot assignment
+            To add __children, please use addChild or addChildren method
+            And node's parent isn't assignable
         """
             
         if name in ('parent', '__parent', 'children'):
-                raise AttributeError("To add children, please use addChild or addChildren method.")
+                raise AttributeError(
+                    "To add children, use addChild or addChildren method."
+                    )
         elif name in ('__data', 'data'):
             assert(isinstance(value, Node))
             self.__data = value
@@ -176,14 +187,15 @@ class Tree(object):
 
             Parameters:
             - parent (Tree): The parent node to be set.
-            - costToParent (float): The time to reach the parent node from the root.
+            - costToParent (float): The time to reach parent node.
         """
         if not isinstance(parent, Tree):
             raise TypeError('Parent of Tree should be a Tree type.')
             
         parent.addChild(self)
-        self.getData().UpdateCostToParent(costToParent)
-        self.getData().UpdateCostToRoot(costToParent + parent.getData().costToRoot())        
+        self.getData().updateCostToParent(costToParent)
+        costToRoot = costToParent + parent.getData().costToRoot()
+        self.getData().updateCostToRoot(costToRoot)
 
     def getParent(self) -> Tree:
         """
@@ -194,7 +206,8 @@ class Tree(object):
     def getChild(self, index):
         """  
             Get node's No. index child node.
-            @param index: Which child node to get in children list, starts with 0 to number of children - 1
+            @param index: Which child node to get in children list, starts with 
+                0 to number of children - 1
             @return:  A Tree node presenting the number index child
             @raise IndexError: if the index is out of range 
         """
@@ -226,14 +239,15 @@ class Tree(object):
     
     def getNode(self, content, includeself = True) -> Node:
         """
-                         
-            Get the first matching item(including self) whose data is equal to content. 
-            Method uses data == content to determine whether a node's data equals to content, note if your node's data is 
-            self defined class, overriding object's __eq__ might be required.
-            Implement Tree travel (level first) algorithm using queue
+            Get the first matching item(including self) whose data is equal to 
+            content. Method uses data == content to determine whether a node's 
+            data equals to content, note if your node's data is self defined 
+            class, overriding object's __eq__ might be required. Implement Tree 
+            travel (level first) algorithm using queue
 
             @param content: node's content to be searched 
-            @return: Return node which contains the same data as parameter content, return None if no such node
+            @return: Return node which contains the same data as parameter 
+                content, return None if no such node
         """
         
         nodesQ = []
@@ -280,7 +294,10 @@ class Tree(object):
                 for rn in n.regions():
                     if rq == rn:
                         if node in neighborhood:
-                            ValueError("Multiple regions of intersection... this should not occur.")
+                            ValueError(
+                                "Multiple regions of intersection... " +
+                                " this should not occur."
+                                )
                         neighborhood[node] = rq
             queue.extend(node.getChildren())
         return neighborhood
@@ -290,7 +307,8 @@ class Tree(object):
             Cuts all branches of higher cost than c.
         """
         if self.getData().costToRoot() > c:
-            self.getParent().delChild(self.getParent().getChildren().index(self))
+            self_child = self.getParent().getChildren().index(self)
+            self.getParent().delChild(self_child)
         else:
             for child in self.getChildren():
                 child.cut(c)
@@ -298,7 +316,8 @@ class Tree(object):
     def delChild(self, index):
         """  
             Delete node's No. index child node.
-            @param index: Which child node to delete in children list, starts with 0 to number of children - 1
+            @param index: Which child node to delete in children list, starts 
+                with 0 to number of children - 1
             @raise IndexError: if the index is out of range 
         """
         try:
@@ -309,9 +328,10 @@ class Tree(object):
     def delNode(self, content):
          
         """
-            Delete the first matching item(including self) whose data is equal to content. 
-            Method uses data == content to determine whether a node's data equals to content, note if your node's data is 
-            self defined class, overriding object's __eq__ might be required.
+            Delete the first matching item(including self) whose data is equal 
+            to content. Method uses data == content to determine whether a 
+            node's data equals to content, note if your node's data is self 
+            defined class, overriding object's __eq__ might be required. 
             Implement Tree travel (level first) algorithm using queue
 
             @param content: node's content to be searched 
@@ -374,14 +394,17 @@ class Tree(object):
                 |___ C03
                 |     |___ C31
             A more elegant way to achieve this function using Stack structure, 
-            for constructing the Nodes Stack push and pop nodes with additional level info. 
+            for constructing the Nodes Stack push and pop nodes with additional 
+            level info. 
         """
 
         level = 0        
         NodesS = [self, level]   #init Nodes Stack
         
         while NodesS:
-            head = NodesS.pop() #head pointer points to the first item of stack, can be a level identifier or tree node 
+            # head pointer points to the first item of stack
+            # can be a level identifier or tree node 
+            head = NodesS.pop() 
             if isinstance(head, int):
                 level = head
             else:
@@ -389,10 +412,12 @@ class Tree(object):
                 children = head.getChildren()
                 children.reverse()
                 
+                # push level info if stack is not empty
                 if NodesS:
-                    NodesS.append(level)    #push level info if stack is not empty
+                    NodesS.append(level)    
                 
-                if children:          #add children if has children nodes 
+                # add children if has children nodes 
+                if children:          
                     NodesS.extend(children)
                     level += 1
                     NodesS.append(level)
@@ -462,7 +487,14 @@ class Tree(object):
             up -= 1
         return parent
 
-    def plotPathToParent(self, ax : plt.Axes = plt, annotate_cost = False, plot_direction = False, style='', **kwargs) -> PlotObject:
+    def plotPathToParent(
+            self, 
+            ax : plt.Axes = None, 
+            annotate_cost = False, 
+            plot_direction = False,
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
         """
             Plots the path to the parent.
         """
@@ -472,17 +504,32 @@ class Tree(object):
         p = self.getData().p()
         q = self.getParent().getData().p()
         
-        po = PlotObject(ax.plot([p[0], q[0]] , [p[1], q[1]], style, **kwargs))
+        po = PlotObject(ax.plot([p[0], q[0]] , [p[1], q[1]], **kwargs))
         if annotate_cost:
             normal = [p[1] - q[1], q[0] - p[0]]
             text_pos = (p + q)/2 + 0.1*normal
-            po.add(ax.annotate(str(round(self.getData().costToParent(), 2)), ((p[0] + q[0])/2, (p[1] + q[1])/2), textcoords="offset points", xytext=text_pos, ha='center'))
+            po.add(ax.annotate(
+                str(round(self.getData().costToParent(), 2)), 
+                ((p[0] + q[0])/2, (p[1] + q[1])/2), 
+                textcoords="offset points", 
+                xytext=text_pos, 
+                ha='center'
+                ))
         
         if self.getParent().isRoot() and plot_direction:
             dx = q[0] - p[0]
             dy = q[1] - p[1]
-            nrm = np.sqrt(dx**2 + dy**2)
-            po.add(ax.arrow(p[0], p[1], dx, dy, width=0, head_width = 0.02, head_length=0.033, overhang=0.3, length_includes_head=True,**kwargs))
+            po.add(ax.arrow(
+                p[0], 
+                p[1], 
+                dx, 
+                dy, 
+                width=0, 
+                head_width = 0.02, 
+                head_length=0.033, 
+                overhang=0.3, 
+                length_includes_head=True,**kwargs
+                ))
             
         return po
 
@@ -494,9 +541,21 @@ class Tree(object):
         if self.isRoot():
             return self.getData().p().reshape(2,1)
         else:
-            return np.concatenate((self.getData().p().reshape(2,1), self.getParent().getPathToRoot()), axis=1)
+            return np.concatenate((
+                self.getData().p().reshape(2,1), 
+                self.getParent().getPathToRoot()), 
+                axis=1
+                )
 
-    def plotPathToRoot(self, po : PlotObject = None, ax : plt.Axes = plt, annotate_cost = False, plot_direction = False, **kwargs) -> PlotObject:
+    def plotPathToRoot(
+            self, 
+            po : PlotObject = None, 
+            ax : plt.Axes = None, 
+            annotate_cost = False, 
+            plot_direction = False, 
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
         """
             Plots the path to the root.
         """
@@ -506,11 +565,23 @@ class Tree(object):
         if po is None:
             po = PlotObject()
         
-        po.add(self.plotPathToParent(ax, annotate_cost=annotate_cost, plot_direction=plot_direction, **kwargs))
-        self.getParent().plotPathToRoot(po, ax, annotate_cost=annotate_cost, plot_direction=plot_direction, **kwargs)
+        po.add(self.plotPathToParent(
+            ax, 
+            annotate_cost=annotate_cost, 
+            plot_direction=plot_direction, 
+            **kwargs
+            ))
+        self.getParent().plotPathToRoot(
+            po, 
+            ax, 
+            annotate_cost=annotate_cost, 
+            plot_direction=plot_direction, 
+            **kwargs
+            )
         return po
 
-    def PlotTree(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+    def plotTree(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
         po = PlotObject()
         queue = [self]
         while queue:

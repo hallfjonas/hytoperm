@@ -2,6 +2,7 @@
 # internal imports
 from World import *
 
+
 '''
 SensingQualityFunction: Abstract class definition for any sensing function.
 
@@ -18,7 +19,7 @@ class SensingQualityFunction:
         pass
 
 
-class ConstantSensingQualityFunction(SensingQualityFunction):
+class ConstantgetQualityFunction(SensingQualityFunction):
     def __init__(self, c = 1):
         self._c : float = None
         self.assignConstant(c)
@@ -32,7 +33,7 @@ class ConstantSensingQualityFunction(SensingQualityFunction):
         return self._c
 
 
-class GaussianSensingQualityFunction(SensingQualityFunction):
+class GaussiangetQualityFunction(SensingQualityFunction):
     def __init__(self, c = 50):
         self._c : float = None
         self.assignConstant(c)
@@ -47,7 +48,7 @@ class GaussianSensingQualityFunction(SensingQualityFunction):
         return cad.exp(-self._c*sqr_dist)
 
 
-class SinusoidalSensingQualityFunction(SensingQualityFunction):
+class SinusoidalgetQualityFunction(SensingQualityFunction):
     def __init__(self, c1 = 3.0, c2 = 20.0, c3 = 40.0):
         self._c1 : float = None
         self._c2 : float = None
@@ -81,10 +82,10 @@ Created on: Mar 28 2024
 class Sensor:
     def __init__(self, p : np.ndarray = None) -> None:
         self._p : np.ndarray = None
-        self._ttsqm : Dict[Target, SensingQualityFunction] = {}     # target to sensing quality function mapper
-        self._ttHm : Dict[Target, np.ndarray] = {}                  # target to measurement matrix mapper
-        self._ttRm : Dict[Target, np.ndarray] = {}                  # target to measurement noise mapper
-        self._ttRinvm : Dict[Target, np.ndarray] = {}               # target to measurement noise inverse mapper
+        self._ttsqm : Dict[Target, SensingQualityFunction] = {}                 # target to sensing quality function mapper
+        self._ttHm : Dict[Target, np.ndarray] = {}                              # target to measurement matrix mapper
+        self._ttRm : Dict[Target, np.ndarray] = {}                              # target to measurement noise mapper
+        self._ttRinvm : Dict[Target, np.ndarray] = {}                           # target to measurement noise inverse mapper
         
         if p is not None:
             self.setPosition(p)
@@ -96,12 +97,12 @@ class Sensor:
     def targetToSQFMapper(self) -> Dict[Target, SensingQualityFunction]:
         return self._ttsqm
     
-    def sensingQualityFunction(self, target : Target) -> SensingQualityFunction:
+    def getQualityFunction(self, target : Target) -> SensingQualityFunction:
         return self.targetToSQFMapper()[target]
     
     def getSensingQuality(self, target : Target) -> float:
         p = self.getPosition()
-        return self.sensingQualityFunction(target)(p, target.p())
+        return self.getQualityFunction(target)(p, target.p())
     
     def getMeasurementMatrix(self, target : Target) -> np.ndarray:
         return self._ttHm[target]
@@ -109,7 +110,7 @@ class Sensor:
     def getMeasurementNoiseMatrix(self, target : Target) -> np.ndarray:
         return self._ttRm[target]
 
-    def getMeasurementNoiseInverseMatrix(self, target : Target) -> np.ndarray:
+    def getMeasurementNoiseInverse(self, target : Target) -> np.ndarray:
         return self._ttRinvm[target]
 
     def getMeasurement(self, p : np.ndarray, target : Target):
@@ -128,11 +129,11 @@ class Sensor:
         assert(isinstance(p, np.ndarray))
         self._p = p
 
-    def setSensingQualityFunction(
+    def setgetQualityFunction(
             self, 
-            target : Target, 
+            target : Target,
             sqf : SensingQualityFunction
-        ) -> None:
+            ) -> None:
         assert(isinstance(target, Target))
         assert(isinstance(sqf, SensingQualityFunction))
         self.targetToSQFMapper()[target] = sqf

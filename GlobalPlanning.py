@@ -1,14 +1,14 @@
 
-# internal imports
-from World import *
-from DataStructures import Tree, Node, PlotObject
-
 # external imports
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Set
 from python_tsp.exact import solve_tsp_dynamic_programming
 from python_tsp.heuristics import solve_tsp_simulated_annealing
+
+# internal imports
+from World import *
+from DataStructures import Tree, Node, PlotObject
 
 
 class PlotOptions:
@@ -35,7 +35,7 @@ class PlotOptions:
     def searchRegionObjects(self) -> PlotObject:
         return self._srl
 
-    def plot_any(self) -> bool:
+    def plotAny(self) -> bool:
         return self.pbp or self.pae or self.par or self.psr
 
     # modifiers
@@ -67,7 +67,7 @@ class RRT:
             self, 
             regions : Set[Region], 
             best_cost : float = np.inf
-        ) -> None:
+            ) -> None:
         self.regions : Set[Region] = regions                                    # all regions
         self.best_path : Tree = None                                            # path
         self.best_cost : float = best_cost                                      # best cost
@@ -75,7 +75,7 @@ class RRT:
         self.world = World()                                                    # world
         self._targetDistances : np.ndarray = None                               # target distances
         
-        self.world.SetRegions(self.regions)                                     # set regions
+        self.world.setRegions(self.regions)                                     # set regions
 
         # caching
         self._rttm : Dict[Region,Set[Tree]] = {}                                # region to node mapper
@@ -99,11 +99,11 @@ class RRT:
             n0 : Node, 
             nf : Node, 
             regions : Set[Region]
-        ) -> Tuple[float, Region]:
+            ) -> Tuple[float, Region]:
         best_tcp = np.inf
         best_region = None
         for region in regions:
-            tcp = region.TravelCost(n0.p(), nf.p())
+            tcp = region.travelCost(n0.p(), nf.p())
             if tcp < best_tcp:
                 best_tcp = tcp
                 best_region = region
@@ -120,20 +120,20 @@ class RRT:
     def planPath(
             self, 
             t0, 
-            tf, 
+            tf,
             ax : plt.Axes = None
-        ) -> Tuple[Set[Region], List[np.ndarray]]:
+            ) -> Tuple[Set[Region], List[np.ndarray]]:
         
-        targetRegions = self.world.GetRegions(tf)
-        initialRegions = self.world.GetRegions(t0)
+        targetRegions = self.world.getRegions(tf)
+        initialRegions = self.world.getRegions(t0)
         targetNode = Node(tf, targetRegions)
         initialNode = Node(t0, initialRegions)
 
-        if self.plotOptions().plot_any():
+        if self.plotOptions().plotAny():
             targs = {'color':'orange','marker':'*','markersize':10,'label':'xf'}
-            targetNode.Plot(ax, **targs)
+            targetNode.plot(ax, **targs)
             iargs = {'color':'green','marker':'o','markersize':10,'label':'x0'}
-            initialNode.Plot(ax, **iargs)
+            initialNode.plot(ax, **iargs)
             
         # initialize tree (either with empty root or with an initial path)
         T = Tree(data = targetNode)
@@ -173,8 +173,8 @@ class RRT:
             r = self.sampleActiveRegion()
                 
             # 2. draw a random node of the active region:
-            sampleNodePos = r.RandomBoundaryPoint()
-            regions = self.world.GetRegions(sampleNodePos)
+            sampleNodePos = r.randomBoundaryPoint()
+            regions = self.world.getRegions(sampleNodePos)
             sampleNode = Node(sampleNodePos, regions)
             sampleBordersInit = len(initialRegions.intersection(regions)) > 0
 
@@ -194,7 +194,7 @@ class RRT:
             for shared_region in regions:
                 for n in self.getNodesInRegion(shared_region):
                     found_potential_parent = True
-                    cost_to_parent = shared_region.TravelCost(
+                    cost_to_parent = shared_region.travelCost(
                         sampleNodePos, n.getData().p()
                     )
                     cost_to_root = n.getData().costToRoot() + cost_to_parent
@@ -207,9 +207,9 @@ class RRT:
             # Sanity check that we sampled from a feasible region
             if best_parent is None:
                 if not found_potential_parent:
-                    T.getRoot().PlotTree(ax)
+                    T.getRoot().plotTree(ax)
                     self.visualizeActiveRegions(ax)
-                    sampleNode.Plot(ax,color='purple',marker='o',markersize=10)
+                    sampleNode.plot(ax,color='purple',marker='o',markersize=10)
                     raise ValueError("No parent found for the sampled node")
                 else:
                     continue
@@ -243,10 +243,10 @@ class RRT:
                 self.visualizeActiveRegions(ax)
 
         if self.best_path is None:
-            T.getRoot().PlotTree(ax)
-            T.getRoot().getData().Plot(ax,color='red',marker='o',markersize=10)
+            T.getRoot().plotTree(ax)
+            T.getRoot().getData().plot(ax,color='red',marker='o',markersize=10)
             n0 = Node(t0, initialRegions)
-            n0.Plot(ax, color='green', marker='o', markersize=10)
+            n0.plot(ax, color='green', marker='o', markersize=10)
             raise ValueError("No path found")
                
         return self.best_path, self.best_cost
@@ -257,7 +257,7 @@ class RRT:
             parent : Tree, 
             cost_to_parent : float, 
             rtp : Region
-        ) -> None:
+            ) -> None:
         child.setParent(parent, cost_to_parent)
         if rtp is not None:
             child.getData().activate_region_to_parent(rtp)
@@ -284,7 +284,7 @@ class RRT:
                 child, 
                 parent, 
                 tcs[i], 
-                init_waypoints[i].active_region_to_parent()
+                init_waypoints[i].activeRegionToParent()
             )
             parent = child
 
@@ -296,7 +296,7 @@ class RRT:
                 rootConnector, 
                 T.getRoot(), 
                 rootConnector.getData().costToParent(), 
-                rootConnector.getData().active_region_to_parent()
+                rootConnector.getData().activeRegionToParent()
             )
             self.best_path = child
             self.best_cost = child.getData().costToRoot()
@@ -309,40 +309,6 @@ class RRT:
             print("Optimized cost {0}".format(child.getData().costToRoot()))
             # T.plotPathToRoot(color='red', annotate_cost=True)
             # child.plotPathToRoot(color='pink', annotate_cost=True)
-
-    def rewireBestPath(self):
-        
-        raise Exception("Rewiring best path not implemented")
-        # I think the code below 
-
-        improved = False
-        
-        # queue up the best path
-        activeTree = self.best_path
-        queue : List[Tree] = []
-        while activeTree is not None:
-            queue.append(activeTree)
-            activeTree = activeTree.getParent()
-
-        # go down the tree and rewire according to best cost to go
-        while queue:
-            activeTree = queue.pop()
-            r : Region = queue.pop().getData().regions()[0]
-            
-            # rewire to best parent    
-            for sampleTree in self.getNodesInRegion(r):
-                assert(isinstance(sampleTree, Tree))
-                activeP = activeTree.getData().p()
-                rewireCost = r.TravelCost(activeP, sampleTree.getData().p())
-                rewireCTR = rewireCost + sampleTree.getData().costToRoot()
-                if rewireCTR < activeTree.getData().costToRoot():
-                    self.connect(activeTree, sampleTree, rewireCost)
-                    improved = True
-                    if self.plotOptions().pbp:
-                        self.plotBestPath()
-
-        if improved:
-            self.best_cost = self.best_path.getData().costToRoot()
             
     def rewireInitNode(self) -> None:
         initRegions = self.best_path.getData().regions()
@@ -350,25 +316,23 @@ class RRT:
         for initRegion in initRegions:
             for parent in self.getNodesInRegion(initRegion):
                 bpp = self.best_path.getData().p()
-                rewireCost = initRegion.TravelCost(bpp, parent.getData().p())
+                rewireCost = initRegion.travelCost(bpp, parent.getData().p())
                 if rewireCost + parent.getData().costToRoot() < self.best_cost:
                     self.connect(self.best_path, parent, rewireCost, initRegion)
                     self.best_cost = self.best_path.getData().costToRoot()
                     improved = True
-                    print("Rewired")
         if improved:
             self.optimizeSwitchingPoints(self.best_path)
             if self.plotOptions().pbp:
                 self.plotBestPath()
 
     def rewire(self, sampleTree : Tree) -> None:
-        initRegion = self.best_path.getData().active_region_to_parent()
+        initRegion = self.best_path.getData().activeRegionToParent()
         bpp = self.best_path.getData().p()
-        rewireCost = initRegion.TravelCost(bpp, sampleTree.getData().p())
+        rewireCost = initRegion.travelCost(bpp, sampleTree.getData().p())
         if rewireCost + sampleTree.getData().costToRoot() < self.best_cost:
             self.connect(self.best_path, sampleTree, rewireCost)
             self.plotBestPath()
-            print("Rewired")
 
     def initializePath(self, T : Tree, initialNode : Node) -> Tree:
         
@@ -392,13 +356,13 @@ class RRT:
             # boundary facing the initial node
             for region in activeRegions:
                 activeP = activeT.getData().p()
-                proj = region.ProjectToBoundary(activeP, initialNode.p())
+                proj = region.projectToBoundary(activeP, initialNode.p())
                 if proj is not None:
                     break
 
             # append the node to the tree and activate it
             assert(proj is not None)
-            newRegions = self.world.GetRegions(proj)
+            newRegions = self.world.getRegions(proj)
             newNode = Node(proj, newRegions)
             newT = Tree(newNode)                                           
 
@@ -440,42 +404,47 @@ class RRT:
         for r in self.regions:
             if r in self.active_regions:
                 continue
-            if r.Contains(p):
+            if r.contains(p):
                 self.active_regions.append(r)
 
 
     # plotters
-    def plotPath(self, ax : plt.Axes = plt) -> PlotObject:
+    def plotPath(self, ax : plt.Axes = None) -> PlotObject:
+        ax = getAxes(ax)
         return self.best_path.plotPathToRoot()
     
-    def visualizeActiveRegions(self, ax : plt.Axes = plt) -> None:
+    def visualizeActiveRegions(self, ax : plt.Axes = None) -> None:
+        ax = getAxes(ax)
         self.plotOptions().activeRegionObjects().remove()
         for r in self.active_regions:
             assert(isinstance(r, Region))
             self.plotOptions().addActiveRegionObject(
-                r.Fill(ax, color = 'green', alpha = 0.2)
+                r.fill(ax, color = 'green', alpha = 0.2)
             )
 
     def visualizeSearchRegions(
             self, 
             p : np.ndarray, 
             regions : Set[Region], 
-            ax : plt.Axes = plt
-        ) -> None:
+            ax : plt.Axes = None
+            ) -> None:
+        ax = getAxes(ax)
         self.plotOptions().searchRegionObjects().remove()
         referencePoint = PlotObject(plt.plot(p[0], p[1], 'gd'))
         self.plotOptions().addSearchRegionObject(referencePoint)
         regionArgs = {'color':'blue','alpha':0.2}
         for r in regions:   
-            self.plotOptions().addSearchRegionObject(r.Fill(ax, **regionArgs))
+            self.plotOptions().addSearchRegionObject(r.fill(ax, **regionArgs))
 
-    def plotBestPath(self, ax : plt.Axes = plt) -> None:
+    def plotBestPath(self, ax : plt.Axes = None) -> None:
+        ax = getAxes(ax)
         self.plotOptions().bestPathLines().remove()
         self.plotOptions().addBestPathLine(
             self.best_path.plotPathToRoot(None, ax, color = 'red', linewidth=2)
         )
 
-    def plotAllEdgeLines(self, T : Tree, ax : plt.Axes = plt) -> None:
+    def plotAllEdgeLines(self, T : Tree, ax : plt.Axes = None) -> None:
+        ax = getAxes(ax)
         self.plotOptions().allEdgeLines().remove()
         queue = [T.getRoot()]
         while len(queue) > 0:
@@ -540,7 +509,8 @@ class TSP:
         return p, d
 
     # plotters    
-    def plotTargetDistances(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+    def plotTargetDistances(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
         po = PlotObject()
         for i in range(self._targetDistances.shape[0]):
             for j in range(self._targetDistances.shape[1]):
@@ -583,11 +553,11 @@ class GlobalPathPlanner:
             t0 : np.ndarray, 
             tf : np.ndarray, 
             max_iter = 500, 
-            ax : plt.Axes = plt
-        ) -> Tuple[Set[Region], List[np.ndarray]]:
-        
-        initialRegions = self._world.GetRegions(t0)
-        targetRegions = self._world.GetRegions(tf)
+            ax : plt.Axes = None
+            ) -> Tuple[Set[Region], List[np.ndarray]]:
+        ax = getAxes(ax)        
+        initialRegions = self._world.getRegions(t0)
+        targetRegions = self._world.getRegions(tf)
 
         # Switch to local planner if possible
         for i_reg in initialRegions:
@@ -605,18 +575,18 @@ class GlobalPathPlanner:
         remove_targets = []
         reachable = {}
         
-        for j in range(self._world.NT()):
+        for j in range(self._world.nTargets()):
             reachable[j] = False
         
-        for i in range(self._world.NT()):
-            for j in range(self._world.NT()):
+        for i in range(self._world.nTargets()):
+            for j in range(self._world.nTargets()):
                 if i == j:
                     continue
                 if self._tsp.targetDistances()[i,j] < np.inf:
                     reachable[j] = True
                     break
 
-        for j in range(self._world.NT()):
+        for j in range(self._world.nTargets()):
             if not reachable[j]:
                 remove_targets.append(j)
 
@@ -624,9 +594,9 @@ class GlobalPathPlanner:
 
     def removeUnescapableTargets(self) -> None:
         remove_targets = []
-        for i in range(self._world.NT()):
+        for i in range(self._world.nTargets()):
             i_escapable = False
-            for j in range(self._world.NT()):
+            for j in range(self._world.nTargets()):
                 if i == j:
                     continue
                 if self._tsp.targetDistances()[i,j] < np.inf:
@@ -641,10 +611,10 @@ class GlobalPathPlanner:
         if self._tsp is None:
             self._tsp = TSP(self._world.targets())
 
-        for i in range(self._world.NT()):
+        for i in range(self._world.nTargets()):
             target_i = self._world.targets()[i]
             self._target_paths[target_i] = {}
-            for j in range(self._world.NT()):
+            for j in range(self._world.nTargets()):
                 if i == j:
                     self._tsp.setTargetDistance(i,j,0)
                     continue
@@ -659,10 +629,11 @@ class GlobalPathPlanner:
     # plotters    
     def plotTSPSolution(
             self, 
-            ax : plt.Axes = plt, 
+            ax : plt.Axes = None, 
             annotate = False, 
             **kwargs
-        ) -> PlotObject:
+            ) -> PlotObject:
+        ax = getAxes(ax)
         if self._tsp.bestPermutation() is None:
             print("No TSP solution exists. Please run 'solveTSP' first.")
             return None
