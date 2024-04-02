@@ -13,4 +13,4 @@ jobs:
           python-version: '3.9'
           cache: 'pip' # caching pip dependencies
       - run: pip install -r requirements.txt
-      - run: python unittests/all.py
+      - run: ls -la; ls -la src; python unittests/all.py
