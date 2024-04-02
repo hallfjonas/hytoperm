@@ -1,12 +1,11 @@
 
 # external imports
 import numpy as np
-from typing import Tuple, List, Dict, Set
+from typing import List, Dict, Set
 import matplotlib.pyplot as plt 
 from abc import abstractclassmethod
 from scipy.spatial import ConvexHull
-import casadi as cad
-import math
+
 
 # internal imports
 from .Plotters import *

@@ -1,11 +1,11 @@
 
 # external imports
 import os
-from experiments.large.config import *
 from matplotlib.ticker import MaxNLocator
 
 # internal imports
 from src.Experiment import *
+from experiments.large.config import *
 
 
 ##################################

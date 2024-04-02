@@ -1,8 +1,6 @@
 
 # external imports
 import casadi as cad
-import numpy as np
-from typing import List, Dict
 
 
 class NLPSolver:
