@@ -10,11 +10,21 @@
     - improve plot functions (increase flexibility)
     - ensure that all plot functions work coherently
 
-## Coding Todos (Mar 28 2024)
-1. unification of property and member names
+## Coding Todos (Apr 2 2024)
+1. unification of property and member names. Files that are done:
+    - Agent
+    - Tests
+    - Experiment
+    - World
+    - GlobalPlanning
+    - Dynamics
+    - Optimization
+    - Sensor
+    - DataStructures
+    - Plotters
+
 2. organize files, classes, functions 
 3. documentation
-
 
 ### future work
 - optimize switching points/switching segments

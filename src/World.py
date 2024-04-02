@@ -1,15 +1,15 @@
 
-from Plotters import *
-
+# external imports
 import numpy as np
-from typing import Tuple, List, Dict, Set
+from typing import List, Dict, Set
 import matplotlib.pyplot as plt 
 from abc import abstractclassmethod
 from scipy.spatial import ConvexHull
-import casadi as cad
-import math
 
-plotAttributes = PlotAttributes()
+
+# internal imports
+from .Plotters import *
+plotAttr = PlotAttributes()
 
 class Domain:
     def __init__(self, xrange = [0,1.5], yrange = [0,1]):
@@ -36,6 +36,7 @@ class Domain:
     def ymax(self) -> float:    
         return self._ymax
 
+
 class Region:
 
     """
@@ -46,7 +47,7 @@ class Region:
         return self
     
     @abstractclassmethod
-    def Contains(self, x: np.ndarray, tol : float = 0) -> bool:
+    def contains(self, x: np.ndarray, tol : float = 0) -> bool:
         """
         Checks if a point is contained within the region.
         
@@ -60,7 +61,7 @@ class Region:
         pass
 
     @abstractclassmethod
-    def Violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
+    def violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
         """
         Checks which constraints are violated at x.
         
@@ -74,7 +75,7 @@ class Region:
         pass
 
     @abstractclassmethod
-    def DistToBoundary(self, x: np.ndarray) -> float:
+    def distToBoundary(self, x: np.ndarray) -> float:
         """
         Computes the distance to the boundary of the region.
 
@@ -87,13 +88,14 @@ class Region:
         pass
 
     @abstractclassmethod
-    def RandomBoundaryPoint(self) -> np.ndarray:
+    def randomBoundaryPoint(self) -> np.ndarray:
         pass
 
     @abstractclassmethod
-    def ProjectToBoundary(self, x0, xf):
+    def projectToBoundary(self, x0, xf):
         '''
-        This function projects a point onto the boundary of the region along the ray xf - x0, where x0 is assumed to be inside the region.
+        This function projects a point onto the boundary of the region along the 
+        ray xf - x0, where x0 is assumed to be inside the region.
         
         Args:
             x0: Initial point (within the region).
@@ -102,7 +104,7 @@ class Region:
         pass
 
     @abstractclassmethod
-    def PlanPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         '''
         This function plans a path between two points in the region.
         
@@ -116,7 +118,7 @@ class Region:
         pass
 
     @abstractclassmethod
-    def TravelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
+    def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         """
         Computes the travel cost between two points in the region.
 
@@ -127,14 +129,16 @@ class Region:
         pass
 
     @abstractclassmethod
-    def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
         pass
 
     @abstractclassmethod
-    def Fill(self, ax : plt.Axes, **kwargs) -> PlotObject:
+    def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
         pass
 
-    def GetGrid(self, domain : Domain, dx = 0.05, dy=0.05, mdtb = 0.1):
+    def getGrid(self, domain : Domain, dx = 0.05, dy=0.05, mdtb = 0.1):
         assert(dx > 0); assert(dy > 0); assert(mdtb > 0)
         X = np.arange(domain.xmin(),domain.xmax(),dx)
         Y = np.arange(domain.ymin(),domain.ymax(),dy)
@@ -143,16 +147,14 @@ class Region:
         for i in range(V.shape[0]):
             for j in range(V.shape[1]):
                 tester = np.array([V[i,j],W[i,j]])
-                if not self.Contains(tester):
+                if not self.contains(tester):
                     V[i,j] = np.nan
                     W[i,j] = np.nan
-                elif callable(getattr(self, 'DistToBoundary', None)):
-                    dist = self.DistToBoundary(tester)
-                    if dist < mdtb:
-                        V[i,j] = np.nan
-                        W[i,j] = np.nan
-                else:
-                    print(tester)
+                dist = self.distToBoundary(tester)
+                if dist < mdtb:
+                    V[i,j] = np.nan
+                    W[i,j] = np.nan
+                    
         return V, W
 
 class Partition:
@@ -162,14 +164,15 @@ class Partition:
     def regions(self) -> Set[Region]:
         return self._regions
 
-    def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
         po = PlotObject()
-        extended_kwargs = extendKeywordArgs(plotAttributes.partition.getAttributes())
+        extended_kwargs = extendKeywordArgs(plotAttr.partition.getAttributes())
         for r in self.regions():
-            po.add(r.Plot(ax, **extended_kwargs))
+            po.add(r.plot(ax, **extended_kwargs))
         return po
     
-from DataStructures import Node
+from .DataStructures import Node
 class CPRegion(Region):
     """
     Represents a convex polygon region defined by linear inequalities g*x <= b.
@@ -178,9 +181,16 @@ class CPRegion(Region):
         g:                      Linear constraint functions.
         b:                      Constraint bounds.
         p:                      A point in the region.
+        domain:                 Domain of the region.
     """
 
-    def __init__(self, g, b, p : np.ndarray, domain : Domain = Domain()) -> None:
+    def __init__(
+            self, 
+            g,
+            b,
+            p : np.ndarray, 
+            domain : Domain = Domain()
+            ) -> None:
         """
         Initializes a Region object.
 
@@ -196,8 +206,8 @@ class CPRegion(Region):
         self._p : np.ndarray = None
         self._domain : Domain = None
 
-        self.AssignConstraints(g, b, domain)
-        self.AssignPoint(p)      
+        self.assignConstraints(g, b, domain)
+        self.assignPoint(p)      
 
     def copy(self):
         return CPRegion(self.g(), self.b(), self.domain())
@@ -214,17 +224,17 @@ class CPRegion(Region):
     def domain(self) -> Domain:
         return self._domain
 
-    def GetConvexHull(self) -> ConvexHull:
+    def getConvexHull(self) -> ConvexHull:
         if self._ch is None:
-            self.AssignConvexHull()
+            self.assignConvexHull()
         return self._ch
         
-    def GetOrthogonalConstraintNodes(self, dx):
-        nodes = self.GetConvexHull().vertices
+    def getOrthogonalConstraintNodes(self, dx):
+        nodes = self.getConvexHull().vertices
         
         for i in range(len(nodes)):
-            p = self.GetConvexHull().points[nodes[i]]
-            q = self.GetConvexHull().points[nodes[i-1]]
+            p = self.getConvexHull().points[nodes[i]]
+            q = self.getConvexHull().points[nodes[i-1]]
 
             a = q - p
             normal = np.array([-a[1], a[0]])
@@ -232,17 +242,17 @@ class CPRegion(Region):
                 return p, q
 
         plt.plot(self.p()[0], self.p()[1], 'bo')            
-        plt.quiver(self.p()[0], self.p()[1], dx[0], dx[1], angles='xy', color='blue')
+        plt.quiver(self.p()[0],self.p()[1],dx[0],dx[1],angles='xy',color='blue')
         for i in range(len(nodes)):
-            p = self.GetConvexHull().points[nodes[i]]
-            q = self.GetConvexHull().points[nodes[i-1]]
+            p = self.getConvexHull().points[nodes[i]]
+            q = self.getConvexHull().points[nodes[i-1]]
             a = q - p
 
             plt.plot(p[0], p[1], 'bo')            
             plt.quiver(p[0], p[1], a[0], a[1], angles='xy', color='green')
         raise Exception("No orthogonal constraint found")
     
-    def DistToBoundary(self, p) -> float:
+    def distToBoundary(self, p) -> float:
         # Project p onto g*x = b
         min_dist = np.inf
         for i in self.g().keys():
@@ -253,70 +263,14 @@ class CPRegion(Region):
                 min_dist = dist
         return min_dist
 
-    def RandomBoundaryPointOrig(self) -> np.ndarray:
-        """
-        Generates a random boundary point of the region which.
-                
-        Returns:
-            Tuple[np.ndarray, int]: A tuple containing the random boundary point and the index of the constraint it belongs to.
-        """
-        
-        p = self.p()
-        assert(p is not None)
-
-
-        # This tolerance is used to identify
-        tol = 1e-10
-
-        # Draw a random ray passing through p and check for intersections with the region's boundary
-        # Return the nearest intersection point along with the corresponding boundary constraint
-        while True:
-            
-            alpha = np.random.uniform(0, np.pi)
-            a = np.array([np.cos(alpha), np.sin(alpha)])
-            b = np.dot(a, p)
-            a_normal = np.array([-a[1], a[0]])
-
-            G = np.zeros((2,2))
-            h = np.zeros((2,1))
-            G[0,0] = a[0]; G[0,1] = a[1]
-            h[0] = b
-
-            min_dist = np.inf
-            min_dist_key = None
-            min_dist_point = None
-            
-            for i in self.g.keys():  
-                G[1,0] = self.g[i][0]; G[1,1] = self.g[i][1]
-                h[1] = self.b[i]
-
-                # Skip constraints that are parallel to the ray                
-                if(np.abs(np.linalg.det(G)) < tol):
-                    Warning("Parallel constraints detected, skipping boundary segment ...")
-                    continue
-
-                # solve the linear program and compute distance to p
-                x = np.linalg.solve(G, h).flatten()
-                dist = np.linalg.norm(x - p)
-
-                # Store the closest boundary point
-                if (dist < min_dist):
-                    min_dist = dist
-                    min_dist_key = i
-                    min_dist_point = x
-
-            if (min_dist_key != None):
-                return min_dist_point
-
-            ValueError("Warning: No boundary point found. Retrying...")  
-
-    def RandomBoundaryPoint(self) -> np.ndarray:        
-        i = np.random.randint(0, len(self.GetConvexHull().vertices))
+    def randomBoundaryPoint(self) -> np.ndarray:        
+        i = np.random.randint(0, len(self.getConvexHull().vertices))
         alpha = np.random.uniform(0, 1)
-        p = (1 - alpha) * self._ch.points[self._ch.vertices[i]] + alpha * self._ch.points[self._ch.vertices[i-1]]
-        return p
+        vtx1 = self._ch.points[self._ch.vertices[i]]
+        vtx2 = self._ch.points[self._ch.vertices[i-1]]
+        return (1 - alpha) * vtx1 + alpha * vtx2
 
-    def ProjectToBoundary(self, x0, xf):
+    def projectToBoundary(self, x0, xf):
         bdp = None
 
         if np.linalg.norm(xf - x0) < np.finfo(float).eps:
@@ -346,7 +300,7 @@ class CPRegion(Region):
                 bdp = x
         return bdp
 
-    def AssignConstraints(self, g, b, domain : Domain) -> None:
+    def assignConstraints(self, g, b, domain : Domain) -> None:
         """
         Assigns the constraint gradients and bounds of the region.
 
@@ -366,27 +320,27 @@ class CPRegion(Region):
         self._g = g.copy()
         self._b = b.copy()
 
-        self.AddConstraint(np.array([-1,0]), domain.xmin())
-        self.AddConstraint(np.array([1,0]), domain.xmax())
-        self.AddConstraint(np.array([0,-1]), domain.ymin())
-        self.AddConstraint(np.array([0,1]), domain.ymax())  
+        self.addConstraint(np.array([-1,0]), domain.xmin())
+        self.addConstraint(np.array([1,0]), domain.xmax())
+        self.addConstraint(np.array([0,-1]), domain.ymin())
+        self.addConstraint(np.array([0,1]), domain.ymax())  
 
-    def AssignPoint(self, p : np.ndarray) -> None:
+    def assignPoint(self, p : np.ndarray) -> None:
         assert(isinstance(p, np.ndarray))
-        assert(self.Contains(p))
+        assert(self.contains(p))
         self._p = p
 
-    def AssignConvexHull(self) -> None:
-        ip = self.ComputeIntersections()
+    def assignConvexHull(self) -> None:
+        ip = self.computeIntersections()
         vertices = []
         for p in ip:
-            if self.Contains(p,tol=1e-10):
+            if self.contains(p,tol=1e-10):
                 vertices.append(p)
         if len(vertices) < 3:
             plt.plot(self.p()[0], self.p()[1], 'yo', markersize=5)
         self._ch = ConvexHull(vertices)
 
-    def AddConstraint(self, g : np.ndarray, b) -> None:
+    def addConstraint(self, g : np.ndarray, b) -> None:
         """
         Adds a new constraint to the region.
 
@@ -397,7 +351,7 @@ class CPRegion(Region):
         self._g[len(self._g)+1] = g
         self._b[len(self._b)+1] = b
 
-    def Contains(self, x: np.ndarray, tol : float = 0) -> bool:
+    def contains(self, x: np.ndarray, tol : float = 0) -> bool:
         for i in self.g().keys():
             g = self.g()[i]
             b = self.b()[i]
@@ -405,7 +359,7 @@ class CPRegion(Region):
                 return False
         return True
         
-    def Violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
+    def violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
         violated = []
         for i in self.g().keys():
             g = self.g()[i]
@@ -415,7 +369,7 @@ class CPRegion(Region):
                 violated.append([i, viol])
         return violated
 
-    def DistToBoundary(self, x: np.ndarray) -> float:
+    def distToBoundary(self, x: np.ndarray) -> float:
         dist = np.inf
         for i in self.g().keys():
             g = self.g()[i]
@@ -425,16 +379,19 @@ class CPRegion(Region):
                 dist = d
         return dist
 
-    def ComputeIntersections(self) -> List[np.ndarray]:
+    def computeIntersections(self) -> List[np.ndarray]:
         intersections = []
         for i in self.g().keys():
             for j in self.g().keys():
                 if i >= j:
                     continue
-                q = np.array([[self.g()[i][0], self.g()[i][1]], [self.g()[j][0], self.g()[j][1]]])
+                q = np.array([
+                    [self.g()[i][0], self.g()[i][1]], 
+                    [self.g()[j][0], self.g()[j][1]]
+                    ])
                 r = np.array([self.b()[i], self.b()[j]])
                 
-                # Skip parallel constraints
+                # skip parallel constraints
                 if (np.abs(np.linalg.det(q)) < 1e-14):
                     continue
                 
@@ -442,27 +399,33 @@ class CPRegion(Region):
                 intersections.append(x)
         return intersections
         
-    def TravelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
+    def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         return np.linalg.norm(xf - x0)
 
-    def PlanPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         return [x0, xf]
 
-    def Plot(self, ax : plt.Axes, **kwargs) -> PlotObject:
-
-        xs : list = self.GetConvexHull().points[self.GetConvexHull().vertices,0].tolist()
-        ys : list = self.GetConvexHull().points[self.GetConvexHull().vertices,1].tolist()
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        chp = self.getConvexHull().points
+        chv = self.getConvexHull().vertices
+        xs : list = chp[chv,0].tolist()
+        ys : list = chp[chv,1].tolist()
         xs.append(xs[0])
         ys.append(ys[0])
         if ax is None:
             ax = plt.gca()
         return PlotObject(ax.plot(xs, ys, **kwargs))
     
-    def PlotPoint(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
+    def plotPoint(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
         return PlotObject(ax.plot(self.p()[0], self.p()[1], **kwargs))
 
-    def Fill(self, ax : plt.Axes = plt, **kwargs) -> PlotObject:
-        return PlotObject(ax.fill(self.GetConvexHull().points[self.GetConvexHull().vertices,0], self.GetConvexHull().points[self.GetConvexHull().vertices,1], **kwargs))
+    def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        chp = self.getConvexHull().points
+        chv = self.getConvexHull().vertices
+        return PlotObject(ax.fill(chp[chv,0], chp[chv,1], **kwargs))
 
 class Dynamics:
     def __init__(self, nx : int, nz : int, nu : int):
@@ -473,9 +436,9 @@ class Dynamics:
         self.zz : np.ndarray = None
         self.zu : np.ndarray = None
 
-        self.SetNX(nx)
-        self.SetNZ(nz)
-        self.SetNX(nu)
+        self.setNX(nx)
+        self.setNZ(nz)
+        self.setNX(nu)
 
     def dynamics(self):
         return self
@@ -489,25 +452,25 @@ class Dynamics:
     def nu(self) -> int:
         return self._nu
     
-    def SetNX(self, nx : int) -> None:
+    def setNX(self, nx : int) -> None:
         assert(isinstance(nx, int))
         assert(nx >= 0)
         self._nx = nx
-        self.zx = self.ZeroVec(nx)
+        self.zx = self.zeroVec(nx)
 
-    def SetNZ(self, nz : int) -> None:
+    def setNZ(self, nz : int) -> None:
         assert(isinstance(nz, int))
         assert(nz >= 0)
         self._nz = nz
-        self.zz = self.ZeroVec(nz)
+        self.zz = self.zeroVec(nz)
 
-    def SetNU(self, nu : int) -> None:
+    def setNU(self, nu : int) -> None:
         assert(isinstance(nu, int))
         assert(nu >= 0)
         self._nu = nu
-        self.zu = self.ZeroVec(nu)
+        self.zu = self.zeroVec(nu)
 
-    def ZeroVec(self, n):
+    def zeroVec(self, n):
         return np.zeros(n)
 
     @abstractclassmethod
@@ -523,7 +486,7 @@ class Dynamics:
             u = self.zu
         return self(x,z,u)
             
-    def PlotVectorField(self, XY : list, ax : plt.Axes, scale = 1, **kwargs):
+    def plotVectorField(self, XY : list, ax : plt.Axes, scale = 1, **kwargs):
         assert(len(XY) == 2)
         X = XY[0]; Y = XY[1]
         
@@ -543,41 +506,44 @@ class Dynamics:
                 DX[i,j]= F[0]
                 DY[i,j]= F[1]
 
-        eka = extendKeywordArgs(plotAttributes.vector_field.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(plotAttr.vector_field.getAttributes(), **kwargs)
         return ax.quiver(X, Y, scale*DX, scale*DY, pivot='mid', **eka)
+
 
 class ConstantDynamics(Dynamics):
     def __init__(self, nx : int, nz : int, nu : int, v : np.ndarray):
         super().__init__(nx,nz,nu)
         self._v : np.ndarray = None
-        self.SetV(v)
+        self.setV(v)
 
     def __call__(self, x, z, u):
         return self.v()
 
-    def SetV(self, v : np.ndarray) -> None:
+    def setV(self, v : np.ndarray) -> None:
         assert(isinstance(v, np.ndarray))
         self._v = v
 
     def v(self) -> np.ndarray:
         return self._v
 
+
 class DynamicCPRegion(CPRegion):
     def __init__(self, g,b,p,domain,dynamics : Dynamics):
         super().__init__(g,b,p,domain)
         self._dynamics : Dynamics = None
-        self.AssignDynamics(dynamics)
+        self.assignDynamics(dynamics)
 
-    def AssignDynamics(self, dynamics : Dynamics) -> None:
+    def assignDynamics(self, dynamics : Dynamics) -> None:
         assert(isinstance(dynamics, Dynamics))
         self._dynamics = dynamics
 
-    def AssignRegion(self, region : Region) -> None:
+    def assignRegion(self, region : Region) -> None:
         assert(isinstance(region, Region))
         self._region = region
     
     def dynamics(self) -> Dynamics:
         return self._dynamics
+
 
 class ConstantDCPRegion(DynamicCPRegion):
     def __init__(self, g,b,p,domain,dynamics : ConstantDynamics):
@@ -586,51 +552,12 @@ class ConstantDCPRegion(DynamicCPRegion):
     def dynamics(self) -> ConstantDynamics:
         return self._dynamics
     
-    def TravelCostAD(self, x0 : cad.SX, xf : cad.SX) -> cad.SX:
+    def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         '''
-        This function determines the optimal travel time between two points in the region.
-        This is done by solving a quadratic equation obtained from the root finding problem
+        This function determines the optimal travel time between two points in 
+        the region. This is done by solving a quadratic equation obtained from 
+        the root finding problem 
             u'*u = 1, u = (xf - x0)/t - v.
-        Plugging the second equation into the first yields
-            (xf - x0)'(xf - x0)/t^2 - 2*(xf - x0)'v/t + v'*v - 1 = 0
-        and multiplying by t^2 yields
-            (xf - x0)'(xf - x0) - 2*(xf - x0)'v*t + v'*v*t^2 - t^2 = 0.
-        Organizing the terms yields
-            (v'*v - 1)*t^2 - 2*(xf - x0)'v*t + (xf - x0)'(xf - x0) = 0.
-        This is a quadratic equation of the form
-            at^2 + bt + c = 0
-        with solution 
-            t = (-b +/- sqrt(b^2 - 4ac))/(2a).
-
-        Args:
-            x0: Initial point.
-            xf: Final point.
-
-        Returns:
-            float: The optimal travel cost between x0 and xf.
-        '''
-        v = self.dynamics().v()
-        a = cad.dot(v,v) - 1
-        b = -2 * cad.dot(xf - x0, v)
-        c = cad.dot(xf - x0, xf - x0)
-        delta = cad.power(b,2) - 4 * a * c
-        return (-b - cad.sqrt(delta)) / (2 * a)
-
-    def TravelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
-        '''
-        This function determines the optimal travel time between two points in the region.
-        This is done by solving a quadratic equation obtained from the root finding problem
-            u'*u = 1, u = (xf - x0)/t - v.
-        Plugging the second equation into the first yields
-            (xf - x0)'(xf - x0)/t^2 - 2*(xf - x0)'v/t + v'*v - 1 = 0
-        and multiplying by t^2 yields
-            (xf - x0)'(xf - x0) - 2*(xf - x0)'v*t + v'*v*t^2 - t^2 = 0.
-        Organizing the terms yields
-            (v'*v - 1)*t^2 - 2*(xf - x0)'v*t + (xf - x0)'(xf - x0) = 0.
-        This is a quadratic equation of the form
-            at^2 + bt + c = 0
-        with solution 
-            t = (-b +/- sqrt(b^2 - 4ac))/(2a).
 
         Args:
             x0: Initial point.
@@ -673,15 +600,25 @@ class ConstantDCPRegion(DynamicCPRegion):
         u_star = (xf - x0)/t_star - v
         return t_star
 
+
 class Target:
     
-    def __init__(self, pos : np.ndarray, region : Region = None, phi0 : np.ndarray = None, A : np.ndarray = None, Q : np.ndarray = None) -> None:
+    def __init__(
+            self, 
+            pos : np.ndarray, 
+            region : Region = None, 
+            phi0 : np.ndarray = None, 
+            A : np.ndarray = None, 
+            Q : np.ndarray = None
+            ) -> None:
         
-        self._r : Region = None
-        self._p : np.ndarray = None
-        self._phi : np.ndarray = None
-        self.A : np.ndarray = None
-        self.Q : np.ndarray = None
+        self._r : Region = None                                                 # region
+        self._p : np.ndarray = None                                             # position
+
+        self._phi : np.ndarray = None                                           # internal state    
+        self.A : np.ndarray = None                                              # internal state LTI term
+        self.Q : np.ndarray = None                                              # internal state covariance of stochasticity
+        
         self.name : str = None
 
         self.assignRegion(region)
@@ -706,7 +643,7 @@ class Target:
         assert(isinstance(p, np.ndarray))
         
         if (self.region() is not None):
-            assert(self.region().Contains(p))
+            assert(self.region().contains(p))
             self._p = p
 
     def assignRegion(self, r : Region) -> None:
@@ -735,8 +672,9 @@ class Target:
             assert(Q.ndim == 2)
         self.Q = Q
 
-    def plot(self, ax : plt.Axes = plt, annotate=True, **kwargs) -> PlotObject:
-        eka = extendKeywordArgs(plotAttributes.target.getAttributes(), **kwargs)
+    def plot(self, ax : plt.Axes = None, annotate=True, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        eka = extendKeywordArgs(plotAttr.target.getAttributes(), **kwargs)
         po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))
 
         if annotate:
@@ -759,7 +697,7 @@ class Target:
 
 class World:
     
-    def __init__(self, objs = [], domain : Domain = Domain()) -> None:
+    def __init__(self, objs : List= [], domain : Domain = Domain()) -> None:
         
         self._regions : Set[Region] = []
         self._targets : List[Target] = []
@@ -768,37 +706,37 @@ class World:
         self._partition : Partition = None
         self._domain : Domain = domain
 
-        self.SetRegions(objs)
-        self.SetPartition()
+        self.setRegions(objs)
+        self.setPartition()
         
-    def SetRegions(self, objs) -> None:
+    def setRegions(self, objs) -> None:
         for obj in objs:
             try:
-                self.AddRegion(obj.region())
+                self.addRegion(obj.region())
             finally:
                 pass
     
-    def SetTargets(self, objs) -> None:
+    def setTarget(self, objs) -> None:
         for obj in objs:
             try:
-                self.AddTarget(obj.target())
+                self.addTarget(obj.target())
             finally:
                 pass
 
-    def AddRegion(self, region : Region) -> None:
+    def addRegion(self, region : Region) -> None:
         assert(isinstance(region, Region))
         if region not in self._regions:
             self._regions.append(region)
 
-    def AddTarget(self, target : Target) -> None:
+    def addTarget(self, target : Target) -> None:
         assert(isinstance(target, Target))
         if target not in self._targets:
             self._targets.append(target)
 
-    def SetPartition(self) -> None:
+    def setPartition(self) -> None:
         self._partition = Partition(self.regions()) 
 
-    def add_target_region(self, target : Target, region : Region) -> None:
+    def addTargetRegion(self, target : Target, region : Region) -> None:
         self._targets.append(target)
         self._regions.append(region)
         self._target_to_region[target] = region
@@ -821,39 +759,49 @@ class World:
         return self._partition
     
     def target(self, i) -> Target:
-        assert(i < self.NT() and i >= 0)
+        assert(i < self.nTargets() and i >= 0)
         return self._targets[i]
     
-    def NT(self) -> int:
+    def nTargets(self) -> int:
         return len(self._targets)
     
-    def NR(self) -> int:
+    def nRegions(self) -> int:
         return len(self._regions)
     
     def domain(self) -> Domain:
         return self._domain
     
-    def GetRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
+    def getRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
         regions = set()
         for r in self._regions:
             assert(isinstance(r, Region))
-            if r.Contains(p, tol=tol):
+            if r.contains(p, tol=tol):
                 regions.add(r)
         return regions
 
-    def get_meshgrid(self, dx = 0.005, dy = 0.005):
-        x = np.arange(self.domain().xmin()-0.5*dx, self.domain().xmax()+0.5*dx, dx)
-        y = np.arange(self.domain().ymin()-0.5*dy, self.domain().ymax()+0.5*dy, dy)
+    def getMeshgrid(self, dx = 0.005, dy = 0.005):
+        xmin = self.domain().xmin()-0.5*dx
+        xmax = self.domain().xmax()+0.5*dx
+        ymin = self.domain().ymin()-0.5*dy
+        ymax = self.domain().ymax()+0.5*dy
+        x = np.arange(xmin, xmax, dx)
+        y = np.arange(ymin, ymax, dy)
         X, Y = np.meshgrid(x, y)
         Z = np.nan*np.ones(X.shape)
         return X, Y, Z
 
     # plotters
-    def PlotMissionSpace(self, ax, add_target_labels=False, fill_empty_regions=True) -> PlotObject:
-        po = PlotObject()
-        
-        po.add(self.partition().Plot(ax))
-        eka = extendKeywordArgs(plotAttributes.partition_background.getAttributes())
+    def plotMissionSpace(
+            self, 
+            ax : plt.Axes = None, 
+            add_target_labels=False, 
+            fill_empty_regions=True) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()        
+        po.add(self.partition().plot(ax))
+        eka = extendKeywordArgs(
+            plotAttr.partition_background.getAttributes()
+        )
         for region in self.regions():
             has_target = False
             for target in self.targets():
@@ -861,7 +809,7 @@ class World:
                     has_target = True
                     break
             if not has_target and fill_empty_regions:
-                po.add(region.Fill(ax, **eka))
+                po.add(region.fill(ax, **eka))
         
         for target in self._targets:
             assert(isinstance(target, Target))
@@ -871,27 +819,31 @@ class World:
             dynamics = region.dynamics()
             assert(isinstance(dynamics, Dynamics))
             d = 0.033
-            dynamics.PlotVectorField(region.GetGrid(self.domain(),dx=d,dy=d,mdtb=d), ax, 0.6)
+            dynamics.plotVectorField(
+                region.getGrid(self.domain(),dx=d,dy=d,mdtb=d), ax, 0.6
+                )
 
-    def plotDistToBoundary(self, ax : plt.Axes = plt) -> PlotObject:
-        X, Y, Z = self.get_meshgrid()
+    def plotdistToBoundary(self, ax : plt.Axes = None) -> PlotObject:
+        ax = getAxes(ax)
+        X, Y, Z = self.getMeshgrid()
         for i in range(X.shape[0]):
             for j in range(Y.shape[1]):
                 p = np.array((X[i,j], Y[i,j]))
                 for region in self.regions():
-                    if region.Contains(p):
-                        Z[i,j] = region.DistToBoundary(p)
+                    if region.contains(p):
+                        Z[i,j] = region.distToBoundary(p)
         return PlotObject(ax.contourf(X, Y, Z, antialiased=True, alpha=0.5))
 
-    def plotTravelCostPerRegion(self, ax : plt.Axes = plt) -> PlotObject:
-        X, Y, Z = self.get_meshgrid()
+    def plotTravelCostPerRegion(self, ax : plt.Axes = None) -> PlotObject:
+        ax = getAxes(ax)
+        X, Y, Z = self.getMeshgrid()
         for i in range(X.shape[0]):
             for j in range(Y.shape[1]):
                 p = np.array((X[i,j], Y[i,j]))
                 for region in self.regions():
                     assert(isinstance(region, CPRegion))
-                    if region.Contains(p):
-                        Z[i,j] = region.TravelCost(p, region.p())
+                    if region.contains(p):
+                        Z[i,j] = region.travelCost(p, region.p())
                         if Z[i,j] == np.inf:
-                            Z[i,j] = -region.TravelCost(region.p(), p)
+                            Z[i,j] = -region.travelCost(region.p(), p)
         return PlotObject(ax.contourf(X, Y, Z, antialiased=True, alpha=0.5))

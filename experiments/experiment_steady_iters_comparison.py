@@ -1,9 +1,12 @@
 
+# external imports
 import os
-from Experiment import *
-from unittests import *
-from experiments.large_comparison.config import *
 from matplotlib.ticker import MaxNLocator
+
+# internal imports
+from src.Experiment import *
+from experiments.large_comparison.config import *
+
 
 ##################################
 ## NO NEED TO MAKE CHANGES HERE ##
@@ -26,7 +29,7 @@ if not os.path.exists(exp_dir):
 # Generate experiment
 def load_hl_sol() -> Experiment:
     if not os.path.exists(exp_hl_file):
-        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
         ex._agent.computeVisitingSequence()
         ex.serialize(exp_hl_file)
@@ -38,7 +41,7 @@ def load_hl_sol() -> Experiment:
 def load_solution(filename, op : OptimizationParameters) -> Experiment:
     if not os.path.exists(filename):
         ex = load_hl_sol()
-        ex._agent._op = op.copy()
+        ex._agent.op = op.copy()
         ex._agent.optimizeCycle()
         ex.serialize(filename)
     else:
@@ -46,7 +49,7 @@ def load_solution(filename, op : OptimizationParameters) -> Experiment:
     return ex
 
 # Create optimization plots
-def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = False):
+def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False):
     
     # shift cycle to relative time
     startTime = ex._agent._cycle.getStartTime()
@@ -167,15 +170,15 @@ def steady_vs_non(steady : Experiment, non_steady : Experiment, savefig = True):
         exporter.export('optimization_steady_vs_non_steady', fig4)
 
 if __name__ == '__main__':
-    op._steady_state_iters = 1
-    op._sim_to_steady_state_tol = 1e-1
+    op.steady_state_iters = 1
+    op.sim_to_steady_state_tol = 1e-1
     non_steady = load_solution(exp_res_non_steady_filename, op)
 
-    op._steady_state_iters = 1000
+    op.steady_state_iters = 1000
     steady = load_solution(exp_res_steady_file, op)
 
     # compare cycle
-    fig, ax = steady.PlotWorld(steady, with_sensor_quality=True, add_target_labels=False, savefig=False)
+    fig, ax = steady.plotWorld(steady, with_sensor_quality=True, add_target_labels=False)
     steady._agent.plotCycle(ax, linestyle='-', color='orange', linewidth=2, label='$\mathrm{with~steady~state~iterations}$')
     non_steady._agent.plotCycle(ax, linestyle='--', color='blue', linewidth=2, label='$\mathrm{no~steady~state~iterations}$')
     exporter.export('world_steady_vs_non_steady', fig)

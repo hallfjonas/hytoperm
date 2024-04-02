@@ -1,10 +1,12 @@
 
+# external imports
 import os
-from Experiment import *
-from unittests import *
+from matplotlib.ticker import MaxNLocator
+
+# internal imports
+from src.Experiment import *
 from experiments.large.config import *
 
-from matplotlib.ticker import MaxNLocator
 
 ##################################
 ## NO NEED TO MAKE CHANGES HERE ##
@@ -24,11 +26,11 @@ exp_res_file = os.path.join(exp_dir, exp_res_filename + pickle_extension)
 
 # adapt the optimization parameters
 op = OptimizationParameters()
-op._kkt_tolerance = 1e-1
-op._sim_to_steady_state_tol = 1e-1
-op._optimization_iters = 100
-op._steady_state_iters = 1
-op._beta = 0.95
+op.kkt_tolerance = 1e-1
+op.sim_to_steady_state_tol = 1e-1
+op.optimization_iters = 100
+op.steady_state_iters = 1
+op.beta = 0.95
 
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
@@ -36,7 +38,7 @@ if not os.path.exists(exp_dir):
 # Generate experiment
 def load_experiment() -> Experiment:
     if not os.path.exists(exp_file):
-        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
         assert(isinstance(ex, Experiment))
         ex.serialize(exp_file)
@@ -68,7 +70,7 @@ def load_initial_cycle(ex : Experiment) -> Experiment:
 # Optimize cycle
 def load_optimized_cycle(ex : Experiment) -> Experiment:
     if not os.path.exists(exp_res_file):
-        ex._agent._op = op
+        ex._agent.op = op
         ex._agent.optimizeCycle()
         ex.serialize(exp_res_file)
     else:
@@ -82,10 +84,10 @@ def tsp_vs_init_vs_opti(leave_open=False):
     init = load_initial_cycle(hl)
     res = load_optimized_cycle(hl)
 
-    fig, ax = hl.PlotWorld(with_sensor_quality=True)
+    fig, ax = hl.plotWorld(with_sensor_quality=True)
 
     po = PlotObject()
-    po.add(hl._agent.gpp().PlotTSPSolution(ax=ax, annotate=False, color='red', linewidth=2.5, alpha=0.5))
+    po.add(hl._agent.gpp().plotTSPSolution(ax=ax, annotate=False, color='red', linewidth=2.5, alpha=0.5))
     po._objs[0].set_label('$\mathrm{TSP}$')
     exporter.export("tsp", fig=fig)
 
@@ -129,7 +131,7 @@ def mse_inti_vs_opti(leave_open=False):
         plt.show()
 
 # Create optimization plots
-def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = False):
+def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False):
     
     # shift cycle to relative time
     startTime = ex._agent._cycle.getStartTime()
@@ -149,7 +151,7 @@ def plot_results(ex : Experiment, wsq = True, savefig = True, leave_open = False
 
 def world_plot(ex : Experiment, with_sensor_quality = True, savefig = True):
     
-    fig, ax = ex.PlotWorld(ex, with_sensor_quality=with_sensor_quality, savefig=False)
+    fig, ax = ex.plotWorld(with_sensor_quality=with_sensor_quality)
     ex._agent.plotCycle(ax)
     if savefig:
         exporter.HEIGHT = exporter.WIDTH
@@ -212,10 +214,10 @@ def optimization_plot(ex : Experiment, savefig = True):
 
 def rrt_plot(savefig = True):
     ex = load_high_level_solution(load_experiment())
-    fig, ax = ex.PlotWorld(add_target_labels=False)
+    fig, ax = ex.plotWorld(add_target_labels=False)
     target0 = ex._world.target(0)
     target1 = ex._world.target(1)
-    po = ex._agent.gpp().target_paths[target1][target0].getRoot().PlotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
+    po = ex._agent.gpp().target_paths[target1][target0].getRoot().plotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
     po = ex._agent.gpp().target_paths[target1][target0].plotPathToRoot(ax=ax, color='red', linewidth=2, alpha=1)
     if savefig:
         exporter.export('rrt', fig)
@@ -223,23 +225,23 @@ def rrt_plot(savefig = True):
 if __name__ == '__main__':
     
     if True or not os.path.exists(exp_file):
-        ex = generate_experiment(n_sets=NSETS, fraction=FRACTION, seed=SEED)
+        ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
         assert(isinstance(ex, Experiment))
         ex.serialize(exp_file)
     else:
         ex : Experiment = Experiment.deserialize(exp_file)
 
-    fig, ax = ex.PlotWorld(fill_empty_regions=False)
+    fig, ax = ex.plotWorld(fill_empty_regions=False)
     rrt = RRT(ex._world.regions())
     rrt._plot_options = PlotOptions()
-    rrt._plot_options.toggle_all_plotting(False)
-    r, p = rrt.PlanPath(ex._world.targets()[0].p(), ex._world.targets()[1].p())
+    rrt._plot_options.toggleAllPlotting(False)
+    r, p = rrt.planPath(ex._world.targets()[0].p(), ex._world.targets()[1].p())
 
-    rrt.best_path.getRoot().PlotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
+    rrt.best_path.getRoot().plotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
     rrt.best_path.plotPathToRoot(ax=ax, color='red', linewidth=2, alpha=1)
-    rrt.best_path.getData().Plot(ax=ax, color='green', marker='o', markersize=10)
-    rrt.best_path.getRoot().getData().Plot(ax=ax, color='yellow', marker='*', markersize=10)
+    rrt.best_path.getData().plot(ax=ax, color='green', marker='o', markersize=10)
+    rrt.best_path.getRoot().getData().plot(ax=ax, color='yellow', marker='*', markersize=10)
     exporter.HEIGHT = exporter.WIDTH*0.8
     plt.show()
     exporter.export('rrt', fig)

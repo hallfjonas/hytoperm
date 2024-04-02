@@ -11,6 +11,7 @@ We split the problem into an
 ## Coding Conventions
 - All classes use the `CamelCase` convention
 - All methods use the `camelCase` convention
+    - exceptions are unit test methods, which use `test_<test_name>` convention
 - Properties and methods that have the prefix `_` are considered private
 - All setters and getters are defined in the traditional sense (not the Python properties way)
 - All plot functions are expected to work as follows:
@@ -18,4 +19,5 @@ We split the problem into an
     - they take at least the arguments ax and **kwargs. ax is assumed to be either None or a matplotlib Axes. If ax is None then the matplotlib function `gca` is invoked to retrieve the current active Axes.
 - Each class definition is seperated by two lines
 - Respect the 80 column limit in all code files. Exceptions:
-    - property comments 
+    - class property comments, which start at the 80 column mark
+    
