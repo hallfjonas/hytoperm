@@ -1,11 +1,12 @@
 
 # external imports
 import os
-from experiments.small_comparison.config import *
 from matplotlib.ticker import MaxNLocator
 
 # internal imports
-from Experiment import *
+from src.Experiment import *
+from experiments.small_comparison.config import *
+
 
 ##################################
 ## NO NEED TO MAKE CHANGES HERE ##
@@ -25,8 +26,8 @@ exp_res_file = os.path.join(exp_dir, exp_res_filename + pickle_extension)
 
 # adapt the optimization parameters
 op = OptimizationParameters()
-op._kkt_tolerance = 1e-1
-op._optimization_iters = 100
+op.kkt_tolerance = 1e-1
+op.optimization_iters = 100
 
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)

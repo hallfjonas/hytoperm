@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 from typing import Set
 
 # internal imports
-from World import Region
-from Plotters import PlotObject, getAxes
+from .World import Region
+from .Plotters import PlotObject, getAxes
 
 
 class Node:

@@ -1,6 +1,11 @@
+
+# external imports
 import os 
-from Plotters import Exporter
-from Optimization import OptimizationParameters
+
+# internal imports
+from src.Plotters import Exporter
+from src.Optimization import OptimizationParameters
+
 
 # Experiment generation
 NAME = "small_comparison"
@@ -10,7 +15,7 @@ NTARGETS=4
 FRACTION= 0.75 if NTARGETS is None else NTARGETS/NSETS
 
 # Experiment name and output directory
-out_dir = os.path.join("/home/jonas/PhD/papers/CDC2024/figures/experiments", NAME)
+out_dir = os.path.join("experiments", NAME)
 
 # Plot settings
 GENERATEPLOTS = False
@@ -23,7 +28,7 @@ exporter.WIDTH = WIDTH
 
 # adapt the optimization parameters
 op = OptimizationParameters()
-op._kkt_tolerance = 1e-1
-op._sim_to_steady_state_tol = 1e-1
-op._optimization_iters = 100
-op._beta = 0.95
+op.kkt_tolerance = 1e-1
+op.sim_to_steady_state_tol = 1e-1
+op.optimization_iters = 100
+op.beta = 0.95

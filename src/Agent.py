@@ -1,10 +1,10 @@
       
 # internal imports
-from World import *
-from Dynamics import *
-from GlobalPlanning import *
-from Optimization import *
-from Sensor import *
+from .World import *
+from .Dynamics import *
+from .GlobalPlanning import *
+from .Optimization import *
+from .Sensor import *
 
 '''
 omegaDot: the ODE right hand side of the state estimator's covariance matrix
@@ -1246,18 +1246,17 @@ class Agent:
 
     # printers
     def printHeader(self) -> None:
-        print("----|-----------|-----------|-----------|----------|--------")
-        print(" it | avrg cost | grad. nrm | step size | kkt viol | steady ")
-        print("----|-----------|-----------|-----------|----------|--------")
+        print("----|-----------|-----------|-----------|--------")
+        print(" it | avrg cost | grad. nrm | step size | steady ")
+        print("----|-----------|-----------|-----------|--------")
               
     def printIteration(self, it) -> None:
         if it % 10 == 0:
             self.printHeader()
-        print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:7.2e} | {:5d}".format(
+        print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:5d}".format(
             it, 
             self._global_costs[-1], 
             self._global_gradient_norms[-1], 
             self._alphas[-1], 
-            np.max(np.abs(self._kkt_violations[-1])), 
             self._steady_state_iters[-1]
         ))

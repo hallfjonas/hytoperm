@@ -7,8 +7,8 @@ from scipy.spatial import Voronoi
 import numpy as np
 
 # internal imports
-from World import *
-from Agent import *
+from .World import *
+from .Agent import *
 
 class Experiment:
     def __init__(self, name : str = "", domain : Domain = Domain()) -> None:

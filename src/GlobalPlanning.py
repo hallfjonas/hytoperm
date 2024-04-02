@@ -7,8 +7,8 @@ from python_tsp.exact import solve_tsp_dynamic_programming
 from python_tsp.heuristics import solve_tsp_simulated_annealing
 
 # internal imports
-from World import *
-from DataStructures import Tree, Node, PlotObject
+from .World import *
+from .DataStructures import Tree, Node, PlotObject
 
 
 class PlotOptions:

@@ -9,7 +9,7 @@ import casadi as cad
 import math
 
 # internal imports
-from Plotters import *
+from .Plotters import *
 plotAttr = PlotAttributes()
 
 class Domain:
@@ -173,7 +173,7 @@ class Partition:
             po.add(r.plot(ax, **extended_kwargs))
         return po
     
-from DataStructures import Node
+from .DataStructures import Node
 class CPRegion(Region):
     """
     Represents a convex polygon region defined by linear inequalities g*x <= b.

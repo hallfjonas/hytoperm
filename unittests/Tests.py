@@ -6,10 +6,7 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 from typing import Tuple
 
 # internal imports
-from Experiment import Experiment
-from GlobalPlanning import GlobalPathPlanner
-from World import * 
-from Agent import *
+from src.Experiment import *
 from experiments.experiment_small import plotResults
 
 def run(name, exec, **kwargs):

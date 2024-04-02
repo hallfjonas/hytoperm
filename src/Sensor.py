@@ -1,6 +1,6 @@
 
 # internal imports
-from World import *
+from .World import *
 
 
 '''

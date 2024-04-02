@@ -1,9 +1,12 @@
 
+# external imports
 import os
-from Experiment import *
-from unittests import *
-from experiments.large_comparison.config import *
 from matplotlib.ticker import MaxNLocator
+
+# internal imports
+from src.Experiment import *
+from experiments.large_comparison.config import *
+
 
 ##################################
 ## NO NEED TO MAKE CHANGES HERE ##
@@ -167,11 +170,11 @@ def steady_vs_non(steady : Experiment, non_steady : Experiment, savefig = True):
         exporter.export('optimization_steady_vs_non_steady', fig4)
 
 if __name__ == '__main__':
-    op._steady_state_iters = 1
-    op._sim_to_steady_state_tol = 1e-1
+    op.steady_state_iters = 1
+    op.sim_to_steady_state_tol = 1e-1
     non_steady = load_solution(exp_res_non_steady_filename, op)
 
-    op._steady_state_iters = 1000
+    op.steady_state_iters = 1000
     steady = load_solution(exp_res_steady_file, op)
 
     # compare cycle

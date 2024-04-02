@@ -1,9 +1,11 @@
 
+# external imports
 import os
 import sys
-from Experiment import Experiment
-import matplotlib.pyplot as plt
-from unittests.Tests import plotResults
+
+# internal imports
+from src.Experiment import Experiment
+from experiment_small import plotResults
 
 if __name__ == '__main__':
     

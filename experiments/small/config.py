@@ -1,5 +1,10 @@
+
+# external imports
 import os 
-from Plotters import Exporter
+
+# internal imports
+from src.Plotters import Exporter
+
 
 # Experiment generation
 NAME = "small"
@@ -9,7 +14,7 @@ NTARGETS=None
 FRACTION= 0.4 if NTARGETS is None else NTARGETS/NSETS
 
 # Experiment name and output directory
-out_dir = os.path.join("/home/jonas/PhD/papers/CDC2024/figures/experiments", NAME)
+out_dir = os.path.join("experiments", NAME)
 
 # Plot settings
 GENERATEPLOTS = False
