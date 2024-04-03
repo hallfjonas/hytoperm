@@ -1,4 +1,4 @@
-from unittests.Tests import *
+from .Tests import *
 
 if __name__ == "__main__":
     run("test_bilevel_optimization", test_bilevel_optimization)
