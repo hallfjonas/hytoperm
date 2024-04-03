@@ -1,10 +1,11 @@
       
 # internal imports
-from .World import *
-from .Dynamics import *
-from .GlobalPlanning import *
-from .Optimization import *
-from .Sensor import *
+from World import *
+from Dynamics import *
+from GlobalPlanning import *
+from Optimization import *
+from Sensor import *
+
 
 '''
 omegaDot: the ODE right hand side of the state estimator's covariance matrix
