@@ -4,7 +4,7 @@ import os
 from matplotlib.ticker import MaxNLocator
 
 # internal imports
-from src.Experiment import *
+from hytoperm import *
 from experiments.large.config import *
 
 

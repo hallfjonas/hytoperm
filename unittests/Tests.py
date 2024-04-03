@@ -6,7 +6,7 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 from typing import Tuple
 
 # internal imports
-from src.Experiment import *
+from hytoperm import *
 from experiments.experiment_small import plotResults
 
 def run(name, exec, **kwargs):

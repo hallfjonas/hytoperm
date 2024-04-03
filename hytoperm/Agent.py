@@ -1,10 +1,10 @@
       
 # internal imports
-from World import *
-from Dynamics import *
-from GlobalPlanning import *
-from Optimization import *
-from Sensor import *
+from hytoperm.World import *
+from hytoperm.Dynamics import *
+from hytoperm.GlobalPlanning import *
+from hytoperm.Optimization import *
+from hytoperm.Sensor import *
 
 
 '''

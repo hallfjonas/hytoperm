@@ -3,8 +3,7 @@
 import os 
 
 # internal imports
-from src.Plotters import Exporter
-from src.Optimization import OptimizationParameters
+from hytoperm import *
 
 
 # Experiment generation

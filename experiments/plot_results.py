@@ -4,7 +4,7 @@ import os
 import sys
 
 # internal imports
-from src.Experiment import Experiment
+from hytoperm import *
 from experiment_small import plotResults
 
 if __name__ == '__main__':

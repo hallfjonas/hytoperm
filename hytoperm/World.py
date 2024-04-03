@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from abc import abstractclassmethod
 from scipy.spatial import ConvexHull
 
-
 # internal imports
-from .Plotters import *
+from hytoperm.Plotters import *
 plotAttr = PlotAttributes()
+
 
 class Domain:
     def __init__(self, xrange = [0,1.5], yrange = [0,1]):
@@ -157,6 +157,7 @@ class Region:
                     
         return V, W
 
+
 class Partition:
     def __init__(self, regions : Set[Region]) -> None:
         self._regions = regions
@@ -172,7 +173,7 @@ class Partition:
             po.add(r.plot(ax, **extended_kwargs))
         return po
     
-from .DataStructures import Node
+
 class CPRegion(Region):
     """
     Represents a convex polygon region defined by linear inequalities g*x <= b.
@@ -426,6 +427,7 @@ class CPRegion(Region):
         chp = self.getConvexHull().points
         chv = self.getConvexHull().vertices
         return PlotObject(ax.fill(chp[chv,0], chp[chv,1], **kwargs))
+
 
 class Dynamics:
     def __init__(self, nx : int, nz : int, nu : int):
@@ -694,6 +696,7 @@ class Target:
             po.add(ax.text(self._p[0] + dx, self._p[1] + dy, self.name))
 
         return po
+
 
 class World:
     

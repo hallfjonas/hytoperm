@@ -1,4 +1,7 @@
 
+# external imports
+import casadi as cad
+
 # internal imports
 from .World import *
 
