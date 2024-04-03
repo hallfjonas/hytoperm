@@ -8,6 +8,7 @@ from typing import Tuple
 # internal imports
 from hytoperm import *
 from experiments.experiment_small import plotResults
+plt.ioff()
 
 def run(name, exec, **kwargs):
     print("Running test " + name + " ...")
