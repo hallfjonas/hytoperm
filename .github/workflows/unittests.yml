@@ -13,6 +13,8 @@ jobs:
           python-version: '3.9'
           cache: 'pip' # caching pip dependencies
       - run: pip install -r requirements.txt
-      - run: export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+      - run: export PYTHONPATH="${PYTHONPATH}:$(pwd)";
+      - run: export PYTHONPATH="${PYTHONPATH}:$(pwd)/unittests";
+      - run: echo $PYTHONPATH
       - run: python --version
       - run: python unittests/all.py
