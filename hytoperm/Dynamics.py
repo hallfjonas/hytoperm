@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # internal imports
-from .Plotters import PlotObject, getAxes
+from .PyPlotHelpers.Plotters import PlotObject, getAxes
 
 
 class Trajectory:
