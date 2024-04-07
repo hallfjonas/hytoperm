@@ -7,8 +7,7 @@ from abc import abstractclassmethod
 from scipy.spatial import ConvexHull
 
 # internal imports
-from hytoperm.Plotters import *
-plotAttr = PlotAttributes()
+from .PyPlotHelpers.Plotters import *
 
 
 class Domain:

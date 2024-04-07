@@ -3,11 +3,9 @@
 import matplotlib.pyplot as plt
 import numpy as np  
 from scipy.spatial import Voronoi, voronoi_plot_2d
-from typing import Tuple
 
 # internal imports
 from hytoperm import *
-from experiments.experiment_small import plotResults
 plt.ioff()
 
 
@@ -112,7 +110,6 @@ def test_cycle(n_sets=8) -> Experiment:
     ex._agent.computeVisitingSequence()
     ex._agent.initializeCycle()
     ex._agent._cycle.simulate()
-    plotResults(ex, wsq=False, savefig=False, leave_open=True)
     return ex
 
 def test_bilevel_optimization(n_sets=10) -> Experiment:
@@ -123,5 +120,4 @@ def test_bilevel_optimization(n_sets=10) -> Experiment:
     ex._agent.op.beta = 0.9
     ex._agent.op.optimization_iters = 10
     ex._agent.optimizeCycle()
-    plotResults(ex, wsq=True, savefig=False, leave_open=True)
     return ex

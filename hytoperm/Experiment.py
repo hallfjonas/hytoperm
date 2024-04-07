@@ -7,8 +7,8 @@ from scipy.spatial import Voronoi
 import numpy as np
 
 # internal imports
-from hytoperm.World import *
-from hytoperm.Agent import *
+from .World import *
+from .Agent import *
 
 
 class Experiment:
