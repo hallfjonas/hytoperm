@@ -17,7 +17,7 @@ class SensingQualityFunction:
     def __init__(self):
         pass
 
-    @abstractclassmethod
+    @classmethod
     def __call__(self, p, q):
         pass
 
