@@ -8,7 +8,8 @@ from hytoperm import *
 
 class TesttestCycle(unittest.TestCase):
     
-    def testCycle(self, n_sets=8):
+    def testCycle(self):
+        n_sets = 8
         ex = Experiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         ex._agent.computeVisitingSequence()

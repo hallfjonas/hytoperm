@@ -8,7 +8,8 @@ from hytoperm import *
 
 class TesttestLocalController(unittest.TestCase):
     
-    def testLocalController(self, n_sets=20):
+    def testLocalController(self):
+        n_sets = 20
         ex = Experiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         

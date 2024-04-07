@@ -8,7 +8,8 @@ from hytoperm import *
 
 class TestPlotWorld(unittest.TestCase):
     
-    def testPlotWorld(self, n_sets=10):
+    def testPlotWorld(self):
+        n_sets = 10
         ex = Experiment.generate(n_sets=n_sets)
         fig, ax = ex.plotWorld()
 

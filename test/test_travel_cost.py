@@ -8,7 +8,7 @@ from hytoperm import *
 
 class TesttestTravelCost(unittest.TestCase):
 
-    def testTravelCost():
+    def testTravelCost(self):
         ex = Experiment.generate()
         fig, ax = ex.plotWorld()
         ex._world.plotTravelCostPerRegion(ax)

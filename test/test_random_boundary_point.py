@@ -8,7 +8,8 @@ from hytoperm import *
 
 class TestRandomBoundaryPoint(unittest.TestCase):
     
-    def testRandomBoundaryPoint(self, n_sets = 10):
+    def testRandomBoundaryPoint(self):
+        n_sets = 10
         ex = Experiment()
         assert(isinstance(ex, Experiment))
         ex.addRandomVoronoiPoints(n_sets=10)
