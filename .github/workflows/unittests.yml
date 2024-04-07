@@ -1,20 +1,41 @@
-name: Python Package
+name: hytoperm tests
 
-on: [push]
+on:
+  pull_request:
+  push:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+  test_nosnoc:
+    runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-          cache: 'pip' # caching pip dependencies
-      - run: pip install -r requirements.txt
-      - run: export PYTHONPATH="${PYTHONPATH}:$(pwd)";
-      - run: export PYTHONPATH="${PYTHONPATH}:$(pwd)/unittests";
-      - run: echo $PYTHONPATH
-      - run: python --version
-      - run: python unittests/all.py
+    - uses: actions/checkout@v3
+
+    - name: Install Python and pip package
+      shell: bash
+      run: |
+        python3 --version
+        sudo pip3 install virtualenv
+        virtualenv --python=python3 env
+        source env/bin/activate
+        which python
+        pip install -e .
+        pip install -r requirements_test.txt
+    - name: Run tests
+      shell: bash
+      run: |
+        source env/bin/activate
+        mkdir -p test-results
+        python -m pytest --junitxml test-results/results.xml --cov=hytoperm --cov-report=html:test-results/coverage test
+    - name: Publish Test Report
+      uses: mikepenz/action-junit-report@v3
+      if: always() # always run even if the previous step fails
+      with:
+        report_paths: 'test-results/results.xml'
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: test-results/
