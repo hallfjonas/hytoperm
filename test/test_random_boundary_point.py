@@ -12,7 +12,7 @@ class TestRandomBoundaryPoint(unittest.TestCase):
         n_sets = 10
         ex = Experiment()
         assert(isinstance(ex, Experiment))
-        ex.addRandomVoronoiPoints(n_sets=10)
+        ex.addRandomVoronoiPoints(10)
         ex.addRandomTargets()
         ex.generatePartitioning()
         ex.plotWorld()
