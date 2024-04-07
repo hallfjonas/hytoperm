@@ -11,7 +11,7 @@ from typing import Set
 
 # internal imports
 from .World import Region
-from .Plotters import PlotObject, getAxes
+from .PyPlotHelpers.Plotters import PlotObject, getAxes
 
 
 class Node:
