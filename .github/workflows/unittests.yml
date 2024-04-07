@@ -5,7 +5,7 @@ on:
   push:
 
 jobs:
-  test_nosnoc:
+  test_hytoperm:
     runs-on: ubuntu-20.04
 
     steps:
