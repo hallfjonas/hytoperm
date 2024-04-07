@@ -5,7 +5,8 @@ from .Dynamics import *
 from .GlobalPlanning import *
 from .Optimization import *
 from .Sensor import *
-from .PlotAttributes import *
+from .PlotAttributes import PlotAttributes
+_plotAttr = PlotAttributes()
 
 
 '''
@@ -666,7 +667,7 @@ class Cycle:
     # plotters
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
-        eka = extendKeywordArgs(plotAttr.agent.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(_plotAttr.agent.getAttributes(), **kwargs)
         return self.pTrajectory.plotStateVsState(0, 1, ax, **eka)
     
     def plotControls(
@@ -692,9 +693,9 @@ class Cycle:
             ) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        u1_pA = plotAttr.u1_switch
-        u2_pA = plotAttr.u2_switch
-        un_pA = plotAttr.u_norm_switch
+        u1_pA = _plotAttr.u1_switch
+        u2_pA = _plotAttr.u2_switch
+        un_pA = _plotAttr.u_norm_switch
         eka1 = extendKeywordArgs(u1_pA.getAttributes(), **kwargs)
         eka2 = extendKeywordArgs(u2_pA.getAttributes(), **kwargs)
         eka3 = extendKeywordArgs(un_pA.getAttributes(), **kwargs)
@@ -716,9 +717,9 @@ class Cycle:
             **kwargs
             ) -> PlotObject:
         po = PlotObject()
-        u1_pA = plotAttr.u1_monitor
-        u2_pA = plotAttr.u2_monitor
-        un_pA = plotAttr.u_norm_monitor
+        u1_pA = _plotAttr.u1_monitor
+        u2_pA = _plotAttr.u2_monitor
+        un_pA = _plotAttr.u_norm_monitor
         eka1 = extendKeywordArgs(u1_pA.getAttributes(), **kwargs)
         eka2 = extendKeywordArgs(u2_pA.getAttributes(), **kwargs)
         eka3 = extendKeywordArgs(un_pA.getAttributes(), **kwargs)
@@ -758,7 +759,7 @@ class Cycle:
             eka = kwargs.copy()
             if add_labels:
                 eka['label'] = target.name
-            ext = {'color': plotAttr.target_colors[-i]}
+            ext = {'color': _plotAttr.target_colors[-i]}
             eka = extendKeywordArgs(ext, **eka)
             po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **eka))
             mseStart = self.mseTrajectories[target].getInitialValue() 
@@ -1121,7 +1122,7 @@ class Agent:
     def plotEntryPoints(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        eka = extendKeywordArgs(plotAttr.phi.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(_plotAttr.phi.getAttributes(), **kwargs)
         for ms in self._monitoringSegments:
             po.add(ms.params._phi.plot(ax, **eka))
         return po
@@ -1129,7 +1130,7 @@ class Agent:
     def plotDeparturePoints(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        eka = extendKeywordArgs(plotAttr.psi.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(_plotAttr.psi.getAttributes(), **kwargs)
         for ms in self._monitoringSegments:
             po.add(ms.params._psi.plot(ax, **eka))
         return po
@@ -1138,10 +1139,10 @@ class Agent:
         ax = getAxes(ax)
         po = PlotObject()
         for ms in self._monitoringSegments:
-            eka = extendKeywordArgs(plotAttr.phi.getAttributes(),**kwargs)
+            eka = extendKeywordArgs(_plotAttr.phi.getAttributes(),**kwargs)
             po.add(ms.params._phi.plot(ax, **eka))
             
-            eka = extendKeywordArgs(plotAttr.psi.getAttributes(),**kwargs)
+            eka = extendKeywordArgs(_plotAttr.psi.getAttributes(),**kwargs)
             po.add(ms.params._psi.plot(ax, **eka))
         return po
 
@@ -1183,7 +1184,7 @@ class Agent:
         tv = np.array(self._tau_vals)
         for i in range(tv.shape[1]):
             eka = extendKeywordArgs(
-                {'color': plotAttr.target_colors[-i]}, 
+                {'color': _plotAttr.target_colors[-i]}, 
                 **kwargs
                 )
             po.add(ax.plot(tv[:,i], **eka))
@@ -1231,7 +1232,7 @@ class Agent:
                     region = target.region()
                     if region.contains(p):
                         Z[i,j] = sensor.getSensingQuality(target)
-        sqAttr = plotAttr.sensor_quality.getAttributes()
+        sqAttr = _plotAttr.sensor_quality.getAttributes()
         eka = extendKeywordArgs(sqAttr, **kwargs)
         cf = ax.contourf(X, Y, Z, **eka)
         # plt.colorbar(res)

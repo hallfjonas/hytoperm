@@ -82,4 +82,3 @@ class PlotAttributes:
         a=u_norm_switch.alpha, 
         lw=u_norm_switch.linewidth
     )
-plotAttr = PlotAttributes()

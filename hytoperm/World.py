@@ -7,6 +7,8 @@ from scipy.spatial import ConvexHull
 
 # internal imports
 from .PyPlotHelpers.Plotters import *
+from .PlotAttributes import PlotAttributes
+_plotAttr = PlotAttributes()
 
 
 class Domain:
@@ -157,7 +159,7 @@ class Partition:
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        extended_kwargs = extendKeywordArgs(plotAttr.partition.getAttributes())
+        extended_kwargs = extendKeywordArgs(_plotAttr.partition.getAttributes())
         for r in self.regions():
             po.add(r.plot(ax, **extended_kwargs))
         return po
@@ -496,7 +498,7 @@ class Dynamics:
                 DX[i,j]= F[0]
                 DY[i,j]= F[1]
 
-        eka = extendKeywordArgs(plotAttr.vector_field.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(_plotAttr.vector_field.getAttributes(), **kwargs)
         return ax.quiver(X, Y, scale*DX, scale*DY, pivot='mid', **eka)
 
 
@@ -664,7 +666,7 @@ class Target:
 
     def plot(self, ax : plt.Axes = None, annotate=True, **kwargs) -> PlotObject:
         ax = getAxes(ax)
-        eka = extendKeywordArgs(plotAttr.target.getAttributes(), **kwargs)
+        eka = extendKeywordArgs(_plotAttr.target.getAttributes(), **kwargs)
         po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))
 
         if annotate:
@@ -791,7 +793,7 @@ class World:
         po = PlotObject()        
         po.add(self.partition().plot(ax))
         eka = extendKeywordArgs(
-            plotAttr.partition_background.getAttributes()
+            _plotAttr.partition_background.getAttributes()
         )
         for region in self.regions():
             has_target = False
