@@ -6,3 +6,4 @@ numpy >= 1.24.4
 casadi >= 3.6.3
 pdfCropMargins >= 2.1.1
 scipy >= 1.10.1
+python-tsp >= 0.4.0
