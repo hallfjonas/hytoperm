@@ -208,7 +208,6 @@ class TrajectorySegment:
         self._ucs : Dict[Target : cad.Function] = ucs                           # an unmmonitored covariance simulator for each target
         self._cov_f : Dict[Target, np.ndarray] = {}
 
-    @classmethod
     def update(self) -> None:
         pass
 

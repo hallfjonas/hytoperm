@@ -3,7 +3,6 @@
 import numpy as np
 from typing import List, Dict, Set
 import matplotlib.pyplot as plt 
-from abc import classmethod
 from scipy.spatial import ConvexHull
 
 # internal imports
@@ -45,7 +44,6 @@ class Region:
     def region(self):
         return self
     
-    @classmethod
     def contains(self, x: np.ndarray, tol : float = 0) -> bool:
         """
         Checks if a point is contained within the region.
@@ -59,7 +57,6 @@ class Region:
         """
         pass
 
-    @classmethod
     def violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
         """
         Checks which constraints are violated at x.
@@ -73,7 +70,6 @@ class Region:
         """
         pass
 
-    @classmethod
     def distToBoundary(self, x: np.ndarray) -> float:
         """
         Computes the distance to the boundary of the region.
@@ -86,11 +82,9 @@ class Region:
         """
         pass
 
-    @classmethod
     def randomBoundaryPoint(self) -> np.ndarray:
         pass
 
-    @classmethod
     def projectToBoundary(self, x0, xf):
         '''
         This function projects a point onto the boundary of the region along the 
@@ -102,7 +96,6 @@ class Region:
         '''
         pass
 
-    @classmethod
     def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         '''
         This function plans a path between two points in the region.
@@ -116,7 +109,6 @@ class Region:
         '''
         pass
 
-    @classmethod
     def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         """
         Computes the travel cost between two points in the region.
@@ -127,12 +119,10 @@ class Region:
         """
         pass
 
-    @classmethod
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         pass
 
-    @classmethod
     def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         pass
@@ -474,7 +464,6 @@ class Dynamics:
     def zeroVec(self, n):
         return np.zeros(n)
 
-    @classmethod
     def __call__(self, x, z, u):
         pass
 
