@@ -20,6 +20,10 @@ class Experiment:
         self._domain = domain                                                   # domain object
         self._name = name                                                       # name of the experiment
         
+    def randomRegion(self) -> Region:
+        idx = np.random.randint(0, self._world.nRegions())
+        return self._world.regions()[idx]
+
     def addRandomVoronoiPoints(self, M) -> None:
         self._vc = []
         self._M = M
