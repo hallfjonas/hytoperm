@@ -28,8 +28,8 @@ class Experiment:
     def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
         self._vc = []
         counter = 0
-        M = int(M)
-        assert M >= 0, "Number of Voronoi points must be nonnegative."
+
+        assert M >= 0, "Number of Voronoi points must be a nonnegative number."
         while len(self._vc) < M:
 
             # prevent infinite loop
@@ -58,9 +58,13 @@ class Experiment:
             self._vc.append(p)
 
         self._M = len(self._vc)
+        self._vc = np.array(self._vc)
 
     def generatePartitioning(self) -> None:
-        self._voronoi = Voronoi(self._vc)
+        
+        if self._vc.shape[0] > 1:
+            self._voronoi = Voronoi(self._vc)
+
         regions = []
         for i in range(self._M):
             g = {}
@@ -74,16 +78,31 @@ class Experiment:
                 g[j] = a 
                 b[j] = a @ (self._vc[i] + self._vc[j]) / 2
             dyn = ConstantDynamics(2,0,0,np.random.uniform(-0.5,0.5,2))
-            regions.append(ConstantDCPRegion(g,b,self._vc[i], domain=self._domain, dynamics=dyn))      
+            regions.append(ConstantDCPRegion(
+                g,
+                b,
+                self._vc[i], 
+                domain=self._domain, 
+                dynamics=dyn)
+                )      
         self._world.setRegions(regions)
     
     def assignRandomAgent(self) -> None:
         sensor = Sensor()
         for target in self._world.targets():
             if target.name == '3':
-                sensor.setgetQualityFunction(target, SinusoidalgetQualityFunction(c1=np.random.uniform(3,20),c2=np.random.uniform(3,20)))
+                sensor.setgetQualityFunction(
+                    target, 
+                    SinusoidalgetQualityFunction(
+                        c1=np.random.uniform(3,20),
+                        c2=np.random.uniform(3,20)
+                        )
+                    )
             else:
-                sensor.setgetQualityFunction(target, GaussiangetQualityFunction())
+                sensor.setgetQualityFunction(
+                    target, 
+                    GaussiangetQualityFunction()
+                    )
 
             sensor.setNoiseMatrix(target, np.eye(1))
             sensor.setMeasurementMatrix(target, np.eye(1))
