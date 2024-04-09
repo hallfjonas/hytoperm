@@ -292,6 +292,7 @@ class MonitoringController:
             raise Exception(
                 "Not implemented for regions other than CPRegion."
                 )
+        dynamics : ConstantDynamics = region.dynamics()   
         if not isinstance(dynamics, ConstantDynamics):
             raise Exception(
                 "Not implemented for dynamics other than constant dyanmics."
@@ -319,7 +320,6 @@ class MonitoringController:
         N = self.N                  # number of control intervals
 
         # Model equations     
-        dynamics = region.dynamics()   
         pDot = dynamics.v() + u
         oDot = omegaDot(p, Omega, target, sensor, True)
         xDot = cad.vertcat(pDot, oDot)
