@@ -796,7 +796,8 @@ class World:
         eka = extendKeywordArgs(
             _plotAttr.partition_background.getAttributes()
         )
-        if not self.hasTarget(region) and fill_empty_regions:
+        for region in self.regions():
+            if not self.hasTarget(region) and fill_empty_regions:
                 po.add(region.fill(ax, **eka))
         
         for target in self._targets:
