@@ -122,11 +122,9 @@ class Region:
         pass
 
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
-        ax = getAxes(ax)
         pass
 
     def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
-        ax = getAxes(ax)
         pass
 
     def getGrid(self, domain : Domain, dx = 0.05, dy=0.05, mdtb = 0.1):
