@@ -55,10 +55,10 @@ Created on: Mar 28 2024
 class PlotAttributes:
     agent = PlotAttribute(c='navy')
     target = PlotAttribute(c='red', m='o', ms=10)
-    partition = PlotAttribute(c='black')
     vector_field = PlotAttribute(c='black', a=0.3)
     cmap = 'viridis'
     sensor_quality = PlotAttribute(aa=True,a=0.4,cm=cmap,c=None,ls=None,lw=None)
+    partition = PlotAttribute(c='black')
     partition_background = PlotAttribute(
         c=get_cmap(sensor_quality.cmap)(0.001), 
         a=sensor_quality.alpha
