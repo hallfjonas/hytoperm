@@ -781,6 +781,9 @@ class World:
         Z = np.nan*np.ones(X.shape)
         return X, Y, Z
 
+    def hasTarget(self, region : Region) -> bool:
+        return region in self.regions()
+
     # plotters
     def plotMissionSpace(
             self, 
@@ -793,13 +796,7 @@ class World:
         eka = extendKeywordArgs(
             _plotAttr.partition_background.getAttributes()
         )
-        for region in self.regions():
-            has_target = False
-            for target in self.targets():
-                if target.region() == region:
-                    has_target = True
-                    break
-            if not has_target and fill_empty_regions:
+        if not self.hasTarget(region) and fill_empty_regions:
                 po.add(region.fill(ax, **eka))
         
         for target in self._targets:
