@@ -29,7 +29,7 @@ class Experiment:
         self._vc = []
         counter = 0
         M = int(M)
-        assert(M >= 0, "Number of Voronoi points must be nonnegative.")
+        assert M >= 0, "Number of Voronoi points must be nonnegative."
         while len(self._vc) < M:
 
             # prevent infinite loop
