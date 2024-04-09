@@ -782,7 +782,10 @@ class World:
         return X, Y, Z
 
     def hasTarget(self, region : Region) -> bool:
-        return region in self.regions()
+        for target in self._targets:
+            if target.region() == region:
+                return True
+        return False
 
     # plotters
     def plotMissionSpace(
