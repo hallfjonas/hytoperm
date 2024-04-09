@@ -943,11 +943,11 @@ class Agent:
         not the reached target region.
         '''
         
+        node : Tree = path
         if node is None:
             Warning("Path is empty...")
             return None, None, None
         
-        node : Tree = path
         phi = node.getData().p().reshape(-1,1)
         tf = np.array(0).reshape(1)
         u = np.nan*np.zeros((2,1))
