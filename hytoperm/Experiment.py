@@ -25,12 +25,39 @@ class Experiment:
         idx = np.random.randint(0, self._world.nRegions())
         return self._world.regions()[idx]
 
-    def addRandomVoronoiPoints(self, M) -> None:
+    def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
         self._vc = []
-        self._M = M
-        xvals = np.random.uniform(self._domain.xmin(), self._domain.xmax(), M)
-        yvals = np.random.uniform(self._domain.ymin(), self._domain.ymax(), M)
-        self._vc = np.array(list(zip(xvals, yvals)))
+        counter = 0
+        M = int(M)
+        assert(M >= 0, "Number of Voronoi points must be nonnegative.")
+        while len(self._vc) < M:
+
+            # prevent infinite loop
+            counter += 1
+            if counter > 1000 * M:
+                raise Exception(
+                    "Could not generate enough Voronoi points. " + 
+                    "Try decreasing the minimum distance between points."
+                )
+
+            # sample new point
+            x = np.random.uniform(self._domain.xmin(), self._domain.xmax())
+            y = np.random.uniform(self._domain.ymin(), self._domain.ymax())
+            p = np.array([x, y])
+            
+            # always add first point
+            if len(self._vc) == 0:
+                self._vc.append(p)
+                continue
+            
+            # check if point is too close to existing points
+            dist = np.linalg.norm(self._vc - p, axis=1)
+            if np.min(dist) < min_dist:
+                continue
+
+            self._vc.append(p)
+
+        self._M = len(self._vc)
 
     def generatePartitioning(self) -> None:
         self._voronoi = Voronoi(self._vc)
@@ -148,12 +175,17 @@ class Experiment:
             return pickle.load(f)
     
     @staticmethod
-    def generate(n_sets=15, fraction=0.5, seed=784) -> Experiment:
+    def generate(n_sets=15, fraction=0.5, seed=784, min_dist=0.0) -> Experiment:
         if seed is not None:
             np.random.seed(seed)
-        ex = Experiment()
-        ex.addRandomVoronoiPoints(n_sets)
-        ex.generatePartitioning()
-        ex.addRandomTargets(fraction=fraction)
-        ex.assignRandomAgent()
-        return ex
+        
+        try:
+            ex = Experiment()
+            ex.addRandomVoronoiPoints(n_sets, min_dist=min_dist)
+            ex.generatePartitioning()
+            ex.addRandomTargets(fraction=fraction)
+            ex.assignRandomAgent()
+            return ex
+        except AssertionError as e:  
+            print(e)  
+            return None
