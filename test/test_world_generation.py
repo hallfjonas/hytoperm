@@ -20,9 +20,8 @@ fail_settings = {
 
 
 class TesttestWorldGeneration(unittest.TestCase):
-    def testWorldGeneration(self):
-
-        # pass settings: expected to generate an Experiment instance
+    # pass settings: expected to generate an Experiment instance
+    def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
             for fraction in pass_settings["fraction"]:
                 for seed in pass_settings["seed"]:
@@ -35,18 +34,18 @@ class TesttestWorldGeneration(unittest.TestCase):
                         )
                         self.assertIsInstance(ex, Experiment)
 
-        # fail settings: expected Experiment generation to fail and return None
+    # fail settings: expected Experiment generation to fail and return None
+    def testWorldGenerationFail(self):
         for n_sets in fail_settings["n_sets"]:
             for fraction in fail_settings["fraction"]:
                 for min_dist in fail_settings["min_dist"]:
-                    with self.assertRaises(AssertionError):
-                        ex = Experiment.generate(
-                            n_sets=n_sets, 
-                            fraction=fraction, 
-                            seed=None, 
-                            min_dist=min_dist
-                        )
-                        # self.assertIsNone(ex)
+                    ex = Experiment.generate(
+                        n_sets=n_sets, 
+                        fraction=fraction, 
+                        seed=None, 
+                        min_dist=min_dist
+                    )
+                    self.assertIsNone(ex)
 
     
 if __name__ == "__main__":
