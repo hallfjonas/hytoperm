@@ -5,6 +5,7 @@ import pickle
 import matplotlib.pyplot as plt
 from scipy.spatial import Voronoi
 import numpy as np
+import math
 
 # internal imports
 from .World import *
@@ -61,13 +62,14 @@ class Experiment:
             sensor.setMeasurementMatrix(target, np.eye(1))
         self._agent = Agent(self._world, sensor=sensor)
 
-    def addRandomTargets(self, n = None, fraction = 0.5) -> None:
+    def addRandomTargets(self, n : int = None, fraction = 0.5) -> None:
         target_counter = 0
         if n is None:
             assert(fraction is not None)
             n = self._world.nRegions() * fraction
+        n = math.floor(n)
         for region in self._world.regions():
-            if target_counter == n:
+            if target_counter >= n:
                 break
            
             pos = region.p()
