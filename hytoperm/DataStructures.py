@@ -7,7 +7,7 @@ from __future__ import annotations
 import collections
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Set
+from typing import Set, List
 
 # internal imports
 from .World import Region
@@ -49,26 +49,28 @@ class Node:
     
     # modifiers
     def activate_region_to_parent(self, r : Region) -> None:
-        assert(isinstance(r, Region))
-        assert(r in self._r)
+        if not isinstance(r, Region):
+            raise ValueError("Region must be a Region object.")
+        if not r in self._r:
+            raise ValueError("Region must be affiliated with node.")
         self._rtp = r
 
     def updatePosition(self, p : np.ndarray) -> None:
-        assert(isinstance(p, np.ndarray))
+        if not isinstance(p, np.ndarray):
+            raise ValueError("Position must be a numpy array.")
         self._p = p
 
-    def updateRegions(self, r : Set[Region], rtp : Region) -> None:
-        assert(isinstance(r, set))
+    def updateRegions(self, r : Set[Region], rtp : Region = None) -> None:
+        if not isinstance(r, set):
+            raise ValueError("Regions must be a set of Region objects.")
         for region in r:
             self.addRegion(region)
-
-        if (isinstance(rtp, Region)):
+        if rtp is not None:
             self.activate_region_to_parent(rtp)
-        else:
-            assert(rtp is None)
 
     def addRegion(self, r : Region) -> None:
-        assert(isinstance(r, Region))
+        if not isinstance(r, Region):
+            raise ValueError("Region must be a Region object.")
         self._r.add(r)
         
     def updateCostToRoot(self, costToRoot : float):
@@ -118,7 +120,7 @@ class Tree(object):
             children (multiple)
         '''
         self.__data = data
-        self.__children = []
+        self.__children : List[Tree] = []                                       # private children attribute
         self.__parent : Tree = None                                             # private parent attribute
                 
         if children: #construct a Tree with child or children
@@ -146,11 +148,12 @@ class Tree(object):
         """
             
         if name in ('parent', '__parent', 'children'):
-                raise AttributeError(
-                    "To add children, use addChild or addChildren method."
-                    )
+            raise AttributeError(
+                "To add children, use addChild or addChildren method."
+                )
         elif name in ('__data', 'data'):
-            assert(isinstance(value, Node))
+            if not isinstance(value, Node):
+                raise TypeError("Data must be a Node object.")
             self.__data = value
         else:
             super().__setattr__(name, value)
@@ -203,7 +206,7 @@ class Tree(object):
         """
         return self.__parent
     
-    def getChild(self, index):
+    def getChild(self, index) -> Tree:
         """  
             Get node's No. index child node.
             @param index: Which child node to get in children list, starts with 
@@ -216,13 +219,13 @@ class Tree(object):
         except IndexError:
             raise IndexError("Index starts with 0 to number of children - 1")
         
-    def getChildren(self):
+    def getChildren(self) -> List[Tree]:
         """
             Get node's all child nodes.
         """
         return self.__children
 
-    def hasParent(self):
+    def hasParent(self) -> bool:
         """
             Determine whether node has a parent node or not.
         """
@@ -265,17 +268,16 @@ class Tree(object):
                 nodesQ.extend(child.getChildren())
                 del nodesQ[0]
 
-    def getNodesInRegion(self, r : Region):
+    def getNodesInRegion(self, r : Region) -> List[Tree]:
         """
             Get all nodes in a region.
         """
-        nodes = []
+        nodes : List[Tree] = []
 
         sNodes = self.getRoot().getChildren()
         sNodes.append(self.getRoot())
         
         for n in sNodes:
-            assert(isinstance(n, Tree))
             if r in n.getData().regions():
                 nodes.append(n)
         
@@ -313,7 +315,7 @@ class Tree(object):
             for child in self.getChildren():
                 child.cut(c)
 
-    def delChild(self, index):
+    def delChild(self, index) -> None:
         """  
             Delete node's No. index child node.
             @param index: Which child node to delete in children list, starts 
@@ -325,8 +327,7 @@ class Tree(object):
         except IndexError:
             raise IndexError("Index starts with 0 to number of children - 1")
     
-    def delNode(self, content):
-         
+    def delNode(self, content) -> None:
         """
             Delete the first matching item(including self) whose data is equal 
             to content. Method uses data == content to determine whether a 

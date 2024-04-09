@@ -107,5 +107,6 @@ Created on: Apr 1 2024
 def getAxes(ax : plt.Axes = None) -> plt.Axes:
     if ax is None:
         ax = plt.gca()
-    assert(isinstance(ax, plt.Axes))
+    if not isinstance(ax, plt.Axes):
+        raise ValueError("Expected ax to be of type matplotlib.pyplot.Axes.")
     return ax

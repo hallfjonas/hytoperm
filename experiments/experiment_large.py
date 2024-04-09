@@ -40,7 +40,7 @@ def load_experiment() -> Experiment:
     if not os.path.exists(exp_file):
         ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
-        assert(isinstance(ex, Experiment))
+        if not isinstance(ex, Experiment)
         ex.serialize(exp_file)
     else:
         ex : Experiment = Experiment.deserialize(exp_file)

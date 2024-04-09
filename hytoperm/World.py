@@ -128,7 +128,6 @@ class Region:
         pass
 
     def getGrid(self, domain : Domain, dx = 0.05, dy=0.05, mdtb = 0.1):
-        assert(dx > 0); assert(dy > 0); assert(mdtb > 0)
         X = np.arange(domain.xmin(),domain.xmax(),dx)
         Y = np.arange(domain.ymin(),domain.ymax(),dy)
         V, W = np.meshgrid(X,Y)
@@ -290,7 +289,7 @@ class CPRegion(Region):
                 bdp = x
         return bdp
 
-    def assignConstraints(self, g, b, domain : Domain) -> None:
+    def assignConstraints(self, g : dict, b : dict, domain : Domain) -> None:
         """
         Assigns the constraint gradients and bounds of the region.
 
@@ -298,15 +297,23 @@ class CPRegion(Region):
             g: Constraint gradients.
             b: Constraint bounds.
         """
-        assert(isinstance(g, dict))
-        assert(isinstance(b, dict))
-        assert(isinstance(domain, Domain))
-        assert(len(g) == len(b))
+        if not isinstance(g, dict):
+            raise ValueError("g must be a dictionary.")
+        if not isinstance(b, dict):
+            raise ValueError("b must be a dictionary.")
+        if not isinstance(domain, Domain):
+            raise ValueError("domain must be a Domain object.")
+        if len(g) != len(b):
+            raise ValueError("g and b must have the same length.")
         for i in g.keys():
-            assert(i in b.keys())
-            assert(isinstance(g[i], np.ndarray))
-            assert(isinstance(b[i], float))
-
+            if i not in b.keys():
+                raise ValueError("Keys of g and b must match.")
+            if not isinstance(g[i], np.ndarray):
+                raise ValueError("g must be a numpy array.")
+            try:
+                float(b[i])
+            except:
+                raise ValueError("b must be a float.")
         self._g = g.copy()
         self._b = b.copy()
 
@@ -316,8 +323,10 @@ class CPRegion(Region):
         self.addConstraint(np.array([0,1]), domain.ymax())  
 
     def assignPoint(self, p : np.ndarray) -> None:
-        assert(isinstance(p, np.ndarray))
-        assert(self.contains(p))
+        if not isinstance(p, np.ndarray):
+            raise ValueError("p must be a numpy array.")
+        if not self.contains(p):
+            raise ValueError("p must be contained in the region.")
         self._p = p
 
     def assignConvexHull(self) -> None:
@@ -444,21 +453,30 @@ class Dynamics:
         return self._nu
     
     def setNX(self, nx : int) -> None:
-        assert(isinstance(nx, int))
-        assert(nx >= 0)
-        self._nx = nx
+        try:
+            if int(nx) != nx or nx < 0:
+                raise ValueError("Argument must be a nonnegative integer.")
+        except:
+            raise ValueError("Argument must be a nonnegative integer.")
+        self._nx = int(nx)
         self.zx = self.zeroVec(nx)
 
     def setNZ(self, nz : int) -> None:
-        assert(isinstance(nz, int))
-        assert(nz >= 0)
-        self._nz = nz
+        try:
+            if int(nz) != nz or nz < 0:
+                raise ValueError("Argument must be a nonnegative integer.")
+        except:
+            raise ValueError("Argument must be a nonnegative integer.")
+        self._nz = int(nz)
         self.zz = self.zeroVec(nz)
 
     def setNU(self, nu : int) -> None:
-        assert(isinstance(nu, int))
-        assert(nu >= 0)
-        self._nu = nu
+        try:
+            if int(nu) != nu or nu < 0:
+                raise ValueError("Argument must be a nonnegative integer.")
+        except:
+            raise ValueError("Argument must be a nonnegative integer.")
+        self._nu = int(nu)
         self.zu = self.zeroVec(nu)
 
     def zeroVec(self, n):
@@ -476,9 +494,17 @@ class Dynamics:
             u = self.zu
         return self(x,z,u)
             
-    def plotVectorField(self, XY : list, ax : plt.Axes, scale = 1, **kwargs):
-        assert(len(XY) == 2)
-        X = XY[0]; Y = XY[1]
+    def plotVectorField(
+            self, 
+            XY : list, 
+            ax : plt.Axes, 
+            scale = 1, 
+            **kwargs) -> PlotObject:
+        if len(XY) != 2:
+            raise ValueError("XY must be a list of two numpy arrays.")
+        if not all(isinstance(XY[i], np.ndarray) for i in range(2)):
+            raise ValueError("XY must be a list of two numpy arrays.")
+        X : np.ndarray = XY[0]; Y : np.ndarray= XY[1]
         
         DX = np.zeros(X.shape)
         DY = np.zeros(X.shape)
@@ -495,9 +521,10 @@ class Dynamics:
                 F = self.eval(state)
                 DX[i,j]= F[0]
                 DY[i,j]= F[1]
-
-        eka = extendKeywordArgs(_plotAttr.vector_field.getAttributes(), **kwargs)
-        return ax.quiver(X, Y, scale*DX, scale*DY, pivot='mid', **eka)
+        vfAttr = _plotAttr.vector_field.getAttributes()
+        eka = extendKeywordArgs(vfAttr, **kwargs)
+        po = PlotObject(ax.quiver(X, Y, scale*DX, scale*DY, pivot='mid', **eka))
+        return po
 
 
 class ConstantDynamics(Dynamics):
@@ -510,7 +537,8 @@ class ConstantDynamics(Dynamics):
         return self.v()
 
     def setV(self, v : np.ndarray) -> None:
-        assert(isinstance(v, np.ndarray))
+        if not isinstance(v, np.ndarray):
+            raise ValueError("Argument must be a numpy array.")
         self._v = v
 
     def v(self) -> np.ndarray:
@@ -524,11 +552,13 @@ class DynamicCPRegion(CPRegion):
         self.assignDynamics(dynamics)
 
     def assignDynamics(self, dynamics : Dynamics) -> None:
-        assert(isinstance(dynamics, Dynamics))
+        if not isinstance(dynamics, Dynamics):
+            raise ValueError("Argument must be a Dynamics object.")
         self._dynamics = dynamics
 
     def assignRegion(self, region : Region) -> None:
-        assert(isinstance(region, Region))
+        if not isinstance(region, Region):
+            raise ValueError("Argument must be a Region object.")
         self._region = region
     
     def dynamics(self) -> Dynamics:
@@ -630,36 +660,45 @@ class Target:
         return self.A.shape[0]
 
     def assignPosition(self, p : np.ndarray) -> None:
-        assert(isinstance(p, np.ndarray))
-        
+        if not isinstance(p, np.ndarray):
+            raise ValueError("Expected argument of type numpy.ndarray.")
         if (self.region() is not None):
-            assert(self.region().contains(p))
-            self._p = p
+            if not self.region().contains(p):
+                raise ValueError(
+                    "Position must be contained in the target's region."
+                    )
+        self._p = p
 
     def assignRegion(self, r : Region) -> None:
-        assert(isinstance(r, Region) or r is None)
+        if not isinstance(r, Region) and r is not None:
+            raise ValueError("Expected argument of type Region (or None).")
         self._r = r
 
     def assignInternalState(self, phi0 : np.ndarray) -> None:
-        assert(isinstance(phi0, np.ndarray))
+        if not isinstance(phi0, np.ndarray):
+            raise ValueError("Expected argument of type numpy.ndarray.")
         self._phi = phi0
 
     def assignStateMatrix(self, A : np.ndarray) -> None:
-        assert(isinstance(A, np.ndarray))
+        if not isinstance(A, np.ndarray):
+            raise ValueError("Expected argument of type numpy.ndarray.")
         if (A.ndim == 1 and A.shape[0] == 1):
             self.A = A.reshape((1,1))
             return
         else:
-            assert(A.ndim == 2)
+            if A.ndim != 2:
+                raise ValueError("Expected argument to have two dimensions.")
         self.A = A
 
     def assignCovariance(self, Q : np.ndarray) -> None:
-        assert(isinstance(Q, np.ndarray))
+        if not isinstance(Q, np.ndarray):
+            raise ValueError("Expected argument of type numpy.ndarray.")
         if (Q.ndim == 1 and Q.shape[0] == 1):
             self.Q = Q.reshape((1,1))
             return
         else:
-            assert(Q.ndim == 2)
+            if Q.ndim != 2:
+                raise ValueError("Expected argument to have two dimensions.")
         self.Q = Q
 
     def plot(self, ax : plt.Axes = None, annotate=True, **kwargs) -> PlotObject:
@@ -715,12 +754,14 @@ class World:
                 pass
 
     def addRegion(self, region : Region) -> None:
-        assert(isinstance(region, Region))
+        if not isinstance(region, Region):
+            raise ValueError("Expected argument of type Region.")
         if region not in self._regions:
             self._regions.append(region)
 
     def addTarget(self, target : Target) -> None:
-        assert(isinstance(target, Target))
+        if not isinstance(target, Target):
+            raise ValueError("Expected argument of type Target.")
         if target not in self._targets:
             self._targets.append(target)
 
@@ -750,7 +791,8 @@ class World:
         return self._partition
     
     def target(self, i) -> Target:
-        assert(i < self.nTargets() and i >= 0)
+        if i >= self.nTargets() or i < 0:
+            raise IndexError("Index of target out of bounds.")
         return self._targets[i]
     
     def nTargets(self) -> int:
@@ -765,7 +807,6 @@ class World:
     def getRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
         regions = set()
         for r in self._regions:
-            assert(isinstance(r, Region))
             if r.contains(p, tol=tol):
                 regions.add(r)
         return regions
@@ -804,16 +845,24 @@ class World:
                 po.add(region.fill(ax, **eka))
         
         for target in self._targets:
-            assert(isinstance(target, Target))
             po.add(target.plot(ax, annotate=add_target_labels))
 
         for region in self.regions():
-            dynamics = region.dynamics()
-            assert(isinstance(dynamics, Dynamics))
+            if not hasattr(region, 'dynamics'):
+                continue
+            dynamics : Dynamics = region.dynamics()
+            if not isinstance(dynamics, Dynamics):
+                Warning("Failed to extract Dynamics component.")
+                continue
             d = 0.033
-            dynamics.plotVectorField(
-                region.getGrid(self.domain(),dx=d,dy=d,mdtb=d), ax, 0.6
+            po.add(
+                dynamics.plotVectorField(
+                    region.getGrid(self.domain(),dx=d,dy=d,mdtb=d), 
+                    ax=ax, 
+                    scale=0.6
+                    )
                 )
+        return po
 
     def plotdistToBoundary(self, ax : plt.Axes = None) -> PlotObject:
         ax = getAxes(ax)
@@ -833,7 +882,6 @@ class World:
             for j in range(Y.shape[1]):
                 p = np.array((X[i,j], Y[i,j]))
                 for region in self.regions():
-                    assert(isinstance(region, CPRegion))
                     if region.contains(p):
                         Z[i,j] = region.travelCost(p, region.p())
                         if Z[i,j] == np.inf:

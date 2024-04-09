@@ -46,19 +46,15 @@ class PlotOptions:
         self.psr = bool
 
     def addEdgeLines(self, po : PlotObject) -> None:
-        assert(isinstance(po, PlotObject))
         self._ael.add(po)
 
     def addBestPathLine(self, po : PlotObject) -> None:
-        assert(isinstance(po, PlotObject))
         self._bpl.add(po)
 
     def addActiveRegionObject(self, po : PlotObject) -> None:
-        assert(isinstance(po, PlotObject))
         self._arl.add(po)
 
     def addSearchRegionObject(self, po : PlotObject) -> None:
-        assert(isinstance(po, PlotObject))
         self._srl.add(po)
 
 
@@ -71,7 +67,7 @@ class RRT:
         self.regions : Set[Region] = regions                                    # all regions
         self.best_path : Tree = None                                            # path
         self.best_cost : float = best_cost                                      # best cost
-        self.active_regions = []                                                # active regions
+        self.active_regions : List[Region] = []                                 # active regions
         self.world = World()                                                    # world
         self._targetDistances : np.ndarray = None                               # target distances
         
@@ -137,9 +133,13 @@ class RRT:
             
         # initialize tree (either with empty root or with an initial path)
         T = Tree(data = targetNode)
-        initTree = self.initializePath(T, initialNode)
+        
+        try:
+            initTree = self.initializePath(T, initialNode)
+        except Exception as e:
+            print("No initial path found...")
+
         if initTree is not None:
-            assert(isinstance(initTree, Tree))
             self.best_cost = initTree.getData().costToRoot()
             self.best_path = initTree
 
@@ -291,7 +291,6 @@ class RRT:
         if T.getData().costToRoot() > child.getData().costToRoot():
             print("Connecting optimized branch...")
             rootConnector = child.getRoot().getChildren()[0]
-            assert(isinstance(rootConnector, Tree))
             self.connect(
                 rootConnector, 
                 T.getRoot(), 
@@ -335,10 +334,7 @@ class RRT:
             self.plotBestPath()
 
     def initializePath(self, T : Tree, initialNode : Node) -> Tree:
-        
         activeT = T.getRoot()
-        assert(len(activeT.getData().regions()) == 1)
-        assert(len(initialNode.regions()) == 1)
         activeRegions = activeT.getData().regions()
         initialRegions = initialNode.regions()
         while True:
@@ -361,17 +357,24 @@ class RRT:
                     break
 
             # append the node to the tree and activate it
-            assert(proj is not None)
+            if proj is None:
+                raise Exception("Could not project node to boundary")
             newRegions = self.world.getRegions(proj)
             newNode = Node(proj, newRegions)
             newT = Tree(newNode)                                           
 
             # determine best region to travel through
             intersectingRegions = newRegions.intersection(activeRegions)
-            assert(len(intersectingRegions) > 0)
+            if len(intersectingRegions) == 0:
+                raise ValueError("No intersecting regions found.")
             best_tcp, best_region = self.bestTravelRegion(
                 newNode, activeT.getData(), intersectingRegions
             )
+
+            if best_tcp >= np.inf:
+                Warning("No feasible path continuation found.")
+                return 
+
             self.connect(newT, activeT, best_tcp, best_region)
             activeT = newT
             activeRegions = newRegions
@@ -417,7 +420,6 @@ class RRT:
         ax = getAxes(ax)
         self.plotOptions().activeRegionObjects().remove()
         for r in self.active_regions:
-            assert(isinstance(r, Region))
             self.plotOptions().addActiveRegionObject(
                 r.fill(ax, color = 'green', alpha = 0.2)
             )
@@ -646,7 +648,6 @@ class GlobalPathPlanner:
             currTarget = self._world.targets()[self._tsp.bestPermutation()[i-1]]
             nextTarget = self._world.targets()[self._tsp.bestPermutation()[i]]
             currPath = self._target_paths[currTarget][nextTarget]
-            assert(isinstance(currPath, Tree))
             po.add(currPath.plotPathToRoot(ax=ax, plot_direction=True, **args))
             currPath = currPath.getParent()
             

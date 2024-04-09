@@ -27,8 +27,8 @@ class ConstantgetQualityFunction(SensingQualityFunction):
         self.assignConstant(c)
 
     def assignConstant(self, c : float) -> None:
-        assert(c >= 0)
-        assert(c <= 1)
+        if c < 0 or c > 1:
+            raise ValueError("Constant must be in the interval [0, 1].")
         self._c = c
 
     def __call__(self, p, q):
@@ -41,8 +41,12 @@ class GaussiangetQualityFunction(SensingQualityFunction):
         self.assignConstant(c)
 
     def assignConstant(self, c : float) -> None:
-        assert(c > 0)
-        self._c = c
+        if c <= 0:
+            raise ValueError("Constant must be positive.")
+        try:
+            self._c = float(c)
+        except ValueError:
+            raise ValueError("Constant must be a number.")            
 
     def __call__(self, p, q):
         delta = p - q
@@ -58,12 +62,14 @@ class SinusoidalgetQualityFunction(SensingQualityFunction):
         self.assignConstants(c1, c2, c3)
 
     def assignConstants(self, c1 : float, c2 : float, c3 : float) -> None:
-        assert(c1 > 0)
-        assert(c2 > 0)
-        assert(c3 > 0)
-        self._c1 = c1
-        self._c2 = c2
-        self._c3 = c3
+        if c3 <= 0:
+            raise ValueError("Constant c3 must be positive.")
+        try:
+            self._c1 = float(c1)
+            self._c2 = float(c2)
+            self._c3 = float(c3)
+        except ValueError:
+            raise ValueError("Constants must be numbers.")
 
     def __call__(self, p, q):
         delta = p - q
@@ -128,25 +134,35 @@ class Sensor:
     
     # setters
     def setPosition(self, p : np.ndarray) -> None:
-        assert(isinstance(p, np.ndarray))
+        if not isinstance(p, np.ndarray):
+            raise ValueError("Position must be a numpy array.")
         self._p = p
 
-    def setgetQualityFunction(
+    def setTargetQualityFunction(
             self, 
             target : Target,
             sqf : SensingQualityFunction
             ) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(sqf, SensingQualityFunction))
+        if not isinstance(target, Target):
+            raise ValueError("Target must be of type Target.")
+        if not isinstance(sqf, SensingQualityFunction):
+            raise ValueError("sqf must be of type SensingQualityFunction.")
         self.targetToSQFMapper()[target] = sqf
       
     def setNoiseMatrix(self, target : Target, R : np.ndarray) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(R, np.ndarray))
+        if not isinstance(target, Target):
+            raise ValueError("Target must be of type Target.")
+        if not isinstance(R, np.ndarray):
+            raise ValueError("R must be a numpy array.")
         self._ttRm[target] = R
-        self._ttRinvm[target] = np.linalg.inv(R)
+        try:
+            self._ttRinvm[target] = np.linalg.inv(R)
+        except np.linalg.LinAlgError:
+            raise ValueError("R must be invertible.")
 
     def setMeasurementMatrix(self, target : Target, H : np.ndarray) -> None:
-        assert(isinstance(target, Target))
-        assert(isinstance(H, np.ndarray))
+        if not isinstance(target, Target):
+            raise ValueError("Target must be of type Target.")
+        if not isinstance(H, np.ndarray):
+            raise ValueError("H must be a numpy array.")
         self._ttHm[target] = H

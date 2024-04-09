@@ -284,6 +284,19 @@ class MonitoringController:
             sensor : Sensor
             ) -> None:
         
+        # input assertions
+        region = target.region()
+        if not hasattr(region, 'dynamics'):
+            raise Exception("Expected target region to have a dynamics model.")
+        if not isinstance(region, CPRegion):
+            raise Exception(
+                "Not implemented for regions other than CPRegion."
+                )
+        if not isinstance(dynamics, ConstantDynamics):
+            raise Exception(
+                "Not implemented for dynamics other than constant dyanmics."
+                )
+
         # states
         no = target.getNumberOfStates()
         p = cad.SX.sym('p', 2)
@@ -305,9 +318,8 @@ class MonitoringController:
         T = tf                      # Time horizon
         N = self.N                  # number of control intervals
 
-        # Model equations
-        dynamics = target.region().dynamics()
-        assert(isinstance(dynamics, ConstantDynamics))
+        # Model equations     
+        dynamics = region.dynamics()   
         pDot = dynamics.v() + u
         oDot = omegaDot(p, Omega, target, sensor, True)
         xDot = cad.vertcat(pDot, oDot)
@@ -336,7 +348,6 @@ class MonitoringController:
 
         # Region constraints
         region = target.region()
-        assert(isinstance(region, CPRegion))
         g_constr = region.g()
         b_constr = region.b()
         g_constr_term = []
@@ -931,9 +942,12 @@ class Agent:
         remaining tree beginning from the first node where the active region is
         not the reached target region.
         '''
-        assert(isinstance(path, Tree))
+        
+        if node is None:
+            Warning("Path is empty...")
+            return None, None, None
+        
         node : Tree = path
-        assert(node is not None)
         phi = node.getData().p().reshape(-1,1)
         tf = np.array(0).reshape(1)
         u = np.nan*np.zeros((2,1))
@@ -1228,7 +1242,6 @@ class Agent:
                 p = np.array((X[i,j], Y[i,j]))
                 sensor.setPosition(p)
                 for target in self._world.targets():
-                    assert(isinstance(target, Target))
                     region = target.region()
                     if region.contains(p):
                         Z[i,j] = sensor.getSensingQuality(target)

@@ -23,8 +23,12 @@ class Trajectory:
         self.extend(trj.x, trj.t)
 
     def assertDims(self, x : np.ndarray, t : np.ndarray) -> None:
-        assert(x.ndim == 2); assert(t.ndim == 1)
-        assert(x.shape[1] == t.shape[0])
+        if x.ndim != 2:
+            raise ValueError("State array must be two-dimensional")
+        if t.ndim != 1:
+            raise ValueError("Time array must be one-dimensional")
+        if x.shape[1] != t.shape[0]:
+            raise ValueError("State and time arrays must have the same length")
 
     def getInitialValue(self) -> np.ndarray:
         return self.x[:,0]

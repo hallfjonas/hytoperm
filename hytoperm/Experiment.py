@@ -28,8 +28,12 @@ class Experiment:
     def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
         self._vc = []
         counter = 0
-
-        assert M >= 0, "Number of Voronoi points must be a nonnegative number."
+        
+        if (M < 0):
+            raise ValueError(
+                "Number of Voronoi points must be a nonnegative number."
+            )
+        
         while len(self._vc) < M:
 
             # prevent infinite loop
@@ -91,7 +95,7 @@ class Experiment:
         sensor = Sensor()
         for target in self._world.targets():
             if target.name == '3':
-                sensor.setgetQualityFunction(
+                sensor.setTargetQualityFunction(
                     target, 
                     SinusoidalgetQualityFunction(
                         c1=np.random.uniform(3,20),
@@ -99,7 +103,7 @@ class Experiment:
                         )
                     )
             else:
-                sensor.setgetQualityFunction(
+                sensor.setTargetQualityFunction(
                     target, 
                     GaussiangetQualityFunction()
                     )
@@ -108,10 +112,13 @@ class Experiment:
             sensor.setMeasurementMatrix(target, np.eye(1))
         self._agent = Agent(self._world, sensor=sensor)
 
-    def addRandomTargets(self, n : int = None, fraction = 0.5) -> None:
+    def addRandomTargets(self, n : int = None, fraction : float = 0.5) -> None:
         target_counter = 0
+        if fraction < 0 or float(fraction) > 1:
+            raise ValueError("Fraction must be in [0,1].")
         if n is None:
-            assert(fraction is not None)
+            if fraction is None:
+                raise ValueError("Either n or fraction must be specified.")
             n = self._world.nRegions() * fraction
         n = math.floor(n)
         for region in self._world.regions():
@@ -131,7 +138,8 @@ class Experiment:
             target_counter += 1
 
     def addTarget(self, target : Target) -> None:
-        assert(isinstance(target, Target))
+        if not isinstance(target, Target):
+            raise ValueError("Argument must be of type Target.")
         self._world.addTarget(target)
         self._M += 1
 
@@ -197,7 +205,6 @@ class Experiment:
     def generate(n_sets=15, fraction=0.5, seed=784, min_dist=0.0) -> Experiment:
         if seed is not None:
             np.random.seed(seed)
-        
         try:
             ex = Experiment()
             ex.addRandomVoronoiPoints(n_sets, min_dist=min_dist)
@@ -205,6 +212,6 @@ class Experiment:
             ex.addRandomTargets(fraction=fraction)
             ex.assignRandomAgent()
             return ex
-        except AssertionError as e:  
+        except Exception as e:  
             print(e)  
             return None
