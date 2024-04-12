@@ -17,13 +17,13 @@ class Experiment:
         self._vc = []                                                           # Voronoi centers
         self._voronoi = None                                                    # Voronoi object
         self._world : World = World()                                           # world object
-        self._agents : List[Agent] = []                                              # agent object
+        self._agents : List[Agent] = []                                         # agent object
         self._domain = domain                                                   # domain object
         self._name = name                                                       # name of the experiment
-        
-    def randomRegion(self) -> Region:
-        idx = np.random.randint(0, self._world.nRegions())
-        return self._world.regions()[idx]
+
+    # getters
+    def world(self) -> World:
+        return self._world
 
     def agent(self, idx : int = None) -> Agent:
         if idx is None:
@@ -35,7 +35,15 @@ class Experiment:
                 Warning("Agent index out of bounds.")
                 return None
         return self._agents[idx]
+        
+    def randomRegion(self) -> Region:
+        idx = np.random.randint(0, self._world.nRegions())
+        return self._world.regions()[idx]
 
+    def voronoi(self) -> Voronoi:
+        return self._voronoi
+    
+    # modifiers
     def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
         self._vc = []
         counter = 0
@@ -153,9 +161,7 @@ class Experiment:
         self._world.addTarget(target)
         self._M += 1
 
-    def voronoi(self) -> Voronoi:
-        return self._voronoi
-
+    # plotters
     def plotWorld(
             self, 
             with_sensor_quality=False, 
@@ -230,8 +236,9 @@ class Experiment:
             ex.addRandomVoronoiPoints(n_sets, min_dist=min_dist)
             ex.generatePartitioning()
             ex.addRandomTargets(fraction=fraction)
+            gpp = GlobalPathPlanner(ex.world())
             for i in range(n_agents):
-                ex.addRandomAgent()
+                ex.addRandomAgent(gpp)
             return ex
         except Exception as e:  
             print(e)  
