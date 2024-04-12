@@ -1117,8 +1117,29 @@ class Agent:
         ax = getAxes(ax)
         po = PlotObject()
         self._cycle.plot(ax, **kwargs)
+       
+        for ms in self._monitoringSegments:
+            p = ms.pTrajectory.x[:,-2]
+            q = ms.pTrajectory.x[:,-1]
+            po.add(self.plotArrow(p, q, ax, **kwargs))
+
         return po
-    
+
+    def plotArrow(self, p : np.array, q : np.array, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject(ax.arrow(
+            p[0], 
+            p[1], 
+            q[0] - p[0], 
+            q[1] - p[1], 
+            width=0, 
+            head_width = 0.02, 
+            head_length=0.033, 
+            overhang=0.3, 
+            length_includes_head=True,**kwargs
+            ))
+        return po
+        
     def plotMonitoringSegments(
             self,
             ax : plt.Axes = None, 

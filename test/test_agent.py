@@ -39,6 +39,7 @@ class TestAgent(unittest.TestCase):
         ex.agent().computeVisitingSequence()
         ex.agent().initializeCycle()
         ex.agent()._cycle.simulate()
+        ex.agent().plotCycle()
 
     def testBilevelOptimization(self, n_sets=10):
         ex = Experiment.generate(n_sets=n_sets)
