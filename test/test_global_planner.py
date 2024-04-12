@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TestRRT(unittest.TestCase):
+class TestGlobalPlanner(unittest.TestCase):
     
     def testRRT(self):
         max_iter = 100; n_sets = 20; plot = True
@@ -24,6 +24,18 @@ class TestRRT(unittest.TestCase):
             ax
             )
         ex._world.plotTravelCostPerRegion(ax)
+        
+    def testTSP(self):
+        n_sets=20; plot = False
+        ex = Experiment.generate(n_sets=n_sets, fraction=0.2)
+        assert(isinstance(ex, Experiment))
+        gpp = GlobalPathPlanner(ex._world)
+        gpp._plot_options.toggleAllPlotting(plot)
+        fig, ax = ex.plotWorld()
+        gpp.solveTSP()
+        gpp.plotTSPSolution(ax, color='red', linewidth=2)
+        po = ex.agent().plotSensorQuality(grid_size=0.05, ax=ax)
+        gpp.plotTSPSolution(ax, color='red', linewidth=2)
 
 
 if __name__ == "__main__":

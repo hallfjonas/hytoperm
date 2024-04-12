@@ -7,7 +7,7 @@ import numpy as np
 from hytoperm import *
 
 
-class TestShiftTime(unittest.TestCase):
+class TestTrajectory(unittest.TestCase):
     
     def testShiftTime(self):
         traj = Trajectory(
@@ -15,7 +15,7 @@ class TestShiftTime(unittest.TestCase):
             np.array([0,1,2,3,4])
             )
         traj.shiftTime(1)
-        assert(np.all(traj.t == np.array([1,2,3,4,5])))                 
+        self.assertTrue(np.all(traj.t == np.array([1,2,3,4,5])))          
 
 
 if __name__ == "__main__":

@@ -19,8 +19,30 @@ fail_settings = {
 }
 
 
-class TestWorldGeneration(unittest.TestCase):
-    # pass settings: expected to generate an Experiment instance
+class TestWorld(unittest.TestCase):
+    
+    def testTravelCost(self):
+        ex = Experiment.generate()
+        fig, ax = ex.plotWorld()
+        ex._world.plotTravelCostPerRegion(ax)
+
+    def testDistToBoundary(self):
+        n_sets = 10
+        ex = Experiment.generate(n_sets=n_sets)
+        fig, ax = ex.plotWorld()
+        ex._world.plotdistToBoundary(ax)
+
+    def testRandomBoundaryPoint(self):
+        ex = Experiment()
+        assert(isinstance(ex, Experiment))
+        ex.addRandomVoronoiPoints(10)
+        ex.generatePartitioning()
+        ex.addRandomTargets()
+        fig, ax = ex.plotWorld()
+        region = ex._world.target(0).region()
+        p = region.randomBoundaryPoint()
+        Node(p, set([region])).plot(ax, color='yellow', marker='d')
+
     def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
             for fraction in pass_settings["fraction"]:
@@ -34,7 +56,6 @@ class TestWorldGeneration(unittest.TestCase):
                         )
                         self.assertIsInstance(ex, Experiment)
 
-    # fail settings: expected Experiment generation to fail and return None
     def testWorldGenerationFail(self):
         for n_sets in fail_settings["n_sets"]:
             for fraction in fail_settings["fraction"]:
@@ -47,6 +68,11 @@ class TestWorldGeneration(unittest.TestCase):
                     )
                     self.assertIsNone(ex)
 
+    def testPlotWorld(self):
+        n_sets = 10
+        ex = Experiment.generate(n_sets=n_sets)
+        fig, ax = ex.plotWorld()
     
+
 if __name__ == "__main__":
     unittest.main()
