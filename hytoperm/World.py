@@ -790,7 +790,7 @@ class World:
     def partition(self) -> Partition:
         return self._partition
     
-    def target(self, i) -> Target:
+    def target(self, i : int) -> Target:
         if i >= self.nTargets() or i < 0:
             raise IndexError("Index of target out of bounds.")
         return self._targets[i]
