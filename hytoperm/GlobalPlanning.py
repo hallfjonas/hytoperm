@@ -546,8 +546,20 @@ class GlobalPathPlanner:
     def tsp(self) -> TSP:
         return self._tsp
     
-    def targetPaths(self) -> Dict[Target, Dict[Target, Tree]]:
-        return self._target_paths
+    def targetPath(self, init : Target, goal : Target) -> Tree:
+        if init not in self._target_paths:
+            Warning("No path exists from {0} to any other target. Running TSP solver".format(init.name))
+            self.solveTSP()
+            if goal not in self._world.targets():
+                Warning("No path exists from {0} to any other target (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
+                return None
+        if goal not in self._target_paths[init]:
+            Warning("No path exists from {0} to {1}. Running TSP solver".format(init.name, goal.name))
+            self.solveTSP()
+            if goal not in self._world.targets():
+                Warning("No path exists from {0} to {1} (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
+                return None
+        return self._target_paths[init][goal]
 
     # modifiers
     def planPath(
