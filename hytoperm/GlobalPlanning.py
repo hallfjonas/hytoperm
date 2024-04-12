@@ -13,9 +13,9 @@ from .DataStructures import Tree, Node, PlotObject
 
 class PlotOptions:
     def __init__(self):
-        self.pbp : bool = True                                                  # plot best path
-        self.pae : bool = True                                                  # plot all edge lines
-        self.par : bool = True                                                  # plot active regions   
+        self.pbp : bool = False                                                 # plot best path
+        self.pae : bool = False                                                 # plot all edge lines
+        self.par : bool = False                                                 # plot active regions   
         self.psr : bool = False                                                 # plot search regions
         self._ael : PlotObject = PlotObject()                                   # all edge lines
         self._bpl : PlotObject = PlotObject()                                   # best path line

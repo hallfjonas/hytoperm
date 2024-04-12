@@ -789,7 +789,12 @@ class Cycle:
 Agent: the main agent class
 '''
 class Agent:
-    def __init__(self, world : World, sensor : Sensor) -> None:
+    def __init__(
+            self, 
+            world : World, 
+            sensor : Sensor,
+            gpp : GlobalPathPlanner = None
+            ) -> None:
         self._world : World = world                                             # world instance    
         self._sensor : Sensor = sensor                                          # utilized sensor        
         self._gpp : GlobalPathPlanner = None                                    # global path planner
@@ -821,6 +826,7 @@ class Agent:
         self._ucs : Dict[Target, cad.Function] = {}                             # unmonitored covariance simulators
 
         self.initialize()
+        self.setGlobalPathPlanner(gpp)
 
     def initialize(self) -> None:
         for target in self.world().targets():
@@ -830,30 +836,20 @@ class Agent:
                 self._N
                 )
         
-        self._gpp = GlobalPathPlanner(self.world())
-        self._gpp._plot_options.toggleAllPlotting(False)
+    def setGlobalPathPlanner(self, gpp : GlobalPathPlanner = None) -> None:
+        if gpp is None:
+            Warning("No global path planner provided. Creating a new instance.")
+            gpp = GlobalPathPlanner(self.world())
+        if not isinstance(gpp, GlobalPathPlanner):
+            Warning("Expected a GlobalPathPlanner instance. Ignoring input.")
+            return
+        self._gpp = gpp
    
     def computeVisitingSequence(self) -> None:
         self.gpp().solveTSP()
         self._tvs = self.gpp().tsp().getTargetVisitingSequence()
 
-    def refineVisitingSequence(self) -> None:
-        # If we switch through another target region along the way
-        # let us add the target to the sequence
-        i = 0
-        tvs = []
-        for i in range(len(self._tvs)):
-            old_target = self._tvs[i-1]
-            current_target = self._tvs[i]
-            switchPath = self.gpp().target_paths[old_target][current_target]
-            p : Tree = switchPath.getParent()
-            while not p.isRoot():
-                region = p.getData().activeRegionToParent()
-                for target in self.world().targets():
-                    if region == target.region():
-                        tvs.append(target)
-                p = p.getParent()
-            i += 1
+    def setTargetVisitingSequence(self, tvs : List[Target]) -> None:
         self._tvs = tvs
     
     def optimizeCycle(self) -> None:
