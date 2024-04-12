@@ -1,5 +1,6 @@
 
 # external imports
+import warnings
 import numpy as np
 from typing import List, Dict, Set
 import matplotlib.pyplot as plt 
@@ -852,7 +853,7 @@ class World:
                 continue
             dynamics : Dynamics = region.dynamics()
             if not isinstance(dynamics, Dynamics):
-                Warning("Failed to extract Dynamics component.")
+                warnings.warn("Failed to extract Dynamics component.")
                 continue
             d = 0.033
             po.add(

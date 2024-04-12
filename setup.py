@@ -1,4 +1,6 @@
+
 from distutils.core import setup
+import warnings
 
 setup(name='hytoperm',
    version='0.1',
@@ -18,3 +20,5 @@ setup(name='hytoperm',
       'python-tsp>=0.4.0',
    ]
 )
+
+warnings.filterwarnings("always")

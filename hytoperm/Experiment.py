@@ -27,7 +27,7 @@ class Experiment:
 
     def agent(self, idx : int = 0) -> Agent:
         if idx >= len(self._agents) or idx < 0:
-            Warning("Agent index out of bounds.")
+            warnings.warn("Agent index out of bounds.")
             return None
         return self._agents[idx]
         
@@ -47,7 +47,7 @@ class Experiment:
         counter = 0
         
         if (M < 0):
-            Warning("Number of Voronoi points must be a nonnegative number.")
+            warnings.warn("Number of Voronoi points must be a nonnegative number.")
             return
         
         while len(self._vc) < M:
@@ -186,7 +186,7 @@ class Experiment:
             if len(self._agents) == 1:
                 self.agent().plotSensorQuality(ax=ax)
             else:
-                Warning("Adding the sensor quality tot he world plot is only supported for a single agent.")
+                warnings.warn("Adding the sensor quality tot he world plot is only supported for a single agent.")
 
         return fig, ax
 

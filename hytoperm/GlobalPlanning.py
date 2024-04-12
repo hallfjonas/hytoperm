@@ -1,5 +1,6 @@
 
 # external imports
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Set
@@ -372,7 +373,7 @@ class RRT:
             )
 
             if best_tcp >= np.inf:
-                Warning("No feasible path continuation found.")
+                warnings.warn("No feasible path continuation found.")
                 return 
 
             self.connect(newT, activeT, best_tcp, best_region)
@@ -548,16 +549,16 @@ class GlobalPathPlanner:
     
     def targetPath(self, init : Target, goal : Target) -> Tree:
         if init not in self._target_paths:
-            Warning("No path exists from {0} to any other target. Running TSP solver".format(init.name))
+            warnings.warn("No path exists from {0} to any other target. Running TSP solver".format(init.name))
             self.solveTSP()
             if goal not in self._world.targets():
-                Warning("No path exists from {0} to any other target (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
+                warnings.warn("No path exists from {0} to any other target (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
                 return None
         if goal not in self._target_paths[init]:
-            Warning("No path exists from {0} to {1}. Running TSP solver".format(init.name, goal.name))
+            warnings.warn("No path exists from {0} to {1}. Running TSP solver".format(init.name, goal.name))
             self.solveTSP()
             if goal not in self._world.targets():
-                Warning("No path exists from {0} to {1} (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
+                warnings.warn("No path exists from {0} to {1} (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
                 return None
         return self._target_paths[init][goal]
 

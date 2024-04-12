@@ -1,4 +1,7 @@
       
+# external imports
+import warnings
+
 # internal imports
 from .World import *
 from .Dynamics import *
@@ -838,10 +841,10 @@ class Agent:
         
     def setGlobalPathPlanner(self, gpp : GlobalPathPlanner = None) -> None:
         if gpp is None:
-            Warning("No global path planner provided. Creating a new instance.")
+            warnings.warn("No global path planner provided. Creating a new instance.")
             gpp = GlobalPathPlanner(self.world())
         if not isinstance(gpp, GlobalPathPlanner):
-            Warning("Expected a GlobalPathPlanner instance. Ignoring input.")
+            warnings.warn("Expected a GlobalPathPlanner instance. Ignoring input.")
             return
         self._gpp = gpp
    
@@ -862,7 +865,7 @@ class Agent:
             self._isSteadyState.append(steady)
 
             if not steady:
-                Warning("Did not reach steady state...")
+                warnings.warn("Did not reach steady state...")
 
             dJ_dt = self.updateMonitoringDurations()
 
@@ -889,7 +892,7 @@ class Agent:
     def initializeCycle(self) -> None:
         
         if (len(self._tvs) <= 1):
-            Warning("Expected at least two targets in the visiting sequence. Did you run 'computeVisitingSequence()'?")
+            warnings.warn("Expected at least two targets in the visiting sequence. Did you run 'computeVisitingSequence()'?")
             return
                     
         # create lists of trajectory segments
@@ -939,7 +942,7 @@ class Agent:
         
         node : Tree = path
         if node is None:
-            Warning("Path is empty...")
+            warnings.warn("Path is empty...")
             return None, None, None
         
         phi = node.getData().p().reshape(-1,1)
