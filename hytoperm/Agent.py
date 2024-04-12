@@ -889,10 +889,8 @@ class Agent:
     def initializeCycle(self) -> None:
         
         if (len(self._tvs) <= 1):
-            raise Exception(
-                "Expected at least two targets in the visiting sequence. " +
-                "Did you run 'computeVisitingSequence()'?"
-                )
+            Warning("Expected at least two targets in the visiting sequence. Did you run 'computeVisitingSequence()'?")
+            return
                     
         # create lists of trajectory segments
         self._switchingSegments, self._tvs = self.initializeSwitchingSegments()
@@ -919,7 +917,7 @@ class Agent:
         for i in range(len(self._tvs)):
             ot = self._tvs[i-1]
             ct = self._tvs[i]
-            swPath : Tree = self.gpp().targetPaths()[ot][ct].getParent()
+            swPath : Tree = self.gpp().targetPath(ot, ct).getParent()
 
             while swPath:
                 swSeg, target, swPath = self.extractSwitchingSegment(swPath)
