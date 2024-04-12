@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TesttestRRT(unittest.TestCase):
+class TestRRT(unittest.TestCase):
     
     def testRRT(self):
         max_iter = 100; n_sets = 20; plot = True

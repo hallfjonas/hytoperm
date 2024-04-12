@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TesttestLocalController(unittest.TestCase):
+class TestLocalController(unittest.TestCase):
     
     def testLocalController(self):
         n_sets = 20

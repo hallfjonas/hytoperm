@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TesttestDistToBoundary(unittest.TestCase):
+class TestDistToBoundary(unittest.TestCase):
     
     def testDistToBoundary(self):
         n_sets = 10

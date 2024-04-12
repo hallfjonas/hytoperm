@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TesttestCycle(unittest.TestCase):
+class TestCycle(unittest.TestCase):
     
     def testCycle(self):
         n_sets = 8

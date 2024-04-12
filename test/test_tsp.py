@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TesttestTSP(unittest.TestCase):
+class TestTSP(unittest.TestCase):
     
     def testTSP(self):
         n_sets=20; plot = False

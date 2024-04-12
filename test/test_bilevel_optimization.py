@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TesttestBilevelOptimization(unittest.TestCase):
+class TestBilevelOptimization(unittest.TestCase):
     
     def testBilevelOptimization(self, n_sets=10):
         ex = Experiment.generate(n_sets=n_sets)

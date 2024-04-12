@@ -6,7 +6,7 @@ import unittest
 from hytoperm import *
 
 
-class TesttestTravelCost(unittest.TestCase):
+class TestTravelCost(unittest.TestCase):
 
     def testTravelCost(self):
         ex = Experiment.generate()

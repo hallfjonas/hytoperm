@@ -19,7 +19,7 @@ fail_settings = {
 }
 
 
-class TesttestWorldGeneration(unittest.TestCase):
+class TestWorldGeneration(unittest.TestCase):
     # pass settings: expected to generate an Experiment instance
     def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
