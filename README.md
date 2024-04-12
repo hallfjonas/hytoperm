@@ -20,4 +20,5 @@ We split the problem into an
 - Each class definition is seperated by two lines
 - Respect the 80 column limit in all code files. Exceptions:
     - class property comments, which start at the 80 column mark
+    - error and warning messages
     
