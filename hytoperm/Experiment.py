@@ -25,17 +25,15 @@ class Experiment:
     def world(self) -> World:
         return self._world
 
-    def agent(self, idx : int = None) -> Agent:
-        if idx is None:
-            if len(self._agents) > 1:
-                Warning("Multiple agents are present. Please specify the agent index.")
-                return None
-            return self._agents[0]
+    def agent(self, idx : int = 0) -> Agent:
         if idx >= len(self._agents) or idx < 0:
-                Warning("Agent index out of bounds.")
-                return None
+            Warning("Agent index out of bounds.")
+            return None
         return self._agents[idx]
         
+    def agents(self) -> List[Agent]:
+        return self._agents
+
     def randomRegion(self) -> Region:
         idx = np.random.randint(0, self._world.nRegions())
         return self._world.regions()[idx]
