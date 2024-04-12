@@ -109,7 +109,7 @@ class Experiment:
                 )      
         self._world.setRegions(regions)
     
-    def addRandomAgent(self) -> None:
+    def addRandomAgent(self, gpp : GlobalPathPlanner = None) -> None:
         sensor = Sensor()
         for target in self._world.targets():
             if target.name == '3':
@@ -128,7 +128,7 @@ class Experiment:
 
             sensor.setNoiseMatrix(target, np.eye(1))
             sensor.setMeasurementMatrix(target, np.eye(1))
-        self._agents.append(Agent(self._world, sensor=sensor))
+        self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp))
 
     def addRandomTargets(self, n : int = None, fraction : float = 0.5) -> None:
         target_counter = 0
