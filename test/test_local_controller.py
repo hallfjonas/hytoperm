@@ -14,7 +14,7 @@ class TesttestLocalController(unittest.TestCase):
         assert(isinstance(ex, Experiment))
         
         target = ex._world.targets()[0]
-        sensor = ex._agent.sensor()
+        sensor = ex.agent().sensor()
 
         phi = SwitchingPoint(target.region().randomBoundaryPoint())
         psi = SwitchingPoint(target.region().randomBoundaryPoint())

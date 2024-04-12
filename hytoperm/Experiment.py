@@ -17,7 +17,7 @@ class Experiment:
         self._vc = []                                                           # Voronoi centers
         self._voronoi = None                                                    # Voronoi object
         self._world : World = World()                                           # world object
-        self._agent : Agent = None                                              # agent object
+        self._agents : List[Agent] = []                                              # agent object
         self._domain = domain                                                   # domain object
         self._name = name                                                       # name of the experiment
         
@@ -25,14 +25,24 @@ class Experiment:
         idx = np.random.randint(0, self._world.nRegions())
         return self._world.regions()[idx]
 
+    def agent(self, idx : int = None) -> Agent:
+        if idx is None:
+            if len(self._agents) > 1:
+                Warning("Multiple agents are present. Please specify the agent index.")
+                return None
+            return self._agents[0]
+        if idx >= len(self._agents) or idx < 0:
+                Warning("Agent index out of bounds.")
+                return None
+        return self._agents[idx]
+
     def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
         self._vc = []
         counter = 0
         
         if (M < 0):
-            raise ValueError(
-                "Number of Voronoi points must be a nonnegative number."
-            )
+            Warning("Number of Voronoi points must be a nonnegative number.")
+            return
         
         while len(self._vc) < M:
 
@@ -91,7 +101,7 @@ class Experiment:
                 )      
         self._world.setRegions(regions)
     
-    def assignRandomAgent(self) -> None:
+    def addRandomAgent(self) -> None:
         sensor = Sensor()
         for target in self._world.targets():
             if target.name == '3':
@@ -110,7 +120,7 @@ class Experiment:
 
             sensor.setNoiseMatrix(target, np.eye(1))
             sensor.setMeasurementMatrix(target, np.eye(1))
-        self._agent = Agent(self._world, sensor=sensor)
+        self._agents.append(Agent(self._world, sensor=sensor))
 
     def addRandomTargets(self, n : int = None, fraction : float = 0.5) -> None:
         target_counter = 0
@@ -168,8 +178,11 @@ class Experiment:
             fill_empty_regions=fill_empty_regions
             )
 
-        if with_sensor_quality:
-            self._agent.plotSensorQuality(ax=ax)
+        if with_sensor_quality and len(self._agents) > 0:
+            if len(self._agents) == 1:
+                self.agent().plotSensorQuality(ax=ax)
+            else:
+                Warning("Adding the sensor quality tot he world plot is only supported for a single agent.")
 
         return fig, ax
 
@@ -202,7 +215,14 @@ class Experiment:
             return pickle.load(f)
     
     @staticmethod
-    def generate(n_sets=15, fraction=0.5, seed=784, min_dist=0.0) -> Experiment:
+    def generate(
+            n_sets=15, 
+            fraction=0.5, 
+            seed=784, 
+            min_dist=0.0,
+            n_agents=1
+            ) -> Experiment:
+            
         if seed is not None:
             np.random.seed(seed)
         try:
@@ -210,7 +230,8 @@ class Experiment:
             ex.addRandomVoronoiPoints(n_sets, min_dist=min_dist)
             ex.generatePartitioning()
             ex.addRandomTargets(fraction=fraction)
-            ex.assignRandomAgent()
+            for i in range(n_agents):
+                ex.addRandomAgent()
             return ex
         except Exception as e:  
             print(e)  

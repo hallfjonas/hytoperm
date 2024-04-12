@@ -31,7 +31,7 @@ def load_hl_sol() -> Experiment:
     if not os.path.exists(exp_hl_file):
         ex = Experiment.generate(n_sets=NSETS, fraction=FRACTION, seed=SEED)
         ex._name = exp_filename
-        ex._agent.computeVisitingSequence()
+        ex.agent().computeVisitingSequence()
         ex.serialize(exp_hl_file)
     else:
         ex : Experiment = Experiment.deserialize(exp_hl_file)
@@ -41,8 +41,8 @@ def load_hl_sol() -> Experiment:
 def load_solution(filename, op : OptimizationParameters) -> Experiment:
     if not os.path.exists(filename):
         ex = load_hl_sol()
-        ex._agent.op = op.copy()
-        ex._agent.optimizeCycle()
+        ex.agent().op = op.copy()
+        ex.agent().optimizeCycle()
         ex.serialize(filename)
     else:
         ex : Experiment = Experiment.deserialize(filename)
@@ -52,8 +52,8 @@ def load_solution(filename, op : OptimizationParameters) -> Experiment:
 def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False):
     
     # shift cycle to relative time
-    startTime = ex._agent._cycle.getStartTime()
-    ex._agent._cycle.shiftTime(-startTime)
+    startTime = ex.agent()._cycle.getStartTime()
+    ex.agent()._cycle.shiftTime(-startTime)
 
     world_plot(ex, with_sensor_quality=wsq, savefig=savefig)
     mse_plot(ex, savefig=savefig)
@@ -61,7 +61,7 @@ def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False)
     optimization_plot(ex, savefig=savefig)
 
     # Shift back to absolute time
-    ex._agent._cycle.shiftTime(startTime)
+    ex.agent()._cycle.shiftTime(startTime)
 
     if leave_open:
         plt.ioff()
@@ -69,10 +69,10 @@ def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False)
 
 def mse_plot(ex : Experiment, savefig = True):
     fig2, ax2 = plt.subplots()
-    ex._agent.plotMSE(ax2, add_labels=True, linewidth=2)
+    ex.agent().plotMSE(ax2, add_labels=True, linewidth=2)
     ax2.set_ylabel('$tr(\Omega_i(t))$')
     ax2.set_ylim(top=1.3*ax2.get_ylim()[1])
-    ax2.set_xlim(0, ex._agent._cycle.getDuration())
+    ax2.set_xlim(0, ex.agent()._cycle.getDuration())
     ax2.set_xlabel('$t~[s]$')
     plt.legend(loc="upper right", ncol=len(ex._world.targets()))
     if savefig:
@@ -81,10 +81,10 @@ def mse_plot(ex : Experiment, savefig = True):
 
 def controls_plot(ex : Experiment, savefig = True):
     fig, ax = plt.subplots()
-    ex._agent.plotControls(ax)
+    ex.agent().plotControls(ax)
     ax.set_ylim(-1.1, 1.9)
     ax.set_ylabel('$\mathrm{control~input}$')
-    ax.set_xlim(0, ex._agent._cycle.getDuration())
+    ax.set_xlim(0, ex.agent()._cycle.getDuration())
     ax.set_xlabel('$t~[s]$')
     plt.legend(loc="upper right", ncol=3)
     if savefig:
@@ -96,32 +96,32 @@ def optimization_plot(ex : Experiment, savefig = True):
     
     # global cost plot
     gca : plt.Axes = ax4[0]
-    ex._agent.plotGlobalCosts(ax4[0], linewidth=2)
+    ex.agent().plotGlobalCosts(ax4[0], linewidth=2)
     gca.set_ylabel('$J(\\tau_k)$')
-    for i in range(len(ex._agent._isSteadyState)):
-        if ex._agent._isSteadyState[i]:
+    for i in range(len(ex.agent()._isSteadyState)):
+        if ex.agent()._isSteadyState[i]:
             gca.axvspan(i, i+1, color='green', alpha=0.2)
         else:
             gca.axvspan(i, i+1, color='red', alpha=0.2)
 
     ggn : plt.Axes = ax4[1]
-    ex._agent.plotGlobalGradientNorms(ax4[1], linewidth=2)
+    ex.agent().plotGlobalGradientNorms(ax4[1], linewidth=2)
     ggn.set_ylabel('$\\| \\nabla_\\tau J(\\tau_k) \\|_\\infty$')
     ggn.set_yscale('log')
     
     # plot the tau values
     tva : plt.Axes = ax4[2]
-    ex._agent.plotTauVals(tva, linewidth=2)
+    ex.agent().plotTauVals(tva, linewidth=2)
     tva.set_ylabel('$ \\tau_k $')
     tva.set_xlabel('$\mathrm{outer~iteration~}k$')
-    tva.set_xlim(0, len(ex._agent._tau_vals)-1)
+    tva.set_xlim(0, len(ex.agent()._tau_vals)-1)
     tva.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
     
     # plot the KKT violations
     # kkt : plt.Axes = ax4[3]
-    # ex._agent.plotKKTViolations(kkt)
+    # ex.agent().plotKKTViolations(kkt)
     # kkt.set_yscale('symlog') 
     # kkt.set_ylabel('KKT res.')
     # kkt.set_xlabel('iteration')

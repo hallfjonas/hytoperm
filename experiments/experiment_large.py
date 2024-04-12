@@ -50,8 +50,8 @@ def load_experiment() -> Experiment:
 def load_high_level_solution(ex : Experiment) -> Experiment:
     if not os.path.exists(exp_hl_file):
         target = ex._world.targets()[0]
-        sensor = ex._agent.sensor()
-        ex._agent.computeVisitingSequence()
+        sensor = ex.agent().sensor()
+        ex.agent().computeVisitingSequence()
         ex.serialize(exp_hl_file)
     else:
         ex : Experiment = Experiment.deserialize(exp_hl_file)
@@ -60,8 +60,8 @@ def load_high_level_solution(ex : Experiment) -> Experiment:
 # Initial (steady state) cycle
 def load_initial_cycle(ex : Experiment) -> Experiment:
     if not os.path.exists(exp_init_file):
-        ex._agent.initializeCycle()
-        ex._agent.simulateToSteadyState()
+        ex.agent().initializeCycle()
+        ex.agent().simulateToSteadyState()
         ex.serialize(exp_init_file)
     else:
         ex : Experiment = Experiment.deserialize(exp_init_file)
@@ -70,8 +70,8 @@ def load_initial_cycle(ex : Experiment) -> Experiment:
 # Optimize cycle
 def load_optimized_cycle(ex : Experiment) -> Experiment:
     if not os.path.exists(exp_res_file):
-        ex._agent.op = op
-        ex._agent.optimizeCycle()
+        ex.agent().op = op
+        ex.agent().optimizeCycle()
         ex.serialize(exp_res_file)
     else:
         ex : Experiment = Experiment.deserialize(exp_res_file)
@@ -134,8 +134,8 @@ def mse_inti_vs_opti(leave_open=False):
 def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False):
     
     # shift cycle to relative time
-    startTime = ex._agent._cycle.getStartTime()
-    ex._agent._cycle.shiftTime(-startTime)
+    startTime = ex.agent()._cycle.getStartTime()
+    ex.agent()._cycle.shiftTime(-startTime)
 
     world_plot(ex, with_sensor_quality=wsq, savefig=savefig)
     mse_plot(ex, savefig=savefig)
@@ -143,7 +143,7 @@ def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False)
     optimization_plot(ex, savefig=savefig)
 
     # Shift back to absolute time
-    ex._agent._cycle.shiftTime(startTime)
+    ex.agent()._cycle.shiftTime(startTime)
 
     if leave_open:
         plt.ioff()
@@ -152,17 +152,17 @@ def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False)
 def world_plot(ex : Experiment, with_sensor_quality = True, savefig = True):
     
     fig, ax = ex.plotWorld(with_sensor_quality=with_sensor_quality)
-    ex._agent.plotCycle(ax)
+    ex.agent().plotCycle(ax)
     if savefig:
         exporter.HEIGHT = exporter.WIDTH
         exporter.export('cycle', fig)
 
 def mse_plot(ex : Experiment, savefig = True):
     fig2, ax2 = plt.subplots()
-    ex._agent.plotMSE(ax2, add_labels=True, linewidth=2)
+    ex.agent().plotMSE(ax2, add_labels=True, linewidth=2)
     ax2.set_ylabel('$tr(\Omega_i(t))$')
     ax2.set_ylim(top=1.3*ax2.get_ylim()[1])
-    ax2.set_xlim(0, ex._agent._cycle.getDuration())
+    ax2.set_xlim(0, ex.agent()._cycle.getDuration())
     ax2.set_xlabel('$t~[s]$')
     plt.legend(loc="upper right", ncol=len(ex._world.targets()))
     if savefig:
@@ -171,10 +171,10 @@ def mse_plot(ex : Experiment, savefig = True):
 
 def controls_plot(ex : Experiment, savefig = True):
     fig, ax = plt.subplots()
-    ex._agent.plotControls(ax)
+    ex.agent().plotControls(ax)
     ax.set_ylim(-1.1, 1.9)
     ax.set_ylabel('$\mathrm{control~input}$')
-    ax.set_xlim(0, ex._agent._cycle.getDuration())
+    ax.set_xlim(0, ex.agent()._cycle.getDuration())
     ax.set_xlabel('$t~[s]$')
     plt.legend(loc="upper right", ncol=3)
     if savefig:
@@ -186,25 +186,25 @@ def optimization_plot(ex : Experiment, savefig = True):
     
     # global cost plot
     gca : plt.Axes = ax4[0]
-    ex._agent.plotGlobalCosts(ax4[0], linewidth=2)
+    ex.agent().plotGlobalCosts(ax4[0], linewidth=2)
     gca.set_ylabel('$J(\\tau_k)$')
 
     ggn : plt.Axes = ax4[1]
-    ex._agent.plotGlobalGradientNorms(ax4[1], linewidth=2)
+    ex.agent().plotGlobalGradientNorms(ax4[1], linewidth=2)
     ggn.set_ylabel('$\\| \\nabla_\\tau J(\\tau_k) \\|_\\infty$')
     ggn.set_yscale('log')
     
     # plot the tau values
     tva : plt.Axes = ax4[2]
-    ex._agent.plotTauVals(tva, linewidth=2)
+    ex.agent().plotTauVals(tva, linewidth=2)
     tva.set_ylabel('$ \\tau_k $')
     tva.set_xlabel('$\mathrm{outer~iteration~}k$')
-    tva.set_xlim(0, len(ex._agent._tau_vals)-1)
+    tva.set_xlim(0, len(ex.agent()._tau_vals)-1)
     tva.xaxis.set_major_locator(MaxNLocator(integer=True))
     
     # plot the KKT violations
     # kkt : plt.Axes = ax4[3]
-    # ex._agent.plotKKTViolations(kkt)
+    # ex.agent().plotKKTViolations(kkt)
     # kkt.set_yscale('symlog') 
     # kkt.set_ylabel('KKT res.')
     # kkt.set_xlabel('iteration')
@@ -217,8 +217,8 @@ def rrt_plot(savefig = True):
     fig, ax = ex.plotWorld(add_target_labels=False)
     target0 = ex._world.target(0)
     target1 = ex._world.target(1)
-    po = ex._agent.gpp().target_paths[target1][target0].getRoot().plotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
-    po = ex._agent.gpp().target_paths[target1][target0].plotPathToRoot(ax=ax, color='red', linewidth=2, alpha=1)
+    po = ex.agent().gpp().target_paths[target1][target0].getRoot().plotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
+    po = ex.agent().gpp().target_paths[target1][target0].plotPathToRoot(ax=ax, color='red', linewidth=2, alpha=1)
     if savefig:
         exporter.export('rrt', fig)
 

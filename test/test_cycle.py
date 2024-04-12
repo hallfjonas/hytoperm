@@ -12,9 +12,9 @@ class TesttestCycle(unittest.TestCase):
         n_sets = 8
         ex = Experiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
-        ex._agent.computeVisitingSequence()
-        ex._agent.initializeCycle()
-        ex._agent._cycle.simulate()
+        ex.agent().computeVisitingSequence()
+        ex.agent().initializeCycle()
+        ex.agent()._cycle.simulate()
 
 
 if __name__ == "__main__":
