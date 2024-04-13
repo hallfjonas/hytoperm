@@ -371,6 +371,15 @@ class Tree(object):
             return True
         else:
             return False
+        
+    def hasChild(self) -> bool:
+        """
+            Determine whether node has children nodes or not.
+        """
+        if len(self.__children) == 0:
+            return False
+        else:
+            return True
     
     def isBranch(self):
         """
