@@ -14,11 +14,16 @@ class TestGlobalPlanner(unittest.TestCase):
         assert(isinstance(ex, Experiment))
         gpp = GlobalPathPlanner(ex._world)
         fig, ax = ex.plotWorld()
-        gpp.planPath(
-            ex._world.target(1).p(), 
-            ex._world.target(9).p(), 
-            max_iter
-            )
+
+        t0 = ex._world.target(1).p()
+        tf = ex._world.target(9).p()
+        path, time = gpp.planPath(t0, tf, max_iter)
+
+        self.assertTrue(isinstance(path, Tree))
+        self.assertTrue(isinstance(time, float))
+        self.assertTrue(np.allclose(t0,path.getData().p()))
+        self.assertTrue(np.allclose(tf,path.getRoot().getData().p()))
+        
         ex._world.plotTravelCostPerRegion(ax)
         
     def testTSP(self):
