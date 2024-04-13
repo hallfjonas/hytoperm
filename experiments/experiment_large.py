@@ -233,10 +233,12 @@ if __name__ == '__main__':
         ex : Experiment = Experiment.deserialize(exp_file)
 
     fig, ax = ex.plotWorld(fill_empty_regions=False)
-    rrt = RRT(ex._world.regions())
+    tf = ex.world().targets()[1].p()
+    tr = ex.world().getRegions(tf)
+    rrt = RRBT(ex._world, Tree(Node(tf, tr)))
     rrt._plot_options = PlotOptions()
     rrt._plot_options.toggleAllPlotting(False)
-    r, p = rrt.planPath(ex._world.targets()[0].p(), ex._world.targets()[1].p())
+    r, p = rrt.planPath(ex._world.targets()[0].p())
 
     rrt.best_path.getRoot().plotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
     rrt.best_path.plotPathToRoot(ax=ax, color='red', linewidth=2, alpha=1)
