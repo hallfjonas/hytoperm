@@ -174,7 +174,7 @@ class RRBT:
         
         initTree = self.extend(initialNode)
         if initTree is None:
-            warnings.warn("Could not find a path from initial node to tree. Returning None. Did you run 'expandTree' with a sufficient number of iterates?")
+            warnings.warn("Could not find a path from initial node to tree. Returning [None, inf]. Did you run 'expandTree' with a sufficient number of iterates?")
             return None, np.inf
         
         best_cost = initTree.getData().costToRoot()
@@ -406,14 +406,12 @@ class GlobalPathPlanner:
             warnings.warn("No path exists from {0} to any other target. Running TSP solver".format(init.name))
             self.solveTSP()
             if goal not in self._world.targets():
-                warnings.warn("No path exists from {0} to any other target (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
-                return None
+                raise Exception("No path exists from {0} to any other target (even after utilizing TSP solver).".format(init.name, goal.name))
         if goal not in self._target_paths[init]:
             warnings.warn("No path exists from {0} to {1}. Running TSP solver".format(init.name, goal.name))
             self.solveTSP()
             if goal not in self._world.targets():
-                warnings.warn("No path exists from {0} to {1} (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
-                return None
+                raise Exception("No path exists from {0} to {1} (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
         return self._target_paths[init][goal]
 
     # modifiers

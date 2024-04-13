@@ -27,8 +27,7 @@ class Experiment:
 
     def agent(self, idx : int = 0) -> Agent:
         if idx >= len(self._agents) or idx < 0:
-            warnings.warn("Agent index out of bounds.")
-            return None
+            raise IndexError("Agent index out of bounds.")
         return self._agents[idx]
         
     def agents(self) -> List[Agent]:
@@ -47,8 +46,7 @@ class Experiment:
         counter = 0
         
         if (M < 0):
-            warnings.warn("Number of Voronoi points must be a nonnegative number.")
-            return
+            raise ValueError("Number of Voronoi points must be a nonnegative number.")
         
         while len(self._vc) < M:
 

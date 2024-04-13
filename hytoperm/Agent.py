@@ -841,11 +841,9 @@ class Agent:
         
     def setGlobalPathPlanner(self, gpp : GlobalPathPlanner = None) -> None:
         if gpp is None:
-            warnings.warn("No global path planner provided. Creating a new instance.")
             gpp = GlobalPathPlanner(self.world())
         if not isinstance(gpp, GlobalPathPlanner):
-            warnings.warn("Expected a GlobalPathPlanner instance. Ignoring input.")
-            return
+            raise ValueError("Expected a GlobalPathPlanner instance. Ignoring input.")
         self._gpp = gpp
    
     def computeVisitingSequence(self) -> None:
@@ -863,9 +861,6 @@ class Agent:
             steady, ssc = self.simulateToSteadyState(self.op.steady_state_iters)
             self._steady_state_iters.append(ssc)
             self._isSteadyState.append(steady)
-
-            if not steady:
-                warnings.warn("Did not reach steady state...")
 
             dJ_dt = self.updateMonitoringDurations()
 
@@ -942,7 +937,7 @@ class Agent:
         
         node : Tree = path
         if node is None:
-            warnings.warn("Path is empty...")
+            warnings.warn("Path is empty. Returning None")
             return None, None, None
         
         phi = node.getData().p().reshape(-1,1)
