@@ -238,52 +238,6 @@ class RRBT:
         if rewireCost + sampleTree.getData().costToRoot() < self.best_cost:
             self.connect(self.best_path, sampleTree, rewireCost)
             self.plotBestPath()
-
-    def initializePath(self, T : Tree, initialNode : Node) -> Tree:
-        activeT = T.getRoot()
-        activeRegions = activeT.getData().regions()
-        initialRegions = initialNode.regions()
-        while True:
-
-            # if the initial region is entered then we connect and return
-            irs = initialRegions.intersection(activeRegions)
-            if len(irs) > 0:
-                newNode = Node(initialNode.p(), initialRegions)
-                newT = Tree(newNode)
-                bc, br = self.bestTravelRegion(newNode, activeT.getData(), irs)
-                self.connect(newT, activeT, bc, br)
-                return newT
-
-            # otherwise we project the current node to the boundary of the 
-            # boundary facing the initial node
-            for region in activeRegions:
-                activeP = activeT.getData().p()
-                proj = region.projectToBoundary(activeP, initialNode.p())
-                if proj is not None:
-                    break
-
-            # append the node to the tree and activate it
-            if proj is None:
-                raise Exception("Could not project node to boundary")
-            newRegions = self.world.getRegions(proj)
-            newNode = Node(proj, newRegions)
-            newT = Tree(newNode)                                           
-
-            # determine best region to travel through
-            intersectingRegions = newRegions.intersection(activeRegions)
-            if len(intersectingRegions) == 0:
-                raise ValueError("No intersecting regions found.")
-            best_tcp, best_region = self.bestTravelRegion(
-                newNode, activeT.getData(), intersectingRegions
-            )
-
-            if best_tcp >= np.inf:
-                warnings.warn("No feasible path continuation found.")
-                return 
-
-            self.connect(newT, activeT, best_tcp, best_region)
-            activeT = newT
-            activeRegions = newRegions
     
     def initializeCache(self) -> None:
         for r in self._world.regions():
