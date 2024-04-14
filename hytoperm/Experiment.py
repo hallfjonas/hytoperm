@@ -167,11 +167,7 @@ class Experiment:
         fig, ax = plt.subplots()
         ax.set_aspect('equal', 'box')
         fig.tight_layout()
-        plt.axis('off')
-        plt.ion()
-        plt.show()
-        fig.tight_layout()
-    
+        ax.axis('off')
         ax.set_xlim(self._domain.xmin()*1.01, self._domain.xmax()*1.01)
         ax.set_ylim(self._domain.ymin()*1.01, self._domain.ymax()*1.01)
         self._world.plotMissionSpace(
@@ -220,11 +216,25 @@ class Experiment:
     def generate(
             n_sets=15, 
             fraction=0.5, 
-            seed=784, 
+            seed=None, 
             min_dist=0.0,
             n_agents=1
             ) -> Experiment:
-            
+        '''
+        generate: Generate a random experiment.
+        
+        Parameters:
+        n_sets: int
+            Number of sets for the partition.
+        fraction: float
+            Fraction of regions that will contain targets.
+        seed: int
+            Seed for the random number generator.
+        min_dist: float
+            Minimum distance between Voronoi points.
+        n_agents: int
+            Number of agents (multi-agent scenarios are experimental!).
+        '''
         if seed is not None:
             np.random.seed(seed)
         try:
