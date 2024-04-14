@@ -1,30 +1,10 @@
 
 
 ## TOP X
-1. unification of property and member names
-2. documentation
-3. warm starting the tree structure in HighLevelPlanner
-    - one tree per target to capture how to reach that target quickest from anywhere in the mission space
-4. improve code quality: 
-    - automated getters and setters in python?
-    - improve plot functions (increase flexibility)
-    - ensure that all plot functions work coherently
+1. documentation
 
-## Coding Todos (Apr 2 2024)
-1. unification of property and member names. Files that are done:
-    - Agent
-    - Tests
-    - Experiment
-    - World
-    - GlobalPlanning
-    - Dynamics
-    - Optimization
-    - Sensor
-    - DataStructures
-    - Plotters
-
-2. organize files, classes, functions 
-3. documentation
+## Coding Todos (Apr 13 2024)
+1. Verify return types of planPath methods
 
 ### future work
 - optimize switching points/switching segments

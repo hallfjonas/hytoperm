@@ -854,9 +854,14 @@ class Agent:
         self._tvs = tvs
     
     def optimizeCycle(self) -> None:
-        self.initializeCycle()
+        
+        try: 
+            self.initializeCycle()
+        except Exception as e:
+            print(e)
+            return
+        
         it = 0
-        po = PlotObject()
         while True:
             steady, ssc = self.simulateToSteadyState(self.op.steady_state_iters)
             self._steady_state_iters.append(ssc)
@@ -1274,17 +1279,18 @@ class Agent:
 
     # printers
     def printHeader(self) -> None:
-        print("----|-----------|-----------|-----------|--------")
-        print(" it | avrg cost | grad. nrm | step size | steady ")
-        print("----|-----------|-----------|-----------|--------")
+        print("----|-----------|-----------|-----------|--------|--------")
+        print(" it | avrg cost | grad. nrm | step size | it std | is std ")
+        print("----|-----------|-----------|-----------|--------|--------")
               
     def printIteration(self, it) -> None:
         if it % 10 == 0:
             self.printHeader()
-        print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:5d}".format(
+        print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:6d} | {:>6s}".format(
             it, 
             self._global_costs[-1], 
             self._global_gradient_norms[-1], 
             self._alphas[-1], 
-            self._steady_state_iters[-1]
+            self._steady_state_iters[-1],
+            'T' if self._isSteadyState[-1] else 'F'
         ))
