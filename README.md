@@ -4,9 +4,33 @@ We split the problem into an
 1. offline high-level sequence planner; and
 2. online trajectory optimizer realizing the computed visiting sequence.
 
-## Offline High-Level Sequence Planner
+## Installation
+1. Setup & activate virtual environment, then install.
+```
+$ virtualenv env --python=python3
+$ source env/bin/activate
+$ pip install -e .
+```
 
-## Online Trajectory Optimizer
+## Usage Example
+Utilizing the random experiment generator, we can run a simple test experiment
+```
+import matplotlib.pyplot as plt
+from hytoperm import *
+
+# generate and plot the expriment setup
+ex = Experiment.generate()
+fig, ax = ex.plotWorld()
+ex.agent().plotSensorQuality()
+
+# let the agent compute the visiting sequence and optimize the cycle
+ex.agent().computeVisitingSequence()
+ex.agent().optimizeCycle()
+
+# plot the optimal cycle
+ex.agent().plotCycle()
+plt.show()
+```
 
 ## Coding Conventions
 - All classes use the `CamelCase` convention

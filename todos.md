@@ -4,7 +4,6 @@
 1. documentation
 
 ## Coding Todos (Apr 13 2024)
-1. Verify return types of planPath methods
 
 ### future work
 - optimize switching points/switching segments
