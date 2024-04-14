@@ -62,7 +62,7 @@ class OptimizationParameters:
         self.beta : float = 0.95                                                # step size reduction factor for gradient descent
         self.tr : float = 0.5                                                   # trust region radius
         self.sim_to_steady_state_tol : float = 1e-1                             # tolerance for simulation to steady state
-        self.steady_state_iters : int = 100                                     # maximum number of iterations for steady state simulation
+        self.steady_state_iters : int = 1                                       # maximum number of iterations for steady state simulation
         self.optimization_iters : int = 100                                     # maximum number of iterations for optimization
 
     def copy(self):
