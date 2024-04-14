@@ -1,9 +1,6 @@
 # Hybrid Trajectory Optimizer for Persistent Monitoring
-This repository contains a collection of tools that can be used for the design of trajectories in Persistent Monitoring (PM) settings with partitioned mission spaces. The partitioning is based on the agent's dynamics, which are allowed to vary throughout the environment. This leads to a hybrid dynamical system and introduces an additional layer of complexity towards the planning portion of the problem: we must not only identify in which order to visit the points of interest, but also in which order to traverse the regions. 
-We split the problem into an
-1. offline high-level sequence planner; and
-2. online trajectory optimizer realizing the computed visiting sequence.
-
+This repository contains a collection of tools that can be used for the design of trajectories in Persistent Monitoring (PM) settings with partitioned mission spaces. The partitioning is assumed to be based on the agent's dynamics, which are allowed to vary throughout the environment. This repository contains all 
+code used for [this preprint](https://arxiv.org/abs/2403.19769).
 ## Installation
 1. Setup & activate virtual environment, then install.
 ```
