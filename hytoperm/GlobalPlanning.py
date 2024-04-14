@@ -18,24 +18,8 @@ class PlotOptions:
         self.pae : bool = False                                                 # plot all edge lines
         self.par : bool = False                                                 # plot active regions   
         self.psr : bool = False                                                 # plot search regions
-        self._ael : PlotObject = PlotObject()                                   # all edge lines
-        self._bpl : PlotObject = PlotObject()                                   # best path line
-        self._arl : PlotObject = PlotObject()                                   # active region lines
-        self._srl : PlotObject = PlotObject()                                   # search region lines
     
     # getters
-    def allEdgeLines(self) -> PlotObject:
-        return self._ael
-    
-    def bestPathLines(self) -> PlotObject:
-        return self._bpl
-    
-    def activeRegionObjects(self) -> PlotObject:
-        return self._arl
-    
-    def searchRegionObjects(self) -> PlotObject:
-        return self._srl
-
     def plotAny(self) -> bool:
         return self.pbp or self.pae or self.par or self.psr
 
@@ -45,18 +29,6 @@ class PlotOptions:
         self.pae = bool
         self.par = bool
         self.psr = bool
-
-    def addEdgeLines(self, po : PlotObject) -> None:
-        self._ael.add(po)
-
-    def addBestPathLine(self, po : PlotObject) -> None:
-        self._bpl.add(po)
-
-    def addActiveRegionObject(self, po : PlotObject) -> None:
-        self._arl.add(po)
-
-    def addSearchRegionObject(self, po : PlotObject) -> None:
-        self._srl.add(po)
 
 
 class RRBT:
@@ -117,7 +89,7 @@ class RRBT:
         self._T = initTree
         self.initializeCache()           
 
-    def expandTree(self, max_iter : int = 1000) -> None:
+    def expandTree(self, max_iter : int) -> None:
         for i in range(max_iter):
             newNode = self.sample()
             if self.extend(newNode) is None:
@@ -269,50 +241,45 @@ class RRBT:
         ax = getAxes(ax)
         return self.best_path.plotPathToRoot()
     
-    def visualizeActiveRegions(self, ax : plt.Axes = None) -> None:
+    def visualizeActiveRegions(self, ax : plt.Axes = None) -> PlotObject:
         ax = getAxes(ax)
-        self.plotOptions().activeRegionObjects().remove()
+        po = PlotObject()
         for r in self._active_regions:
-            self.plotOptions().addActiveRegionObject(
+            po.add(
                 r.fill(ax, color = 'green', alpha = 0.2)
             )
+        return po
 
     def visualizeSearchRegions(
             self, 
             p : np.ndarray, 
             regions : Set[Region], 
             ax : plt.Axes = None
-            ) -> None:
+            ) -> PlotObject:
         ax = getAxes(ax)
-        self.plotOptions().searchRegionObjects().remove()
-        referencePoint = PlotObject(plt.plot(p[0], p[1], 'gd'))
-        self.plotOptions().addSearchRegionObject(referencePoint)
+        po = PlotObject()
+        po.add(plt.plot(p[0], p[1], 'gd'))
         regionArgs = {'color':'blue','alpha':0.2}
         for r in regions:   
-            self.plotOptions().addSearchRegionObject(r.fill(ax, **regionArgs))
+            po.add(r.fill(ax, **regionArgs))
+        return po
 
-    def plotBestPath(self, ax : plt.Axes = None) -> None:
+    def plotAllEdgeLines(
+            self, 
+            ax : plt.Axes = None,
+            **kwargs
+            ) -> PlotObject:
         ax = getAxes(ax)
-        self.plotOptions().bestPathLines().remove()
-        self.plotOptions().addBestPathLine(
-            self.best_path.plotPathToRoot(None, ax, color = 'red', linewidth=2)
-        )
-
-    def plotAllEdgeLines(self, T : Tree, ax : plt.Axes = None) -> None:
-        ax = getAxes(ax)
-        self.plotOptions().allEdgeLines().remove()
-        queue = [T.getRoot()]
+        queue = [self._T.getRoot()]
+        po = PlotObject()
         while len(queue) > 0:
             n = queue.pop(0)
             for c in n.getChildren():
                 queue.append(c)
             
             if n.getParent() is not None:
-                el = n.plotPathToParent(
-                    ax, color = 'black', linewidth = 1, alpha = 0.5
-                )
-                self.plotOptions().addEdgeLines(el)
-
+                po.add(n.plotPathToParent(ax, **kwargs))
+        return po
 
 class TSP:
     def __init__(self, targets : List[Target]) -> None:
@@ -419,7 +386,7 @@ class GlobalPathPlanner:
             self, 
             t0 : np.ndarray, 
             tf : np.ndarray, 
-            max_iter = 500
+            max_iter = 200
             ) -> Tuple[Tree, float]:
         
         # Switch to local planner if possible
@@ -446,7 +413,7 @@ class GlobalPathPlanner:
             self,
             init : np.ndarray,
             goal : Target,
-            max_iter : int = 1000
+            max_iter : int = 200
             ) -> Tuple[Tree, float]:
         if not goal in self._rrbts:
             targetpos = goal.p()
@@ -464,13 +431,13 @@ class GlobalPathPlanner:
 
     def generateCompleteGraph(self) -> None:
         for i in range(self._world.nTargets()):
-            target_i = self._world.targets()[i]
+            target_i = self._world.target(i)
             self._target_paths[target_i] = {}
             for j in range(self._world.nTargets()):
                 if i == j:
                     self._tsp.setTargetDistance(i,j,0)
                     continue
-                target_j = self._world.targets()[j]
+                target_j = self._world.target(j)
                 plannedPath = self.planPathToTarget(target_i.p(), target_j)
                 self._target_paths[target_i][target_j] = plannedPath[0] 
                 self._tsp.setTargetDistance(i,j,plannedPath[1])
