@@ -147,6 +147,10 @@ class Region:
         return V, W
 
 
+    def randomPoint(self) -> np.ndarray:
+        pass
+
+
 class Partition:
     def __init__(self, regions : Set[Region]) -> None:
         self._regions = regions
@@ -426,6 +430,18 @@ class CPRegion(Region):
         chp = self.getConvexHull().points
         chv = self.getConvexHull().vertices
         return PlotObject(ax.fill(chp[chv,0], chp[chv,1], **kwargs))
+
+    def randomPoint(self) -> np.ndarray:
+        nump = len(self.getConvexHull().points)
+        alphas = []
+        p = np.zeros(2)
+        for i in range(nump-1):
+            m = 0.9*(1-sum(alphas))
+            alphas.append(max(0,min(np.random.normal(1/nump, 1/nump/10),m)))
+            p += alphas[-1] * self.getConvexHull().points[i]
+        alphas.append(1 - sum(alphas))
+        p += alphas[-1] * self.getConvexHull().points[-1]
+        return p
 
 
 class Dynamics:

@@ -43,6 +43,22 @@ class TestWorld(unittest.TestCase):
         p = region.randomBoundaryPoint()
         Node(p, set([region])).plot(ax, color='yellow', marker='d')
 
+    def testRandomPoint(self):
+        ex = Experiment()
+        assert(isinstance(ex, Experiment))
+        ex.addRandomVoronoiPoints(10)
+        ex.generatePartitioning()
+        
+        fig, ax = ex.plotWorld()
+        for region in ex.world().regions():
+            p = region.randomPoint()
+            po = region.fill()
+            pn = Node(p, set([region])).plot(ax, color='yellow', marker='d')
+            self.assertTrue(region.contains(p))
+            po.remove()
+            pn.remove()
+
+
     def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
             for fraction in pass_settings["fraction"]:
