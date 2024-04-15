@@ -105,25 +105,30 @@ class Experiment:
                 )      
         self._world.setRegions(regions)
     
-    def addRandomAgent(self, gpp : GlobalPathPlanner = None) -> None:
-        sensor = Sensor()
-        for target in self._world.targets():
-            if target.name == '3':
-                sensor.setTargetQualityFunction(
-                    target, 
-                    SinusoidalgetQualityFunction(
-                        c1=np.random.uniform(3,20),
-                        c2=np.random.uniform(3,20)
+    def addRandomAgent(
+            self, 
+            gpp : GlobalPathPlanner = None,
+            sensor : Sensor = None
+            ) -> None:
+        if sensor is None:
+            sensor = Sensor()
+            for target in self._world.targets():
+                if target.name == '3':
+                    sensor.setTargetQualityFunction(
+                        target, 
+                        SinusoidalgetQualityFunction(
+                            c1=np.random.uniform(3,20),
+                            c2=np.random.uniform(3,20)
+                            )
                         )
-                    )
-            else:
-                sensor.setTargetQualityFunction(
-                    target, 
-                    GaussiangetQualityFunction()
-                    )
+                else:
+                    sensor.setTargetQualityFunction(
+                        target, 
+                        GaussiangetQualityFunction()
+                        )
 
-            sensor.setNoiseMatrix(target, np.eye(1))
-            sensor.setMeasurementMatrix(target, np.eye(1))
+                sensor.setNoiseMatrix(target, np.eye(1))
+                sensor.setMeasurementMatrix(target, np.eye(1))
         self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp))
 
     def addRandomTargets(self, n : int = None, fraction : float = 0.5) -> None:
@@ -218,7 +223,8 @@ class Experiment:
             fraction=0.5, 
             seed=None, 
             min_dist=0.0,
-            n_agents=1
+            n_agents=1,
+            homogenoeous_agents=True
             ) -> Experiment:
         '''
         generate: Generate a random experiment.
@@ -234,6 +240,8 @@ class Experiment:
             Minimum distance between Voronoi points.
         n_agents: int
             Number of agents (multi-agent scenarios are experimental!).
+        homogenoeous_agents: bool
+            If True, all agents will have the same sensor model.
         '''
         if seed is not None:
             np.random.seed(seed)
@@ -243,8 +251,11 @@ class Experiment:
             ex.generatePartitioning()
             ex.addRandomTargets(fraction=fraction)
             gpp = GlobalPathPlanner(ex.world())
+            sensor = None
             for i in range(n_agents):
-                ex.addRandomAgent(gpp)
+                ex.addRandomAgent(gpp=gpp, sensor=sensor)
+                if homogenoeous_agents:
+                    sensor = ex.agent().sensor()
             return ex
         except Exception as e:  
             print(e)  
