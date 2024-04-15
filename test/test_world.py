@@ -47,7 +47,7 @@ class TestWorld(unittest.TestCase):
         ex = Experiment()
         assert(isinstance(ex, Experiment))
         ex.addRandomVoronoiPoints(10)
-        ex.generatePartitioning()
+        ex.generatePartitioning(n_obstacles=1)
         
         fig, ax = ex.plotWorld()
         for region in ex.world().regions():

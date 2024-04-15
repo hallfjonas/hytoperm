@@ -434,7 +434,16 @@ class CPRegion(Region):
         ax = getAxes(ax)
         chp = self.getConvexHull().points
         chv = self.getConvexHull().vertices
-        return PlotObject(ax.fill(chp[chv,0], chp[chv,1], **kwargs))
+
+        if self.isObstacle():
+            eka = extendKeywordArgs(
+                _plotAttr.obstacle_background.getAttributes(), **kwargs
+            )
+        else:
+            eka = extendKeywordArgs(
+                _plotAttr.partition_background.getAttributes(), **kwargs
+            )
+        return PlotObject(ax.fill(chp[chv,0], chp[chv,1], **eka))
 
     def randomPoint(self) -> np.ndarray:
         nump = len(self.getConvexHull().points)
@@ -448,6 +457,7 @@ class CPRegion(Region):
         p += alphas[-1] * self.getConvexHull().points[-1]
         return p
 
+
 class ObstacleCPRegion(CPRegion):
 
     def __init__(self, g, b, p : np.ndarray, domain : Domain = Domain()):
@@ -458,13 +468,6 @@ class ObstacleCPRegion(CPRegion):
 
     def isObstacle(self) -> bool:
         return True
-
-    def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
-        args = extendKeywordArgs(
-            _plotAttr.obstacle_background.getAttributes(), 
-            **kwargs
-            )
-        return super().fill(ax, **args)
 
 
 class Dynamics:
@@ -884,12 +887,9 @@ class World:
         ax = getAxes(ax)
         po = PlotObject()        
         po.add(self.partition().plot(ax))
-        eka = extendKeywordArgs(
-            _plotAttr.partition_background.getAttributes()
-        )
         for region in self.regions():
             if not self.hasTarget(region) and fill_empty_regions:
-                po.add(region.fill(ax, **eka))
+                po.add(region.fill(ax))
         
         for target in self._targets:
             po.add(target.plot(ax, annotate=add_target_labels))
