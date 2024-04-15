@@ -18,6 +18,7 @@ class Experiment:
         self._voronoi = None                                                    # Voronoi object
         self._world : World = World()                                           # world object
         self._agents : List[Agent] = []                                         # agent object
+        self._homogeneous_agents = False                                        # all agents have the same sensor model
         self._domain = domain                                                   # domain object
         self._name = name                                                       # name of the experiment
 
@@ -182,8 +183,8 @@ class Experiment:
             )
 
         if with_sensor_quality and len(self._agents) > 0:
-            if len(self._agents) == 1:
-                self.agent().plotSensorQuality(ax=ax)
+            if len(self._agents) == 1 or self._homogeneous_agents:
+                self.agent(0).plotSensorQuality(ax=ax)
             else:
                 warnings.warn("Adding the sensor quality tot he world plot is only supported for a single agent.")
 
@@ -224,7 +225,7 @@ class Experiment:
             seed=None, 
             min_dist=0.0,
             n_agents=1,
-            homogenoeous_agents=True
+            homogeneous_agents=True
             ) -> Experiment:
         '''
         generate: Generate a random experiment.
@@ -252,9 +253,10 @@ class Experiment:
             ex.addRandomTargets(fraction=fraction)
             gpp = GlobalPathPlanner(ex.world())
             sensor = None
+            ex._homogeneous_agents = homogeneous_agents or n_agents == 1
             for i in range(n_agents):
                 ex.addRandomAgent(gpp=gpp, sensor=sensor)
-                if homogenoeous_agents:
+                if homogeneous_agents:
                     sensor = ex.agent().sensor()
             return ex
         except Exception as e:  
