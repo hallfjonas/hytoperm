@@ -146,6 +146,11 @@ class Region:
                     
         return V, W
 
+    def p(self) -> np.ndarray:
+        pass
+
+    def isObstacle(self) -> bool:
+        return False
 
     def randomPoint(self) -> np.ndarray:
         pass
@@ -442,6 +447,24 @@ class CPRegion(Region):
         alphas.append(1 - sum(alphas))
         p += alphas[-1] * self.getConvexHull().points[-1]
         return p
+
+class ObstacleCPRegion(CPRegion):
+
+    def __init__(self, g, b, p : np.ndarray, domain : Domain = Domain()):
+        super().__init__(g,b,p,domain)
+
+    def travelCost(self, x0: np.ndarray, xf: np.ndarray) -> float:
+        return np.inf
+
+    def isObstacle(self) -> bool:
+        return True
+
+    def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        args = extendKeywordArgs(
+            _plotAttr.obstacle_background.getAttributes(), 
+            **kwargs
+            )
+        return super().fill(ax, **args)
 
 
 class Dynamics:
@@ -818,6 +841,13 @@ class World:
     def nRegions(self) -> int:
         return len(self._regions)
     
+    def nObstacles(self) -> int:
+        n = 0
+        for r in self._regions:
+            if r.isObstacle():
+                n+=1
+        return n
+
     def domain(self) -> Domain:
         return self._domain
     

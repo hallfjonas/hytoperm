@@ -79,7 +79,7 @@ class Experiment:
         self._M = len(self._vc)
         self._vc = np.array(self._vc)
 
-    def generatePartitioning(self) -> None:
+    def generatePartitioning(self, n_obstacles=0) -> None:
         
         if self._vc.shape[0] > 1:
             self._voronoi = Voronoi(self._vc)
@@ -96,14 +96,23 @@ class Experiment:
                 a = a / np.linalg.norm(a)
                 g[j] = a 
                 b[j] = a @ (self._vc[i] + self._vc[j]) / 2
-            dyn = ConstantDynamics(2,0,0,np.random.uniform(-0.5,0.5,2))
-            regions.append(ConstantDCPRegion(
-                g,
-                b,
-                self._vc[i], 
-                domain=self._domain, 
-                dynamics=dyn)
-                )      
+            
+            if i < self._M-n_obstacles:
+                dyn = ConstantDynamics(2,0,0,np.random.uniform(-0.5,0.5,2))
+                regions.append(ConstantDCPRegion(
+                    g,
+                    b,
+                    self._vc[i], 
+                    domain=self._domain, 
+                    dynamics=dyn)
+                    )      
+            else:
+                regions.append(ObstacleCPRegion(
+                    g,
+                    b,
+                    self._vc[i], 
+                    domain=self._domain)
+                    )
         self._world.setRegions(regions)
     
     def addRandomAgent(
@@ -132,7 +141,12 @@ class Experiment:
                 sensor.setMeasurementMatrix(target, np.eye(1))
         self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp))
 
-    def addRandomTargets(self, n : int = None, fraction : float = 0.5) -> None:
+    def addRandomTargets(
+            self, 
+            n : int = None, 
+            fraction : float = 0.5,
+            min_dist_to_boundary : float = 0.005
+            ) -> None:
         target_counter = 0
         if fraction < 0 or float(fraction) > 1:
             raise ValueError("Fraction must be in [0,1].")
@@ -141,14 +155,25 @@ class Experiment:
                 raise ValueError("Either n or fraction must be specified.")
             n = self._world.nRegions() * fraction
         n = math.floor(n)
+
+        if n > self._world.nRegions() - self._world.nObstacles():
+            raise ValueError("Number of targets exceeds number of regions.")
+
         for region in self._world.regions():
             if target_counter >= n:
                 break
            
-            pos = region.p()
-            distToBoundary = region.distToBoundary(pos)
-            if distToBoundary < 0.005:
+            if region.isObstacle():
                 continue
+
+            cntr = 0
+            while True:
+                pos = region.randomPoint()
+                if region.distToBoundary(pos) > min_dist_to_boundary:
+                    break
+                cntr += 1
+                if cntr > 1000:
+                    raise Exception("Could not add target. Try decreasing minimum distance to boundary.")
             phi0 = np.array([1.0])
             Q = np.array([0.8])
             A = np.array([0.0])
@@ -156,6 +181,9 @@ class Experiment:
             target.name = str(target_counter+1)
             self.addTarget(target)
             target_counter += 1
+
+        if target_counter < n:
+            raise Exception("Could not add all targets.")
 
     def addTarget(self, target : Target) -> None:
         if not isinstance(target, Target):
@@ -225,7 +253,8 @@ class Experiment:
             seed=None, 
             min_dist=0.0,
             n_agents=1,
-            homogeneous_agents=True
+            homogeneous_agents=True,
+            n_obstacles=0
             ) -> Experiment:
         '''
         generate: Generate a random experiment.
@@ -249,7 +278,7 @@ class Experiment:
         try:
             ex = Experiment()
             ex.addRandomVoronoiPoints(n_sets, min_dist=min_dist)
-            ex.generatePartitioning()
+            ex.generatePartitioning(n_obstacles)
             ex.addRandomTargets(fraction=fraction)
             gpp = GlobalPathPlanner(ex.world())
             sensor = None

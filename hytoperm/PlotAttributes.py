@@ -63,6 +63,9 @@ class PlotAttributes:
         c=get_cmap(sensor_quality.cmap)(0.001), 
         a=sensor_quality.alpha
     )
+    obstacle_background = PlotAttribute(
+        c='black'
+    )
     target_colors = [
         '#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628', 
         '#984ea3', '#999999', '#e41a1c', '#dede00'
