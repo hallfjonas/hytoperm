@@ -1254,7 +1254,6 @@ class Agent:
         ax = getAxes(ax)
         X, Y, Z = self._world.getMeshgrid(dx=grid_size, dy=grid_size)
         sensor = self.sensor()
-        zero_threshold = 1e-2
         for i in range(X.shape[0]):
             for j in range(Y.shape[1]):
                 p = np.array((X[i,j], Y[i,j]))
