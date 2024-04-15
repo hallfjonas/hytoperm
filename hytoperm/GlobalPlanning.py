@@ -89,8 +89,8 @@ class RRBT:
         self._T = initTree
         self.initializeCache()           
 
-    def expandTree(self, max_iter : int) -> None:
-        for i in range(max_iter):
+    def expandTree(self, iterations : int) -> None:
+        for i in range(iterations):
             newNode = self.sample()
             if self.extend(newNode) is None:
                 warnings.warn("Could not extend tree. Continuing...")
@@ -363,6 +363,7 @@ class GlobalPathPlanner:
         self._target_paths : Dict[Target, Dict[Target, Tree]]= {}
         self._plot_options = PlotOptions()
         self._have_graph = False
+        self.rrbt_iter = 200
 
     # getters
     def tsp(self) -> TSP:
@@ -385,8 +386,7 @@ class GlobalPathPlanner:
     def planPath(
             self, 
             t0 : np.ndarray, 
-            tf : np.ndarray, 
-            max_iter = 200
+            tf : np.ndarray
             ) -> Tuple[Tree, float]:
         
         # Switch to local planner if possible
@@ -400,26 +400,25 @@ class GlobalPathPlanner:
         # utilize target RRBT if possible
         for target in self._world.targets():
             if np.linalg.norm(target.p() - tf) < 1e-3:
-                return self.planPathToTarget(t0, target, max_iter)
+                return self.planPathToTarget(t0, target)
         
         # otherwise, need to build a new RRBT
         root = Tree(Node(tf, targetRegions))
         rrbt = RRBT(self._world, root)
         rrbt._plot_options = self._plot_options
-        rrbt.expandTree(max_iter=max_iter)
+        rrbt.expandTree(iterations=self.rrbt_iter)
         return rrbt.planPath(t0)
 
     def planPathToTarget(
             self,
             init : np.ndarray,
-            goal : Target,
-            max_iter : int = 200
+            goal : Target
             ) -> Tuple[Tree, float]:
         if not goal in self._rrbts:
             targetpos = goal.p()
             root = Tree(Node(targetpos, self._world.getRegions(targetpos)))
             self._rrbts[goal] = RRBT(self._world, root)
-            self._rrbts[goal].expandTree(max_iter=max_iter)
+            self._rrbts[goal].expandTree(iterations=self.rrbt_iter)
         return self._rrbts[goal].planPath(init)
 
     def solveTSP(self) -> None:

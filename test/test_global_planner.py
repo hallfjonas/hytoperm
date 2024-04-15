@@ -9,15 +9,16 @@ from hytoperm import *
 class TestGlobalPlanner(unittest.TestCase):
     
     def testRRBT(self):
-        max_iter = 100; n_sets = 20; plot = True
+        niter = 100; n_sets = 20
         ex = Experiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         gpp = GlobalPathPlanner(ex._world)
+        gpp.rrbt_iter = niter
         fig, ax = ex.plotWorld()
 
         t0 = ex._world.target(1).p()
         tf = ex._world.target(9).p()
-        path, time = gpp.planPath(t0, tf, max_iter)
+        path, time = gpp.planPath(t0, tf)
 
         self.assertTrue(isinstance(path, Tree))
         self.assertTrue(isinstance(time, float))
