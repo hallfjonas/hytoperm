@@ -233,7 +233,7 @@ class RRBT:
         for r in self._world.regions():
             if r in self._active_regions:
                 continue
-            if r.contains(p):
+            if r.contains(p) and not r.isObstacle():
                 self._active_regions.append(r)
 
     # plotters
