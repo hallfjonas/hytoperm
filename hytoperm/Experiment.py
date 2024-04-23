@@ -219,7 +219,7 @@ class Experiment:
         return fig, ax
 
     def zoomToTargetRegion(self, ax : plt.Axes, name : str):
-        target = self._world.getTarget(name)
+        target = self._world.getTargetByName(name)
         region = target.region()
         xrange = [np.inf, -np.inf]
         yrange = [np.inf, -np.inf]

@@ -824,7 +824,12 @@ class World:
     def targets(self) -> List[Target]:
         return self._targets
         
-    def getTarget(self, name : str) -> Target:
+    def getTarget(self, idx : int) -> Target:
+        if idx >= len(self._targets) or idx < 0:
+            return None
+        return self._targets[idx]
+    
+    def getTargetByName(self, name : str) -> Target:
         for t in self._targets:
             if t.name == name:
                 return t
@@ -890,10 +895,10 @@ class World:
         for region in self.regions():
             if not self.hasTarget(region) and fill_empty_regions:
                 po.add(region.fill(ax))
+                continue
+            if region.isObstacle():
+                po.add(region.fill(ax))
         
-        for target in self._targets:
-            po.add(target.plot(ax, annotate=add_target_labels))
-
         for region in self.regions():
             if not hasattr(region, 'dynamics'):
                 continue
@@ -909,6 +914,10 @@ class World:
                     scale=0.6
                     )
                 )
+            
+        for target in self._targets:
+            po.add(target.plot(ax, annotate=add_target_labels))
+
         return po
 
     def plotdistToBoundary(self, ax : plt.Axes = None) -> PlotObject:
