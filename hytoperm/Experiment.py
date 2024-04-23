@@ -254,7 +254,8 @@ class Experiment:
             min_dist=0.0,
             n_agents=1,
             homogeneous_agents=True,
-            n_obstacles=0
+            n_obstacles=0,
+            domain=Domain()
             ) -> Experiment:
         '''
         generate: Generate a random experiment.
