@@ -204,17 +204,18 @@ class Experiment:
         ax.axis('off')
         ax.set_xlim(self._domain.xmin()*1.01, self._domain.xmax()*1.01)
         ax.set_ylim(self._domain.ymin()*1.01, self._domain.ymax()*1.01)
-        self._world.plotMissionSpace(
-            ax=ax, 
-            add_target_labels=add_target_labels, 
-            fill_empty_regions=fill_empty_regions
-            )
 
         if with_sensor_quality and len(self._agents) > 0:
             if len(self._agents) == 1 or self._homogeneous_agents:
                 self.agent(0).plotSensorQuality(ax=ax)
             else:
                 warnings.warn("Adding the sensor quality tot he world plot is only supported for a single agent.")
+
+        self._world.plotMissionSpace(
+            ax=ax, 
+            add_target_labels=add_target_labels, 
+            fill_empty_regions=fill_empty_regions
+            )
 
         return fig, ax
 
@@ -277,7 +278,7 @@ class Experiment:
         if seed is not None:
             np.random.seed(seed)
         try:
-            ex = Experiment()
+            ex = Experiment(domain=domain)
             ex.addRandomVoronoiPoints(n_sets, min_dist=min_dist)
             ex.generatePartitioning(n_obstacles)
             ex.addRandomTargets(fraction=fraction)
