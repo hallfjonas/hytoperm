@@ -10,6 +10,7 @@ from python_tsp.heuristics import solve_tsp_simulated_annealing
 # internal imports
 from .World import *
 from .DataStructures import Tree, Node, PlotObject
+_plotAttr = PlotAttributes()
 
 
 class PlotOptions:
@@ -272,13 +273,14 @@ class RRBT:
         ax = getAxes(ax)
         queue = [self._T.getRoot()]
         po = PlotObject()
+        ergs = extendKeywordArgs(_plotAttr.edge.getAttributes(), **kwargs)
         while len(queue) > 0:
             n = queue.pop(0)
             for c in n.getChildren():
                 queue.append(c)
             
             if n.getParent() is not None:
-                po.add(n.plotPathToParent(ax, **kwargs))
+                po.add(n.plotPathToParent(ax, **ergs))
         return po
 
 class TSP:

@@ -744,25 +744,13 @@ class Target:
                 raise ValueError("Expected argument to have two dimensions.")
         self.Q = Q
 
-    def plot(self, ax : plt.Axes = None, annotate=True, **kwargs) -> PlotObject:
+    def plot(self, ax : plt.Axes = None, annotate=False, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         eka = extendKeywordArgs(_plotAttr.target.getAttributes(), **kwargs)
         po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))
 
         if annotate:
             dx = 0; dy = 0.05
-            if self.name == '4':
-                dx = 0.05
-                dy = -0.025
-            if self.name == '3':
-                dx = -0.025
-                dy = -0.075
-            if self.name == '2':
-                dx = -0.07
-                dy = -0.05
-            if self.name == '1':
-                dx = 0.0
-                dy = 0.04
             po.add(ax.text(self._p[0] + dx, self._p[1] + dy, self.name))
 
         return po
@@ -888,17 +876,36 @@ class World:
             self, 
             ax : plt.Axes = None, 
             add_target_labels=False, 
-            fill_empty_regions=True) -> PlotObject:
+            fill_empty_regions=True,
+            plot_partition=True,
+            plot_targets=True,
+            plot_vector_field=True
+            ) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()        
-        po.add(self.partition().plot(ax))
-        for region in self.regions():
-            if not self.hasTarget(region) and fill_empty_regions:
-                po.add(region.fill(ax))
-                continue
-            if region.isObstacle():
-                po.add(region.fill(ax))
+
+        if plot_partition:
+            po.add(self.plotPartition(ax, fill_empty_regions))
         
+        if plot_vector_field:
+            po.add(self.plotVectorField(ax))
+                
+        if plot_targets:
+            po.add(self.plotTargets(ax, add_target_labels))
+
+        return po
+
+    def plotTargets(self, ax : plt.Axes = None, add_target_labels=False) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        for target in self._targets:
+            po.add(target.plot(ax, annotate=add_target_labels))
+
+        return po
+
+    def plotVectorField(self, ax : plt.Axes = None) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
         for region in self.regions():
             if not hasattr(region, 'dynamics'):
                 continue
@@ -914,10 +921,18 @@ class World:
                     scale=0.6
                     )
                 )
-            
-        for target in self._targets:
-            po.add(target.plot(ax, annotate=add_target_labels))
+        return po
 
+    def plotPartition(self, ax : plt.Axes = None, fill_empty_regions=True) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        po.add(self.partition().plot(ax))
+        for region in self.regions():
+            if not self.hasTarget(region) and fill_empty_regions:
+                po.add(region.fill(ax))
+                continue
+            if region.isObstacle():
+                po.add(region.fill(ax))
         return po
 
     def plotdistToBoundary(self, ax : plt.Axes = None) -> PlotObject:

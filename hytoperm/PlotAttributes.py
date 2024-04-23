@@ -74,6 +74,8 @@ class PlotAttributes:
     phi = PlotAttribute(c='forestgreen', m='X', ms=7.5, ls='')
     psi = PlotAttribute(c='yellow', m='p', ms=10, ls='')
 
+    edge = PlotAttribute(c='black', ls='-', lw=2, a=0.5)
+
     u1_switch = PlotAttribute(c='salmon', ls='-')
     u2_switch = PlotAttribute(c='mediumaquamarine', ls='--')
     u_norm_switch = PlotAttribute('black', ls='-', lw=3)

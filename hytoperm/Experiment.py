@@ -196,7 +196,10 @@ class Experiment:
             self, 
             with_sensor_quality=False, 
             add_target_labels=True, 
-            fill_empty_regions=True
+            fill_empty_regions=True,
+            plot_partition=True,
+            plot_targets=True,
+            plot_vector_field=True
             ) -> Tuple[plt.Figure, plt.Axes]:
         fig, ax = plt.subplots()
         ax.set_aspect('equal', 'box')
@@ -214,7 +217,10 @@ class Experiment:
         self._world.plotMissionSpace(
             ax=ax, 
             add_target_labels=add_target_labels, 
-            fill_empty_regions=fill_empty_regions
+            fill_empty_regions=fill_empty_regions,
+            plot_partition=plot_partition,
+            plot_targets=plot_targets,
+            plot_vector_field=plot_vector_field
             )
 
         return fig, ax
