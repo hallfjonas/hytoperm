@@ -21,6 +21,7 @@ class Exporter:
         self.EXT = '.pdf'
         self.DIR = ''
         self.CROP = True
+        self.TRANSPARENT = False
 
     def prepareDir(self, out_dir : str) -> None:
         if not os.path.exists(out_dir):
@@ -35,7 +36,7 @@ class Exporter:
 
         plt.rcParams['font.size'] = self.FONTSIZE
 
-        plt.savefig(file, bbox_inches='tight', dpi=self.DPI)
+        plt.savefig(file, bbox_inches='tight', dpi=self.DPI, transparent=self.TRANSPARENT)
         
         if self.CROP:
             self.cropMargins(file)
