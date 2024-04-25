@@ -935,6 +935,15 @@ class World:
                 po.add(region.fill(ax))
         return po
 
+    def plotDomain(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        args = extendKeywordArgs(_plotAttr.partition.getAttributes(), **kwargs)
+        xr = self.domain().xrange()
+        yr = self.domain().yrange()
+        xvals = [xr[0], xr[1], xr[1], xr[0], xr[0]]
+        yvals = [yr[0], yr[0], yr[1], yr[1], yr[0]]
+        return ax.plot(xvals, yvals, **args)
+    
     def plotdistToBoundary(self, ax : plt.Axes = None) -> PlotObject:
         ax = getAxes(ax)
         X, Y, Z = self.getMeshgrid()

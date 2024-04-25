@@ -58,7 +58,6 @@ class TestWorld(unittest.TestCase):
             po.remove()
             pn.remove()
 
-
     def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
             for fraction in pass_settings["fraction"]:
@@ -88,7 +87,7 @@ class TestWorld(unittest.TestCase):
         n_sets = 10
         ex = Experiment.generate(n_sets=n_sets)
         fig, ax = ex.plotWorld()
-    
+        ex.world().plotDomain(ax)   
 
 if __name__ == "__main__":
     unittest.main()
