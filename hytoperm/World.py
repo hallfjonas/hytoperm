@@ -4,6 +4,8 @@ import warnings
 import numpy as np
 from typing import List, Dict, Set
 import matplotlib.pyplot as plt 
+import matplotlib.patches as patches
+import matplotlib.colors as colors
 from scipy.spatial import ConvexHull
 
 # internal imports
@@ -935,14 +937,22 @@ class World:
                 po.add(region.fill(ax))
         return po
 
-    def plotDomain(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+    def plotDomain(self, ax : plt.Axes = None) -> PlotObject:
         ax = getAxes(ax)
-        args = extendKeywordArgs(_plotAttr.partition.getAttributes(), **kwargs)
-        xr = self.domain().xrange()
-        yr = self.domain().yrange()
-        xvals = [xr[0], xr[1], xr[1], xr[0], xr[0]]
-        yvals = [yr[0], yr[0], yr[1], yr[1], yr[0]]
-        return ax.plot(xvals, yvals, **args)
+        x = self.domain().xmin()
+        y = self.domain().ymin()
+        dx = self.domain().xmax() - self.domain().xmin()
+        dy = self.domain().ymax() - self.domain().ymin()
+        fc = colors.to_rgba(
+            _plotAttr.partition_background.color, 
+            _plotAttr.partition_background.alpha
+            )
+        ec = _plotAttr.partition.color
+        lw = _plotAttr.partition.linewidth
+        rect = patches.Rectangle((x,y), dx, dy, lw=lw, ec=ec, fc=fc)
+
+        # Add the patch to the Axes
+        return ax.add_patch(rect)
     
     def plotdistToBoundary(self, ax : plt.Axes = None) -> PlotObject:
         ax = getAxes(ax)
