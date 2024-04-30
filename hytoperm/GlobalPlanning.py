@@ -283,6 +283,7 @@ class RRBT:
                 po.add(n.plotPathToParent(ax, **ergs))
         return po
 
+
 class TSP:
     def __init__(self, targets : List[Target]) -> None:
         self._targets = targets
