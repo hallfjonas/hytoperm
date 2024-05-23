@@ -117,11 +117,12 @@ class Experiment:
     
     def addRandomAgent(
             self, 
+            p : np.ndarray,
             gpp : GlobalPathPlanner = None,
-            sensor : Sensor = None
+            sensor : Sensor = None,
             ) -> None:
         if sensor is None:
-            sensor = Sensor()
+            sensor = Sensor(p)
             for target in self._world.targets():
                 if target.name == '3':
                     sensor.setTargetQualityFunction(
@@ -292,7 +293,7 @@ class Experiment:
             sensor = None
             ex._homogeneous_agents = homogeneous_agents or n_agents == 1
             for i in range(n_agents):
-                ex.addRandomAgent(gpp=gpp, sensor=sensor)
+                ex.addRandomAgent(np.zeros(2), gpp=gpp, sensor=sensor)
                 if homogeneous_agents:
                     sensor = ex.agent().sensor()
             return ex

@@ -1317,6 +1317,7 @@ class AgentRL:
         if not self._r.contains(self._p):
             self.updateRegion()
         self._p = self._p + (self._r.dynamics()(self._p,[],u))*dt
+        self.sensor().setPosition(self._p)
 
     def updateRegion(self) -> None:
         for region in self._world.regions():
@@ -1325,3 +1326,10 @@ class AgentRL:
                 return
         raise Exception("Position not in any region...")
 
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        extargs = extendKeywordArgs(_plotAttr.agent.getAttributes(), **kwargs)
+        po = PlotObject(
+            ax.plot(self._p[0], self._p[1], 'o', **extargs)
+        )
+        return po

@@ -11,6 +11,7 @@ class Estimator:
         self._targets : List[Target] = targets
         self._estimates : List[np.ndarray] = []
         self._covariances : List[np.ndarray] = []
+        self.initialize()
 
     def initialize(self) -> None:
         for target in self._targets:
@@ -28,7 +29,7 @@ class Estimator:
 
         for i, agent in enumerate(self._agents):
             sensor = agent.sensor()
-            gammaij = sensor.getSensingQuality(target)(agent.p(), target.p())
+            gammaij = float(sensor.getSensingQuality(target))
             Hij = sensor.getMeasurementMatrix(target)
             nuij = dt*sensor.drawNoise(target)
             phij = target.internalState()

@@ -703,7 +703,7 @@ class Target:
         phi += dt * (self.A @ phi + self.drawNoise())
 
     def drawNoise(self) -> np.ndarray:
-        return np.random.multivariate_normal(0, self.Q)
+        return np.random.multivariate_normal(np.zeros(self.Q.shape[0]), self.Q)
 
     def internalState(self) -> np.ndarray:
         return self._phi

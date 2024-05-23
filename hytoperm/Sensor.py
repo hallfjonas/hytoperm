@@ -88,15 +88,13 @@ Created on: Mar 28 2024
 @author: Jonas Hall
 '''
 class Sensor:
-    def __init__(self, p : np.ndarray = None) -> None:
+    def __init__(self, p : np.ndarray) -> None:
         self._p : np.ndarray = None
         self._ttsqm : Dict[Target, SensingQualityFunction] = {}                 # target to sensing quality function mapper
         self._ttHm : Dict[Target, np.ndarray] = {}                              # target to measurement matrix mapper
         self._ttRm : Dict[Target, np.ndarray] = {}                              # target to measurement noise mapper
         self._ttRinvm : Dict[Target, np.ndarray] = {}                           # target to measurement noise inverse mapper
-        
-        if p is not None:
-            self.setPosition(p)
+        self.setPosition(p)
 
     # getters
     def getPosition(self) -> np.ndarray:
@@ -130,7 +128,7 @@ class Sensor:
     
     def drawNoise(self, target : Target) -> np.ndarray:
         R = self.getMeasurementNoiseMatrix(target)
-        return np.random.multivariate_normal(0, R)
+        return np.random.multivariate_normal(np.zeros(R.shape[0]), R)
     
     # setters
     def setPosition(self, p : np.ndarray) -> None:
