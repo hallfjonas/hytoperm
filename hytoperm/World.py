@@ -698,6 +698,13 @@ class Target:
     def region(self) -> Region:
         return self._r
     
+    def update(self, dt : float) -> None:
+        phi = self.internalState()
+        phi += dt * (self.A @ phi + self.drawNoise())
+
+    def drawNoise(self) -> np.ndarray:
+        return np.random.multivariate_normal(0, self.Q)
+
     def internalState(self) -> np.ndarray:
         return self._phi
 
@@ -746,7 +753,7 @@ class Target:
                 raise ValueError("Expected argument to have two dimensions.")
         self.Q = Q
 
-    def plot(self, ax : plt.Axes = None, annotate=False, **kwargs) -> PlotObject:
+    def plot(self, ax : plt.Axes=None, annotate=False, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         eka = extendKeywordArgs(_plotAttr.target.getAttributes(), **kwargs)
         po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))

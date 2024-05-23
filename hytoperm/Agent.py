@@ -860,7 +860,7 @@ class Agent:
         except Exception as e:
             print(e)
             return
-        
+                            
         it = 0
         while True:
             steady, ssc = self.simulateToSteadyState(self.op.steady_state_iters)
@@ -1293,3 +1293,35 @@ class Agent:
             self._steady_state_iters[-1],
             'T' if self._isSteadyState[-1] else 'F'
         ))
+
+
+class AgentRL: 
+    def __init__(self, p : np.ndarray, world : World, sensor : Sensor) -> None:
+        self._world = world
+        self._sensor = sensor
+        self._p : np.ndarray = None
+        self._r : DynamicCPRegion = None
+        self.setPosition(p)
+
+    def p(self) -> np.ndarray:
+        return self._p
+
+    def sensor(self) -> Sensor:
+        return self._sensor
+
+    def setPosition(self, p : np.ndarray) -> None:
+        self._p = p
+        self.updateRegion()
+
+    def update(self, u : np.ndarray, dt : float) -> None:
+        if not self._r.contains(self._p):
+            self.updateRegion()
+        self._p = self._p + (self._r.dynamics()(self._p,[],u))*dt
+
+    def updateRegion(self) -> None:
+        for region in self._world.regions():
+            if region.contains(self._p):
+                self._r = region
+                return
+        raise Exception("Position not in any region...")
+

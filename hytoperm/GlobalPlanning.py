@@ -18,8 +18,15 @@ class PlotOptions:
         self.pbp : bool = False                                                 # plot best path
         self.pae : bool = False                                                 # plot all edge lines
         self.par : bool = False                                                 # plot active regions   
-        self.psr : bool = False                                                 # plot search regions
+        self.psp : bool = False                                                 # plot sample point
     
+        self.po_pbp : PlotObject = PlotObject()
+        self.po_pae : PlotObject = PlotObject()
+        self.po_par : PlotObject = PlotObject()
+        self.po_psp : PlotObject = PlotObject()
+
+        self.exporter : Exporter = Exporter()
+
     # getters
     def plotAny(self) -> bool:
         return self.pbp or self.pae or self.par or self.psr
@@ -29,7 +36,7 @@ class PlotOptions:
         self.pbp = bool
         self.pae = bool
         self.par = bool
-        self.psr = bool
+        self.psp = bool
 
 
 class RRBT:
@@ -44,10 +51,11 @@ class RRBT:
         self._targetDistances : np.ndarray = None                               # target distances
 
         # caching
+        self._cache_initialized = False                                         # cache initialized
         self._rttm : Dict[Region,Set[Tree]] = {}                                # region to node mapper
 
         # visualization
-        self._plot_options = None                                               # a plot options instance
+        self._plot_options = PlotOptions()                                      # a plot options instance
 
         # initialize
         self.initialize(world, initTree)
@@ -87,22 +95,32 @@ class RRBT:
             raise ValueError("initTree must be an instance of Tree")
         
         self._world = world
-        self._T = initTree
-        self.initializeCache()           
+        self._T = initTree        
 
     def expandTree(self, iterations : int) -> None:
+
+        self.initializeCache()   
+
         for i in range(iterations):
-            newNode = self.sample()
-            if self.extend(newNode) is None:
+            newNode = self.sample(i)
+            if self.extend(newNode, i) is None:
                 warnings.warn("Could not extend tree. Continuing...")
 
-    def sample(self) -> Node:
+    def sample(self, i : int = 0) -> Node:
         r = self.sampleActiveRegion()
         sampleNodePos = r.randomBoundaryPoint()
         regions = self._world.getRegions(sampleNodePos)
-        return Node(sampleNodePos, regions)
-        
-    def extend(self, node : Node) -> Tree:
+        newNode = Node(sampleNodePos, regions)
+        if self.plotOptions().psp:
+            self.plotOptions().po_pbp.remove()
+            self.plotOptions().po_psp.remove()
+            self.plotOptions().po_psp.add(
+                newNode.plot(color='blue', marker='d', markersize=10)
+            )
+            self.plotOptions().exporter.export(name=f"anim-{2*i}")
+        return newNode
+                
+    def extend(self, node : Node, i : int = 0) -> Tree:
         bestCTR = np.inf
         best_parent = None
             
@@ -132,6 +150,26 @@ class RRBT:
             cost_to_best_parent, 
             region_to_parent
         )
+
+        if self.plotOptions().pae:
+            self.plotOptions().po_pae.add(
+                sampleTree.plotPathToRoot(
+                    plot_direction=False,
+                    color='black',
+                    alpha=0.1
+                )
+            )
+            self.plotOptions().exporter.export(name=f"anim-{2*i+1}")
+
+        if self.plotOptions().pbp:
+            self.plotOptions().po_pbp.remove()
+            self.plotOptions().po_pbp.add(
+                sampleTree.plotPathToRoot(
+                    plot_direction=False,
+                    color='blue'
+                )
+            )
+            self.plotOptions().exporter.export(name=f"anim-{2*i+1}")
         
         # update cache
         for r in node.regions():
@@ -140,12 +178,12 @@ class RRBT:
         
         return sampleTree
     
-    def planPath(self, t0) -> Tuple[Tree, float]:
+    def planPath(self, t0 : np.ndarray) -> Tuple[Tree, float]:
         
         initialRegions = self._world.getRegions(t0)
         initialNode = Node(t0, initialRegions)
         
-        initTree = self.extend(initialNode)
+        initTree = self.extend(initialNode, 0)
         if initTree is None:
             warnings.warn("Could not find a path from initial node to tree. Returning [None, inf]. Did you run 'expandTree' with a sufficient number of iterates?")
             return None, np.inf
@@ -187,32 +225,13 @@ class RRBT:
         child.setParent(parent, cost_to_parent)
         if rtp is not None:
             child.getData().activate_region_to_parent(rtp)
-  
-    def rewireInitNode(self) -> None:
-        initRegions = self.best_path.getData().regions()
-        improved = False
-        for initRegion in initRegions:
-            for parent in self.getNodesInRegion(initRegion):
-                bpp = self.best_path.getData().p()
-                rewireCost = initRegion.travelCost(bpp, parent.getData().p())
-                if rewireCost + parent.getData().costToRoot() < self.best_cost:
-                    self.connect(self.best_path, parent, rewireCost, initRegion)
-                    self.best_cost = self.best_path.getData().costToRoot()
-                    improved = True
-        if improved:
-            self.optimizeSwitchingPoints(self.best_path)
-            if self.plotOptions().pbp:
-                self.plotBestPath()
-
-    def rewire(self, sampleTree : Tree) -> None:
-        initRegion = self.best_path.getData().activeRegionToParent()
-        bpp = self.best_path.getData().p()
-        rewireCost = initRegion.travelCost(bpp, sampleTree.getData().p())
-        if rewireCost + sampleTree.getData().costToRoot() < self.best_cost:
-            self.connect(self.best_path, sampleTree, rewireCost)
-            self.plotBestPath()
-    
+      
     def initializeCache(self) -> None:
+        
+        if self._cache_initialized:
+            return
+        self._cache_initialized = True
+
         for r in self._world.regions():
             self._rttm[r] = set()
         queue = [self._T.getRoot()]
@@ -223,19 +242,19 @@ class RRBT:
                 self.activateRegion(r)
             queue.extend(active.getChildren())
 
-    def clearEdgeLines(self) -> None:
-        self.plotOptions().allEdgeLines().remove()
-
     def activateRegion(self, r : Region) -> None:
-        if r not in self._active_regions:
+        if r not in self._active_regions and not r.isObstacle():
             self._active_regions.append(r)
+
+            if self.plotOptions().par:
+                self.plotOptions().po_par.add(
+                    r.fill(color='blue', alpha=0.15)
+                )
 
     def activateRegionsContaining(self, p : np.ndarray) -> None:
         for r in self._world.regions():
-            if r in self._active_regions:
-                continue
-            if r.contains(p) and not r.isObstacle():
-                self._active_regions.append(r)
+            if r.contains(p):
+                self.activateRegion(r)
 
     # plotters
     def plotPath(self, ax : plt.Axes = None) -> PlotObject:
@@ -361,7 +380,7 @@ class TSP:
 class GlobalPathPlanner:
     def __init__(self, world : World) -> None:
         self._world = world
-        self._tsp : TSP = None
+        self._tsp : TSP = TSP(world.targets())
         self._rrbts : Dict[Target, RRBT] = {}
         self._target_paths : Dict[Target, Dict[Target, Tree]]= {}
         self._plot_options = PlotOptions()
@@ -425,28 +444,93 @@ class GlobalPathPlanner:
         return self._rrbts[goal].planPath(init)
 
     def solveTSP(self) -> None:
-        if self._tsp is None:
-            self._tsp = TSP(self._world.targets())
         if not self._have_graph:
             self.generateCompleteGraph()
         self._tsp.computeTSP()
 
     def generateCompleteGraph(self) -> None:
-        for i in range(self._world.nTargets()):
-            target_i = self._world.target(i)
-            self._target_paths[target_i] = {}
-            for j in range(self._world.nTargets()):
+        for i, ti in enumerate(self._world.targets()):
+            self._target_paths[ti] = {}
+            for j, tj in enumerate(self._world.targets()):
                 if i == j:
                     self._tsp.setTargetDistance(i,j,0)
                     continue
-                target_j = self._world.target(j)
-                plannedPath = self.planPathToTarget(target_i.p(), target_j)
-                self._target_paths[target_i][target_j] = plannedPath[0] 
+                plannedPath = self.planPathToTarget(ti.p(), tj)
+                self._target_paths[ti][tj] = plannedPath[0] 
                 self._tsp.setTargetDistance(i,j,plannedPath[1])
                 print(f"Distance from {i} to {j} is {plannedPath[1]}")
         self._have_graph = True
 
-    # plotters    
+    def isDirectConnection(self, t1 : Target, t2 : Target) -> bool:
+        itr = self._target_paths[t1][t2]
+        targetRegions = [t.region() for t in self._world.targets()]
+        while itr.hasParent():
+            itr = itr.getParent()
+            if itr.getData().activeRegionToParent() is not None:
+                artp = itr.getData().activeRegionToParent()
+                if artp == t1.region():
+                    continue 
+                if artp == t2.region():
+                    return True
+                if artp in targetRegions:
+                 return False
+        return False
+    
+    def plotCompleteGraph(
+            self, 
+            only_direct_connections = True, 
+            region_based_abstraction = False,
+            ax : plt.Axes = None, 
+            **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        for i, t1 in enumerate(self._world.targets()):
+            for j, t2 in enumerate(self._world.targets()):
+                if i == j:
+                    continue
+
+                if only_direct_connections and not self.isDirectConnection(t1, t2):
+                    continue
+
+                # draw the edge
+                x = t1.p()[0]
+                y = t1.p()[1]
+                dx = t2.p()[0] - x
+                dy = t2.p()[1] - y
+                po.add(
+                    ax.quiver(x,y,dx,dy,angles='xy',scale_units='xy', scale=1,**kwargs)
+                )
+
+                # calculate the edge cost
+                path = self._target_paths[t1][t2]
+                cost = path.getData().costToRoot()
+                
+                # If we are using region-based abstraction, we need to account for the cost of the first and last segment
+                if region_based_abstraction:
+                    first_segment_cost = path.getData().costToParent()
+                    final_segment_cost = 0
+                    while path.hasParent():
+                        final_segment_cost = path.getData().costToParent()
+                        path = path.getParent()
+                    cost = max(0, cost - final_segment_cost - first_segment_cost)
+                
+                cost = round(cost, 1)
+
+                # edge cost placement (on the right hand side of directed edge)
+                normal = np.array([dy, -dx])/np.linalg.norm([dx, dy])
+                pos_text = np.array([(x+0.5*dx), (y+0.5*dy)]) + 0.05*normal
+                po.add(
+                    ax.text(
+                        pos_text[0], 
+                        pos_text[1], 
+                        cost, 
+                        horizontalalignment='center',
+                        verticalalignment='center'
+                    )
+                )
+
+        return po
+    
     def plotTSPSolution(
             self, 
             ax : plt.Axes = None, 

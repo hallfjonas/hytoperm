@@ -195,8 +195,8 @@ class Experiment:
     def plotWorld(
             self, 
             with_sensor_quality=False, 
-            add_target_labels=True, 
-            fill_empty_regions=True,
+            add_target_labels=False, 
+            fill_empty_regions=False,
             plot_partition=True,
             plot_targets=True,
             plot_vector_field=True

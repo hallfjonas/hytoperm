@@ -19,7 +19,7 @@ class Exporter:
         self.DPI = 300
         self.FONTSIZE = 14
         self.EXT = '.pdf'
-        self.DIR = ''
+        self.DIR = '.'
         self.CROP = True
         self.TRANSPARENT = False
 
