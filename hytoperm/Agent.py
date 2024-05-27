@@ -646,7 +646,9 @@ class Cycle:
             ) -> None:
         self._covAtCycleStart = omega0.copy()
     
-    def shiftTime(self, deltaT : float) -> None:
+    def shiftTime(self, deltaT : float = None) -> None:
+        if deltaT is None:
+            deltaT = -self.pTrajectory.t[0]
         self._cycle_start += deltaT
         for ts in self._trajectorySegments:
             ts.shiftTime(deltaT)
