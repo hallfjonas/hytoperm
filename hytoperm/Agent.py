@@ -762,30 +762,43 @@ class Cycle:
 
         return po
 
+    def plotTargetMSE(
+            self, 
+            target : Target,
+            add_label : bool = False,
+            ax : plt.Axes = None, 
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        eka = kwargs.copy()
+        if add_label:
+            eka['label'] = target.name
+        ext = extendKeywordArgs(eka, **kwargs)
+        po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **ext))
+        mseStart = self.mseTrajectories[target].getInitialValue() 
+        po.add(ax.hlines(
+            mseStart, 
+            self._cycle_start, 
+            self._cycle_start + self.getDuration(), 
+            alpha=0.2, 
+            **ext
+            ))
+        return po
+
     def plotMSE(
             self, 
-            ax : plt.Axes = None, 
             add_labels=False, 
+            ax : plt.Axes = None, 
             **kwargs
             ) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
         i = 0
         for target in self.mseTrajectories.keys():
-            eka = kwargs.copy()
-            if add_labels:
-                eka['label'] = target.name
             ext = {'color': _plotAttr.target_colors[-i]}
-            eka = extendKeywordArgs(ext, **eka)
-            po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **eka))
-            mseStart = self.mseTrajectories[target].getInitialValue() 
-            po.add(ax.hlines(
-                mseStart, 
-                self._cycle_start, 
-                self._cycle_start + self.getDuration(), 
-                alpha=0.2, 
-                color=eka['color']
-                ))
+            eka = extendKeywordArgs(ext, **kwargs)
+            po.add(self.plotTargetMSE(target, add_labels, ax, **eka))
             i += 1
         return po
 
@@ -1100,7 +1113,7 @@ class Agent:
             **kwargs
             ) -> PlotObject:
         ax = getAxes(ax)
-        return self._cycle.plotMSE(ax=ax, add_labels=add_labels, **kwargs)
+        return self._cycle.plotMSE(add_labels=add_labels, ax=ax, **kwargs)
     
     def plotControls(
             self, 
