@@ -21,7 +21,7 @@ class SensingQualityFunction:
         pass
 
 
-class ConstantgetQualityFunction(SensingQualityFunction):
+class ConstantQualityFunction(SensingQualityFunction):
     def __init__(self, c = 1):
         self._c : float = None
         self.assignConstant(c)
@@ -35,7 +35,7 @@ class ConstantgetQualityFunction(SensingQualityFunction):
         return self._c
 
 
-class GaussiangetQualityFunction(SensingQualityFunction):
+class GaussianQualityFunction(SensingQualityFunction):
     def __init__(self, c = 50):
         self._c : float = None
         self.assignConstant(c)
@@ -54,7 +54,7 @@ class GaussiangetQualityFunction(SensingQualityFunction):
         return cad.exp(-self._c*sqr_dist)
 
 
-class SinusoidalgetQualityFunction(SensingQualityFunction):
+class SinusoidalQualityFunction(SensingQualityFunction):
     def __init__(self, c1 = 3.0, c2 = 20.0, c3 = 40.0):
         self._c1 : float = None
         self._c2 : float = None

@@ -126,7 +126,7 @@ class Experiment:
                 if target.name == '3':
                     sensor.setTargetQualityFunction(
                         target, 
-                        SinusoidalgetQualityFunction(
+                        SinusoidalQualityFunction(
                             c1=np.random.uniform(3,20),
                             c2=np.random.uniform(3,20)
                             )
@@ -134,7 +134,7 @@ class Experiment:
                 else:
                     sensor.setTargetQualityFunction(
                         target, 
-                        GaussiangetQualityFunction()
+                        GaussianQualityFunction()
                         )
 
                 sensor.setNoiseMatrix(target, np.eye(1))
