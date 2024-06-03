@@ -243,14 +243,18 @@ class Experiment:
         ax.set_ylim(yrange[0] - 0.01, yrange[1] + 0.01)
 
     def serialize(self, filename : str) -> None:
+        if not str.endswith(filename, ".pkl") and not str.endswith(filename, ".pickle"):
+            raise ValueError("File must be have a pickle file extension (.pkl or .pickle).")
         plt.close()
         with open(filename, "wb") as f:
             pickle.dump(self, f)
     
     # static methods
     @staticmethod
-    def deserialize(fileame : str):
-        with open(fileame, "rb") as f:
+    def deserialize(filename : str):
+        if not str.endswith(filename, ".pkl") and not str.endswith(filename, ".pickle"):
+            raise ValueError("File must be have a pickle file extension (.pkl or .pickle).")
+        with open(filename, "rb") as f:
             return pickle.load(f)
     
     @staticmethod
