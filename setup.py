@@ -16,6 +16,7 @@ setup(name='hytoperm',
       'numpy>=1.24.4,<2.0.0',
       'casadi>=3.6.3',
       'pdfCropMargins>=2.1.1',
+      'PySimpleGUI<=4.60.5,>=4.19.0.6',
       'scipy',
       'python-tsp>=0.4.0',
    ]
