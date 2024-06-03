@@ -246,6 +246,7 @@ class Experiment:
         if not str.endswith(filename, ".pkl") and not str.endswith(filename, ".pickle"):
             raise ValueError("File must be have a pickle file extension (.pkl or .pickle).")
         plt.close()
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "wb") as f:
             pickle.dump(self, f)
     
@@ -254,6 +255,8 @@ class Experiment:
     def deserialize(filename : str):
         if not str.endswith(filename, ".pkl") and not str.endswith(filename, ".pickle"):
             raise ValueError("File must be have a pickle file extension (.pkl or .pickle).")
+        if not os.path.exists(filename):
+            return None
         with open(filename, "rb") as f:
             return pickle.load(f)
     
