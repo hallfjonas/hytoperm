@@ -13,7 +13,7 @@ setup(name='hytoperm',
    setup_requires=['setuptools_scm'],
    install_requires=[
       'PySimpleGUI==4.60.5',
-      'matplotlib',
+      'matplotlib<3.9',             # cmap
       'numpy>=1.24.4,<2.0.0',
       'casadi>=3.6.3',
       'pdfCropMargins>=2.1.1',
