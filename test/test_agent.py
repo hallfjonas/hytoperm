@@ -69,5 +69,6 @@ class TestAgent(unittest.TestCase):
             agent.initializeCycle()
             agent._cycle.simulate()
 
+
 if __name__ == "__main__":
     unittest.main()

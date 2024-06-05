@@ -45,6 +45,7 @@ class Region:
     """
     Represents an abstract region that.
     """
+    targetRegion : bool = False
 
     def region(self):
         return self
@@ -153,6 +154,9 @@ class Region:
 
     def isObstacle(self) -> bool:
         return False
+    
+    def isTargetRegion(self) -> bool:
+        return self.targetRegion
 
     def randomPoint(self) -> np.ndarray:
         pass
@@ -797,6 +801,7 @@ class World:
             raise ValueError("Expected argument of type Target.")
         if target not in self._targets:
             self._targets.append(target)
+            target.region().targetRegion = True
 
     def setPartition(self) -> None:
         self._partition = Partition(self.regions()) 

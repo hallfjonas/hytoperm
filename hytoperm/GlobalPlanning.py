@@ -283,6 +283,7 @@ class RRBT:
                 po.add(n.plotPathToParent(ax, **ergs))
         return po
 
+
 class TSP:
     def __init__(self, targets : List[Target]) -> None:
         self._targets = targets
@@ -359,7 +360,7 @@ class TSP:
 
 class GlobalPathPlanner:
     def __init__(self, world : World) -> None:
-        self._world = world
+        self._world : World = world
         self._tsp : TSP = None
         self._rrbts : Dict[Target, RRBT] = {}
         self._target_paths : Dict[Target, Dict[Target, Tree]]= {}
@@ -445,6 +446,38 @@ class GlobalPathPlanner:
                 print(f"Distance from {i} to {j} is {plannedPath[1]}")
         self._have_graph = True
 
+    def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
+        '''
+        Determine whether the path is a direct connection from t1 and t2, i.e.,
+          (1) it starts from a point contained by the region of t1
+          (2) it ends at a point contained by the region of t2
+          (3) it does not pass through any other target region along the way
+
+        The first two cases will raise a warning.
+        '''
+
+        # check if the path starts from a point contained by the region of t1
+        if not t1.region().contains(path.getData().p()):
+            warnings.warn("The path does not start from the region of t1.")
+            return False
+        
+        node : Tree = path
+        reg = node.getData().activeRegionToParent()
+        while node is not None and not node.isRoot():
+            # check if we have reached a target region
+            if reg.isTargetRegion(): 
+                if reg != t1.region() and reg != t2.region():
+                    return False
+            
+            node = node.getParent()
+            reg = node.getData().activeRegionToParent()
+
+        if node.isRoot() and not t2.region().contains(node.getData().p()):
+            warnings.warn("The path does not end at the region of t2.")
+            return False
+
+        return True
+    
     # plotters    
     def plotTSPSolution(
             self, 
