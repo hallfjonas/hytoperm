@@ -89,5 +89,6 @@ class TestWorld(unittest.TestCase):
         fig, ax = ex.plotWorld()
         ex.world().plotDomain(ax)   
 
+
 if __name__ == "__main__":
     unittest.main()

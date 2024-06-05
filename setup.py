@@ -19,6 +19,7 @@ setup(name='hytoperm',
       'pdfCropMargins>=2.1.1',
       'scipy',
       'python-tsp>=0.4.0',
+      'networkx>=2.8.8'
    ]
 )
 
