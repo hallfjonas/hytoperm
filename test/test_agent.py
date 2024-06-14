@@ -29,7 +29,8 @@ class TestAgent(unittest.TestCase):
         mc.buildOptimalMonitoringSolver(target, sensor)
         tp, tmse, tomega, tu, cost, lam = mc.optimalMonitoringControl(lmp)
 
-        ex, ax = ex.plotWorld(with_sensor_quality=True)
+        fig, ax = plt.subplots()
+        ex.plotWorld(with_sensor_quality=True)
         tp.plotStateVsState(0,1, ax)
 
     def testCycle(self):

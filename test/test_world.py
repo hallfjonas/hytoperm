@@ -23,13 +23,15 @@ class TestWorld(unittest.TestCase):
     
     def testTravelCost(self):
         ex = Experiment.generate()
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
         ex._world.plotTravelCostPerRegion(ax)
 
     def testDistToBoundary(self):
         n_sets = 10
         ex = Experiment.generate(n_sets=n_sets)
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
         ex._world.plotdistToBoundary(ax)
 
     def testRandomBoundaryPoint(self):
@@ -38,7 +40,8 @@ class TestWorld(unittest.TestCase):
         ex.addRandomVoronoiPoints(10)
         ex.generatePartitioning()
         ex.addRandomTargets()
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
         region = ex._world.target(0).region()
         p = region.randomBoundaryPoint()
         Node(p, set([region])).plot(ax, color='yellow', marker='d')
@@ -49,7 +52,8 @@ class TestWorld(unittest.TestCase):
         ex.addRandomVoronoiPoints(10)
         ex.generatePartitioning(n_obstacles=1)
         
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
         for region in ex.world().regions():
             p = region.randomPoint()
             po = region.fill()
@@ -86,7 +90,8 @@ class TestWorld(unittest.TestCase):
     def testPlotWorld(self):
         n_sets = 10
         ex = Experiment.generate(n_sets=n_sets)
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
         ex.world().plotDomain(ax)   
 
 

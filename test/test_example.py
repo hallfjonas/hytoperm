@@ -11,7 +11,8 @@ class TestExample(unittest.TestCase):
 
     def testExample(self):
         ex = Experiment.generate()
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
         ex.agent().plotSensorQuality()
         ex.agent().computeVisitingSequence()
         op = OptimizationParameters()

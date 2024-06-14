@@ -194,36 +194,38 @@ class Experiment:
     # plotters
     def plotWorld(
             self, 
-            with_sensor_quality=False, 
-            add_target_labels=True, 
-            fill_empty_regions=True,
-            plot_partition=True,
-            plot_targets=True,
-            plot_vector_field=True
-            ) -> Tuple[plt.Figure, plt.Axes]:
-        fig, ax = plt.subplots()
+            with_sensor_quality: bool = False, 
+            add_target_labels: bool = True, 
+            fill_empty_regions: bool = True,
+            plot_partition: bool = True,
+            plot_targets: bool = True,
+            plot_vector_field: bool = True,
+            ax: plt.Axes = None
+            ) -> PlotObject:
+        ax = getAxes(ax)
         ax.set_aspect('equal', 'box')
-        fig.tight_layout()
         ax.axis('off')
         ax.set_xlim(self._domain.xmin()*1.01, self._domain.xmax()*1.01)
         ax.set_ylim(self._domain.ymin()*1.01, self._domain.ymax()*1.01)
 
+        po = PlotObject()
+
         if with_sensor_quality and len(self._agents) > 0:
             if len(self._agents) == 1 or self._homogeneous_agents:
-                self.agent(0).plotSensorQuality(ax=ax)
+                po.add(self.agent(0).plotSensorQuality(ax=ax))
             else:
                 warnings.warn("Adding the sensor quality tot he world plot is only supported for a single agent.")
 
-        self._world.plotMissionSpace(
+        po.add(self._world.plotMissionSpace(
             ax=ax, 
             add_target_labels=add_target_labels, 
             fill_empty_regions=fill_empty_regions,
             plot_partition=plot_partition,
             plot_targets=plot_targets,
             plot_vector_field=plot_vector_field
-            )
+        ))
 
-        return fig, ax
+        return po
 
     def zoomToTargetRegion(self, ax : plt.Axes, name : str):
         target = self._world.getTargetByName(name)
