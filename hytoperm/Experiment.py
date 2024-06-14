@@ -41,6 +41,12 @@ class Experiment:
     def voronoi(self) -> Voronoi:
         return self._voronoi
     
+    def nAgents(self) -> int:
+        return len(self._agents)
+    
+    def nTargets(self) -> int:
+        return self._world.nTargets()
+
     # modifiers
     def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
         self._vc = []
@@ -176,7 +182,7 @@ class Experiment:
                     raise Exception("Could not add target. Try decreasing minimum distance to boundary.")
             phi0 = np.array([1.0])
             Q = np.array([0.8])
-            A = np.array([0.0])
+            A = np.array([0.001])
             target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
             target.name = str(target_counter+1)
             self.addTarget(target)

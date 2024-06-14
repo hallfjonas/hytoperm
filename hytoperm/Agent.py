@@ -868,6 +868,16 @@ class Agent:
     def setTargetVisitingSequence(self, tvs : List[Target]) -> None:
         self._tvs = tvs
     
+    def simulateCycle(self) -> None:
+        
+        try: 
+            self.initializeCycle()
+        except Exception as e:
+            print(e)
+            return
+        
+        self._cycle.simulate()
+        
     def optimizeCycle(self) -> None:
         
         try: 
