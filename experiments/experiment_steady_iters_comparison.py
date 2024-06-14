@@ -178,7 +178,8 @@ if __name__ == '__main__':
     steady = load_solution(exp_res_steady_file, op)
 
     # compare cycle
-    fig, ax = steady.plotWorld(steady, with_sensor_quality=True, add_target_labels=False)
+    fig, ax = plt.subplots()
+    steady.plotWorld(steady, with_sensor_quality=True, add_target_labels=False)
     steady._agent.plotCycle(ax, linestyle='-', color='orange', linewidth=2, label='$\mathrm{with~steady~state~iterations}$')
     non_steady._agent.plotCycle(ax, linestyle='--', color='blue', linewidth=2, label='$\mathrm{no~steady~state~iterations}$')
     exporter.export('world_steady_vs_non_steady', fig)

@@ -84,7 +84,8 @@ def tsp_vs_init_vs_opti(leave_open=False):
     init = load_initial_cycle(hl)
     res = load_optimized_cycle(hl)
 
-    fig, ax = hl.plotWorld(with_sensor_quality=True)
+    fig, ax = plt.subplots()
+    hl.plotWorld(with_sensor_quality=True)
 
     po = PlotObject()
     po.add(hl._agent.gpp().plotTSPSolution(ax=ax, annotate=False, color='red', linewidth=2.5, alpha=0.5))
@@ -151,7 +152,8 @@ def plotResults(ex : Experiment, wsq = True, savefig = True, leave_open = False)
 
 def world_plot(ex : Experiment, with_sensor_quality = True, savefig = True):
     
-    fig, ax = ex.plotWorld(with_sensor_quality=with_sensor_quality)
+    fig, ax = plt.subplots()
+    ex.plotWorld(with_sensor_quality=with_sensor_quality)
     ex.agent().plotCycle(ax)
     if savefig:
         exporter.HEIGHT = exporter.WIDTH
@@ -214,7 +216,8 @@ def optimization_plot(ex : Experiment, savefig = True):
 
 def rrt_plot(savefig = True):
     ex = load_high_level_solution(load_experiment())
-    fig, ax = ex.plotWorld(add_target_labels=False)
+    fig, ax = plt.subplots()
+    ex.plotWorld(add_target_labels=False)
     target0 = ex._world.target(0)
     target1 = ex._world.target(1)
     po = ex.agent().gpp().target_paths[target1][target0].getRoot().plotTree(ax=ax, color='black', linewidth=1, alpha=0.2)
@@ -232,7 +235,8 @@ if __name__ == '__main__':
     else:
         ex : Experiment = Experiment.deserialize(exp_file)
 
-    fig, ax = ex.plotWorld(fill_empty_regions=False)
+    fig, ax = plt.subplots()
+    ex.plotWorld(fill_empty_regions=False)
     tf = ex.world().targets()[1].p()
     tr = ex.world().getRegions(tf)
     rrt = RRBT(ex._world, Tree(Node(tf, tr)))
