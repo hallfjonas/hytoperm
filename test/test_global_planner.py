@@ -14,7 +14,8 @@ class TestGlobalPlanner(unittest.TestCase):
         assert(isinstance(ex, Experiment))
         gpp = GlobalPathPlanner(ex._world)
         gpp.rrbt_iter = niter
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
 
         t0 = ex._world.target(1).p()
         tf = ex._world.target(9).p()
@@ -33,7 +34,8 @@ class TestGlobalPlanner(unittest.TestCase):
         assert(isinstance(ex, Experiment))
         gpp = GlobalPathPlanner(ex._world)
         gpp._plot_options.toggleAllPlotting(plot)
-        fig, ax = ex.plotWorld()
+        fig, ax = plt.subplots()
+        ex.plotWorld()
         gpp.solveTSP()
         gpp.plotTSPSolution(ax, color='red', linewidth=2)
         po = ex.agent().plotSensorQuality(grid_size=0.05, ax=ax)
