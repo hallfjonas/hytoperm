@@ -17,7 +17,8 @@ from hytoperm import *
 
 # generate and plot the expriment setup
 ex = Experiment.generate()
-fig, ax = ex.plotWorld()
+fig, ax = plt.subplots()
+ex.plotWorld()
 ex.agent().plotSensorQuality()
 
 # let the agent compute the visiting sequence and optimize the cycle
