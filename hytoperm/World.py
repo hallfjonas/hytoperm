@@ -854,8 +854,19 @@ class World:
     def domain(self) -> Domain:
         return self._domain
     
-    def getRegion(self, p) -> Region:
-        regs = list(self.getRegions(p))
+    def getRegion(self, p : np.ndarray, tol = 1e-10) -> Region:
+        '''
+        Get a region that contains the point p.
+
+        Args:
+            p: Point to be checked.
+            tol: Tolerance for the check.
+
+        Returns:
+            None, if no region contains the point.
+            Otherwise, a unique region that contains p. If p is contained in multiple regions, return one of those regions.
+        '''
+        regs = list(self.getRegions(p, tol))
         if len(regs) == 0:
             return None
         if len(regs) > 1:
