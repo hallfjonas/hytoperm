@@ -58,6 +58,11 @@ class TestWorld(unittest.TestCase):
             po.remove()
             pn.remove()
 
+            regs = ex.world().getRegions(p)
+            reg = ex.world().getRegion(p)
+            self.assertTrue(reg in regs)
+            self.assertTrue(region in regs)
+
     def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
             for fraction in pass_settings["fraction"]:

@@ -854,6 +854,15 @@ class World:
     def domain(self) -> Domain:
         return self._domain
     
+    def getRegion(self, p) -> Region:
+        regs = list(self.getRegions(p))
+        if len(regs) == 0:
+            return None
+        if len(regs) > 1:
+            warnings.warn("Point is in multiple regions. Returning first region.")
+            return regs[0]
+        return regs[0]
+
     def getRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
         regions = set()
         for r in self._regions:
