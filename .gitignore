@@ -163,4 +163,4 @@ cython_debug/
 dynamics
 
 # ignore current todos 
-todos.md
+todos*
