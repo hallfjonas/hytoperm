@@ -164,3 +164,6 @@ dynamics
 
 # ignore current todos 
 todos*
+
+# ignore the README without extension
+README
