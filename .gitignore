@@ -162,6 +162,5 @@ cython_debug/
 .vscode
 dynamics
 
-# ignore all pickle dumps
-*.pickle
-*.pdf
+# ignore current todos 
+todos.md
