@@ -124,7 +124,8 @@ class Experiment:
     def addRandomAgent(
             self, 
             gpp : GlobalPathPlanner = None,
-            sensor : Sensor = None
+            sensor : Sensor = None,
+            name : str = ""
             ) -> None:
         if sensor is None:
             sensor = Sensor()
@@ -145,7 +146,7 @@ class Experiment:
 
                 sensor.setNoiseMatrix(target, np.eye(1))
                 sensor.setMeasurementMatrix(target, np.eye(1))
-        self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp))
+        self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp, name=name))
 
     def addRandomTargets(
             self, 
@@ -307,10 +308,10 @@ class Experiment:
             sensor = None
             ex._homogeneous_agents = homogeneous_agents or n_agents == 1
             for i in range(n_agents):
-                ex.addRandomAgent(gpp=gpp, sensor=sensor)
+                ex.addRandomAgent(gpp=gpp, sensor=sensor, name=str(i))
                 if homogeneous_agents:
                     sensor = ex.agent().sensor()
             return ex
         except Exception as e:  
-            print(e)  
+            print(e)
             return None

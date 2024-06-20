@@ -3,10 +3,11 @@ from distutils.core import setup
 import warnings
 
 setup(name='hytoperm',
-   version='0.1',
+   version='0.1.0',
    python_requires='>=3.8',
    description='Hybrid Trajectory Optimizer for Persistent Monitoring',
    author='Jonas Hall',
+   author_email='hall.f.jonas@gmail.com',
    license='MIT',
    include_package_data = True,
    py_modules=[],

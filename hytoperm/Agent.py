@@ -811,8 +811,10 @@ class Agent:
             self, 
             world : World, 
             sensor : Sensor,
-            gpp : GlobalPathPlanner = None
+            gpp : GlobalPathPlanner = None,
+            name : str = ""
             ) -> None:
+        self.name = ""
         self._world : World = world                                             # world instance    
         self._sensor : Sensor = sensor                                          # utilized sensor        
         self._gpp : GlobalPathPlanner = None                                    # global path planner
