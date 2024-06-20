@@ -17,6 +17,7 @@ class GraphAbstraction:
             gpp : GlobalPathPlanner, 
             opts : AbstractionOptions = None):
         self.graph : nx.DiGraph = None
+        self.world: World = world
         self.options : AbstractionOptions = None
         self.setOptions(opts)
         self.abstract(world, gpp)
