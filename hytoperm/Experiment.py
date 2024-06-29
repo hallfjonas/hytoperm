@@ -308,7 +308,7 @@ class Experiment:
             sensor = None
             ex._homogeneous_agents = homogeneous_agents or n_agents == 1
             for i in range(n_agents):
-                ex.addRandomAgent(gpp=gpp, sensor=sensor, name=str(i))
+                ex.addRandomAgent(gpp=gpp, sensor=sensor, name=str(i+1))
                 if homogeneous_agents:
                     sensor = ex.agent().sensor()
             return ex
