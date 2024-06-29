@@ -168,3 +168,19 @@ class Sensor:
         if not isinstance(H, np.ndarray):
             raise ValueError("H must be a numpy array.")
         self._ttHm[target] = H
+
+class ConstantSensor(Sensor):
+    def __init__(self, c = 1) -> None:
+        self.c: float = c
+        super().__init__()
+
+    def setTargetQualityFunction(
+            self, 
+            target : Target,
+            sqf : SensingQualityFunction
+            ) -> None:
+        if not isinstance(target, Target):
+            raise ValueError("Target must be of type Target.")
+        if not isinstance(sqf, SensingQualityFunction):
+            raise ValueError("sqf must be of type SensingQualityFunction.")
+        self.targetToSQFMapper()[target] = ConstantQualityFunction(self.c)
