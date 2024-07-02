@@ -669,6 +669,10 @@ class ConstantDCPRegion(DynamicCPRegion):
         u_star = (xf - x0)/t_star - v
         return t_star
 
+    def setV(self, v : np.ndarray) -> None:
+        if not isinstance(v, np.ndarray):
+            raise ValueError("Argument must be a numpy array.")
+        self.dynamics().setV(v)
 
 class Target:
     
