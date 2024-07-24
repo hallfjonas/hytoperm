@@ -57,8 +57,7 @@ class GraphAbstraction:
         for node in self.graph.nodes:
             pos[node] = node.p()
             node_labels[node] = node.name if hasattr(node, 'name') else ''
-                
-        nx.draw(self.graph, pos, ax=ax, labels=node_labels, with_labels=True, font_size=10)
+        nx.draw(self.graph, pos, ax=ax, labels=node_labels, font_size=10, **kwargs)
         
         # draw edges
         edge_labels = nx.get_edge_attributes(self.graph, 'weight')
