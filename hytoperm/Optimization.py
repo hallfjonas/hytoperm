@@ -45,9 +45,13 @@ class NLPSolver:
             nx = prob['x'].shape[0]
         self.lbw = cad.vertcat(*lbw) if lbw is not None else -cad.inf*np.ones(nx)
         self.ubw = cad.vertcat(*ubw) if ubw is not None else  cad.inf*np.ones(nx)
-        self.lbg = cad.vertcat(*lbg) if 'g' in prob else []
-        self.ubg = cad.vertcat(*ubg) if 'g' in prob else []
-        self.w0 = cad.vertcat(*w0)  if 'w0' is not None else []
+        if 'g' in prob:
+            self.lbg = cad.vertcat(*lbg) if lbg is not None else []
+            self.ubg = cad.vertcat(*ubg) if ubg is not None else []
+        else:
+            self.lbg = []
+            self.ubg = []
+        self.w0 = cad.vertcat(*w0) if w0 is not None else []
 
     def solve(self):
         return self.solver(
