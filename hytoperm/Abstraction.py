@@ -60,6 +60,5 @@ class GraphAbstraction:
         nx.draw(self.graph, pos, ax=ax, labels=node_labels, font_size=10, **kwargs)
         
         # draw edges
-        edge_labels = nx.get_edge_attributes(self.graph, 'weight')
         nx.draw_networkx_edges(self.graph, pos, ax=ax)
     
