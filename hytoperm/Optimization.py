@@ -1,6 +1,7 @@
 
 # external imports
 import casadi as cad
+import numpy as np
 
 
 class NLPSolver:
@@ -14,6 +15,7 @@ class NLPSolver:
             ubg = None, 
             quiet = True
             ) -> None:
+        self.prob = None
         self.solver = None
         self.lbw = None
         self.ubw = None
@@ -33,15 +35,19 @@ class NLPSolver:
             lbg = None, 
             ubg = None
             ):
+        self.prob = prob
         opts = {}
         opts['ipopt.print_level'] = self.print_level 
         opts['print_time'] = self.print_level
         self.solver = cad.nlpsol('solver', 'ipopt', prob, opts)
-        self.lbw = cad.vertcat(*lbw)
-        self.ubw = cad.vertcat(*ubw)
-        self.lbg = cad.vertcat(*lbg)
-        self.ubg = cad.vertcat(*ubg)
-        self.w0 = cad.vertcat(*w0)
+        nx = 0
+        if 'x' in prob:
+            nx = prob['x'].shape[0]
+        self.lbw = cad.vertcat(*lbw) if lbw is not None else -cad.inf*np.ones(nx)
+        self.ubw = cad.vertcat(*ubw) if ubw is not None else  cad.inf*np.ones(nx)
+        self.lbg = cad.vertcat(*lbg) if 'g' in prob else []
+        self.ubg = cad.vertcat(*ubg) if 'g' in prob else []
+        self.w0 = cad.vertcat(*w0)  if 'w0' is not None else []
 
     def solve(self):
         return self.solver(
