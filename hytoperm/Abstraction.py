@@ -54,7 +54,7 @@ class GraphAbstraction:
     def plotAbstraction(self, ax : plt.Axes = None, **kwargs):
         pos = nx.spring_layout(self.graph)
         for node in self.graph.nodes:
-            pos[target] = target.p()
+            pos[node] = node.p()
         
         # draw nodes
         node_labels = {}
