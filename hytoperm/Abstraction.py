@@ -53,14 +53,11 @@ class GraphAbstraction:
 
     def plotAbstraction(self, ax : plt.Axes = None, **kwargs):
         pos = nx.spring_layout(self.graph)
+        node_labels = {}
         for node in self.graph.nodes:
             pos[node] = node.p()
-        
-        # draw nodes
-        node_labels = {}
-        target : Target
-        for target in self.graph.nodes:
-            node_labels[target] = target.name
+            node_labels[node] = node.name if hasattr(node, 'name') else ''
+                
         nx.draw(self.graph, pos, ax=ax, labels=node_labels, with_labels=True, font_size=10)
         
         # draw edges
