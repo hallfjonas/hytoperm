@@ -459,7 +459,7 @@ class MonitoringController:
         p = np.zeros((2, N+1))
         omega = np.zeros((no*no, N+1))
         mse = np.zeros((1, N+1))
-        u = np.nan*np.zeros((nu, N+1))
+        u = np.nan*np.zeros((nu, N))
         p[0,:] = w_opt[0::nx+nu].flatten()
         p[1,:] = w_opt[1::nx+nu].flatten()
         for i in range(no*no):
@@ -467,14 +467,14 @@ class MonitoringController:
             if i % no == 0:
                 mse[0,:] = mse[0,:] + omega[i,:]
 
-        u[0,0:-1] = w_opt[nx::nx+nu].flatten()
-        u[1,0:-1] = w_opt[nx+1::nx+nu].flatten()
+        u[0,:] = w_opt[nx::nx+nu].flatten()
+        u[1,:] = w_opt[nx+1::nx+nu].flatten()
         t_grid = np.array([params._tf/N*k for k in range(N+1)])
 
         pTrajectory = Trajectory(p, t_grid)
         mseTrajectory = Trajectory(mse, t_grid)
         omegaTrajectory = Trajectory(omega, t_grid)
-        uTrajectory = Trajectory(u, t_grid)
+        uTrajectory = Trajectory(u, t_grid[0:-1])
         f = sol['f'].full().flatten()[0]
         lam = sol['lam_p']
 
