@@ -9,6 +9,7 @@ from .GlobalPlanning import *
 class AbstractionOptions:
     def __init__(self):
         self.onlyDirectConnections : bool = True
+        self.complete_euclidean_graph : bool = False
 
 class GraphAbstraction:
     def __init__(
@@ -37,16 +38,25 @@ class GraphAbstraction:
             for t2 in world.targets():
                 if t1 == t2:
                     continue
-                path, time = gpp.planPathToTarget(t1.p(), t2)
                 
-                # No connection if no path found
-                if path is None or time >= np.inf:
-                    continue
-
-                # No connection if we choose to drop indirect connections
-                if self.options.onlyDirectConnections:
-                    if not gpp.isDirectConnection(t1, t2, path):
+                # Either plan for a complete Eucledian graph
+                if self.options.complete_euclidean_graph:
+                    time = np.linalg.norm(t1.p() - t2.p())
+                    path = Tree(Node(t2.p(), set([t2.region()])))
+                    path.addChild(Tree(Node(t1.p(), set([t1.region()]))))
+                
+                # Or use the global path planner
+                else:
+                    path, time = gpp.planPathToTarget(t1.p(), t2)
+                    
+                    # No connection if no path found
+                    if path is None or time >= np.inf:
                         continue
+
+                    # No connection if we choose to drop indirect connections
+                    if self.options.onlyDirectConnections:
+                        if not gpp.isDirectConnection(t1, t2, path):
+                            continue
 
                 # otherwise add the edge
                 self.graph.add_edge(t1, t2, weight=time, path=path)
