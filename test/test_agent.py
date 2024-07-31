@@ -69,6 +69,29 @@ class TestAgent(unittest.TestCase):
             agent.initializeCycle()
             agent._cycle.simulate()
 
+    def testTrajectoryPointsProgrammatically(self):
+        n_sets = 8
+        ex = Experiment.generate(n_sets=n_sets)
+        assert(isinstance(ex, Experiment))
+        ex.agent().computeVisitingSequence()
+        ex.agent().initializeCycle()
+        ex.agent()._cycle.simulate()
+
+        for i in range(1,len(ex.agent()._switchingSegments)):
+            ## Check if switching segment starts near last monitoring segment
+            ms = ex.agent()._monitoringSegments[i-1]
+            ss = ex.agent()._switchingSegments[i]
+            ms_end = ms.pTrajectory.x[:,-1]
+            ss_start = ss.pTrajectory.x[:,0]
+            dist = np.linalg.norm(ms_end-ss_start)
+            self.assertLessEqual(dist, 1e-5, msg=f"Distance between ms {i-1} end and ss {i} start: {dist}")
+
+            ## Check if switching segment ends near next monitoring segment
+            ms_next = ex.agent()._monitoringSegments[i]
+            ms_start = ms_next.pTrajectory.x[:,0]
+            ss_end = ss.pTrajectory.x[:,-1]
+            dist = np.linalg.norm(ms_start-ss_end)
+            self.assertLessEqual(dist, 1e-5, msg=f"Distance between ms {i-1} end and ss {i} start: {dist}")
 
 if __name__ == "__main__":
     unittest.main()
