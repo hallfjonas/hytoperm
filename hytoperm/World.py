@@ -45,6 +45,7 @@ class Region:
     """
     Represents an abstract region that.
     """
+    targetRegion : bool = False
 
     def region(self):
         return self
@@ -153,6 +154,9 @@ class Region:
 
     def isObstacle(self) -> bool:
         return False
+    
+    def isTargetRegion(self) -> bool:
+        return self.targetRegion
 
     def randomPoint(self) -> np.ndarray:
         pass
@@ -665,6 +669,10 @@ class ConstantDCPRegion(DynamicCPRegion):
         u_star = (xf - x0)/t_star - v
         return t_star
 
+    def setV(self, v : np.ndarray) -> None:
+        if not isinstance(v, np.ndarray):
+            raise ValueError("Argument must be a numpy array.")
+        self.dynamics().setV(v)
 
 class Target:
     
@@ -804,6 +812,7 @@ class World:
             raise ValueError("Expected argument of type Target.")
         if target not in self._targets:
             self._targets.append(target)
+            target.region().targetRegion = True
 
     def setPartition(self) -> None:
         self._partition = Partition(self.regions()) 
@@ -856,6 +865,26 @@ class World:
     def domain(self) -> Domain:
         return self._domain
     
+    def getRegion(self, p : np.ndarray, tol = 1e-10) -> Region:
+        '''
+        Get a region that contains the point p.
+
+        Args:
+            p: Point to be checked.
+            tol: Tolerance for the check.
+
+        Returns:
+            None, if no region contains the point.
+            Otherwise, a unique region that contains p. If p is contained in multiple regions, return one of those regions.
+        '''
+        regs = list(self.getRegions(p, tol))
+        if len(regs) == 0:
+            return None
+        if len(regs) > 1:
+            warnings.warn("Point is in multiple regions. Returning first region.")
+            return regs[0]
+        return regs[0]
+
     def getRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
         regions = set()
         for r in self._regions:

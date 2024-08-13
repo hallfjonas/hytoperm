@@ -21,7 +21,7 @@ class SensingQualityFunction:
         pass
 
 
-class ConstantgetQualityFunction(SensingQualityFunction):
+class ConstantQualityFunction(SensingQualityFunction):
     def __init__(self, c = 1):
         self._c : float = None
         self.assignConstant(c)
@@ -35,26 +35,28 @@ class ConstantgetQualityFunction(SensingQualityFunction):
         return self._c
 
 
-class GaussiangetQualityFunction(SensingQualityFunction):
-    def __init__(self, c = 50):
-        self._c : float = None
-        self.assignConstant(c)
+class GaussianQualityFunction(SensingQualityFunction):
+    def __init__(self, c1 = 50, c2 = 1):
+        self._c1 : float = None
+        self._c2 : float = None
+        self.assignConstants(c1, c2)
 
-    def assignConstant(self, c : float) -> None:
-        if c <= 0:
-            raise ValueError("Constant must be positive.")
+    def assignConstants(self, c1 : float, c2 : float) -> None:
+        if c1 <= 0 or c2 <= 0:
+            raise ValueError("Constants must be positive.")
         try:
-            self._c = float(c)
+            self._c1 = float(c1)
+            self._c2 = float(c2)
         except ValueError:
-            raise ValueError("Constant must be a number.")            
+            raise ValueError("Constants must be a number.")            
 
     def __call__(self, p, q):
         delta = p - q
         sqr_dist = cad.dot(delta, delta)
-        return cad.exp(-self._c*sqr_dist)
+        return self._c2*cad.exp(-self._c1*sqr_dist)
 
 
-class SinusoidalgetQualityFunction(SensingQualityFunction):
+class SinusoidalQualityFunction(SensingQualityFunction):
     def __init__(self, c1 = 3.0, c2 = 20.0, c3 = 40.0):
         self._c1 : float = None
         self._c2 : float = None

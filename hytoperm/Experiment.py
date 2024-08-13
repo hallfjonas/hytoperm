@@ -41,6 +41,12 @@ class Experiment:
     def voronoi(self) -> Voronoi:
         return self._voronoi
     
+    def nAgents(self) -> int:
+        return len(self._agents)
+    
+    def nTargets(self) -> int:
+        return self._world.nTargets()
+
     # modifiers
     def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
         self._vc = []
@@ -120,6 +126,7 @@ class Experiment:
             p : np.ndarray,
             gpp : GlobalPathPlanner = None,
             sensor : Sensor = None,
+            name : str = ""
             ) -> None:
         if sensor is None:
             sensor = Sensor(p)
@@ -127,7 +134,7 @@ class Experiment:
                 if target.name == '3':
                     sensor.setTargetQualityFunction(
                         target, 
-                        SinusoidalgetQualityFunction(
+                        SinusoidalQualityFunction(
                             c1=np.random.uniform(3,20),
                             c2=np.random.uniform(3,20)
                             )
@@ -135,12 +142,12 @@ class Experiment:
                 else:
                     sensor.setTargetQualityFunction(
                         target, 
-                        GaussiangetQualityFunction()
+                        GaussianQualityFunction()
                         )
 
                 sensor.setNoiseMatrix(target, np.eye(1))
                 sensor.setMeasurementMatrix(target, np.eye(1))
-        self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp))
+        self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp, name=name))
 
     def addRandomTargets(
             self, 
@@ -177,7 +184,7 @@ class Experiment:
                     raise Exception("Could not add target. Try decreasing minimum distance to boundary.")
             phi0 = np.array([1.0])
             Q = np.array([0.8])
-            A = np.array([0.0])
+            A = np.array([0.001])
             target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
             target.name = str(target_counter+1)
             self.addTarget(target)
@@ -244,14 +251,21 @@ class Experiment:
         ax.set_ylim(yrange[0] - 0.01, yrange[1] + 0.01)
 
     def serialize(self, filename : str) -> None:
+        if not str.endswith(filename, ".pkl") and not str.endswith(filename, ".pickle"):
+            raise ValueError("File must be have a pickle file extension (.pkl or .pickle).")
         plt.close()
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "wb") as f:
             pickle.dump(self, f)
     
     # static methods
     @staticmethod
-    def deserialize(fileame : str):
-        with open(fileame, "rb") as f:
+    def deserialize(filename : str):
+        if not str.endswith(filename, ".pkl") and not str.endswith(filename, ".pickle"):
+            raise ValueError("File must be have a pickle file extension (.pkl or .pickle).")
+        if not os.path.exists(filename):
+            return None
+        with open(filename, "rb") as f:
             return pickle.load(f)
     
     @staticmethod
@@ -293,10 +307,10 @@ class Experiment:
             sensor = None
             ex._homogeneous_agents = homogeneous_agents or n_agents == 1
             for i in range(n_agents):
-                ex.addRandomAgent(np.zeros(2), gpp=gpp, sensor=sensor)
+                ex.addRandomAgent(np.zeros(2), gpp=gpp, sensor=sensor, name=str(i))
                 if homogeneous_agents:
                     sensor = ex.agent().sensor()
             return ex
         except Exception as e:  
-            print(e)  
+            print(e)
             return None

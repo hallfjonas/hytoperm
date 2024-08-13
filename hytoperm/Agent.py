@@ -459,7 +459,7 @@ class MonitoringController:
         p = np.zeros((2, N+1))
         omega = np.zeros((no*no, N+1))
         mse = np.zeros((1, N+1))
-        u = np.nan*np.zeros((nu, N+1))
+        u = np.nan*np.zeros((nu, N))
         p[0,:] = w_opt[0::nx+nu].flatten()
         p[1,:] = w_opt[1::nx+nu].flatten()
         for i in range(no*no):
@@ -467,14 +467,14 @@ class MonitoringController:
             if i % no == 0:
                 mse[0,:] = mse[0,:] + omega[i,:]
 
-        u[0,0:-1] = w_opt[nx::nx+nu].flatten()
-        u[1,0:-1] = w_opt[nx+1::nx+nu].flatten()
+        u[0,:] = w_opt[nx::nx+nu].flatten()
+        u[1,:] = w_opt[nx+1::nx+nu].flatten()
         t_grid = np.array([params._tf/N*k for k in range(N+1)])
 
         pTrajectory = Trajectory(p, t_grid)
         mseTrajectory = Trajectory(mse, t_grid)
         omegaTrajectory = Trajectory(omega, t_grid)
-        uTrajectory = Trajectory(u, t_grid)
+        uTrajectory = Trajectory(u, t_grid[0:-1])
         f = sol['f'].full().flatten()[0]
         lam = sol['lam_p']
 
@@ -646,7 +646,9 @@ class Cycle:
             ) -> None:
         self._covAtCycleStart = omega0.copy()
     
-    def shiftTime(self, deltaT : float) -> None:
+    def shiftTime(self, deltaT : float = None) -> None:
+        if deltaT is None:
+            deltaT = -self.pTrajectory.t[0]
         self._cycle_start += deltaT
         for ts in self._trajectorySegments:
             ts.shiftTime(deltaT)
@@ -760,30 +762,43 @@ class Cycle:
 
         return po
 
+    def plotTargetMSE(
+            self, 
+            target : Target,
+            add_label : bool = False,
+            ax : plt.Axes = None, 
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        eka = kwargs.copy()
+        if add_label:
+            eka['label'] = target.name
+        ext = extendKeywordArgs(eka, **kwargs)
+        po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **ext))
+        mseStart = self.mseTrajectories[target].getInitialValue() 
+        po.add(ax.hlines(
+            mseStart, 
+            self._cycle_start, 
+            self._cycle_start + self.getDuration(), 
+            alpha=0.2, 
+            **ext
+            ))
+        return po
+
     def plotMSE(
             self, 
-            ax : plt.Axes = None, 
             add_labels=False, 
+            ax : plt.Axes = None, 
             **kwargs
             ) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
         i = 0
         for target in self.mseTrajectories.keys():
-            eka = kwargs.copy()
-            if add_labels:
-                eka['label'] = target.name
             ext = {'color': _plotAttr.target_colors[-i]}
-            eka = extendKeywordArgs(ext, **eka)
-            po.add(self.mseTrajectories[target].plotStateVsTime(0, ax, **eka))
-            mseStart = self.mseTrajectories[target].getInitialValue() 
-            po.add(ax.hlines(
-                mseStart, 
-                self._cycle_start, 
-                self._cycle_start + self.getDuration(), 
-                alpha=0.2, 
-                color=eka['color']
-                ))
+            eka = extendKeywordArgs(ext, **kwargs)
+            po.add(self.plotTargetMSE(target, add_labels, ax, **eka))
             i += 1
         return po
 
@@ -796,8 +811,10 @@ class Agent:
             self, 
             world : World, 
             sensor : Sensor,
-            gpp : GlobalPathPlanner = None
+            gpp : GlobalPathPlanner = None,
+            name : str = ""
             ) -> None:
+        self.name = ""
         self._world : World = world                                             # world instance    
         self._sensor : Sensor = sensor                                          # utilized sensor        
         self._gpp : GlobalPathPlanner = None                                    # global path planner
@@ -853,6 +870,16 @@ class Agent:
     def setTargetVisitingSequence(self, tvs : List[Target]) -> None:
         self._tvs = tvs
     
+    def simulateCycle(self) -> None:
+        
+        try: 
+            self.initializeCycle()
+        except Exception as e:
+            print(e)
+            return
+        
+        self._cycle.simulate()
+        
     def optimizeCycle(self) -> None:
         
         try: 
@@ -1098,7 +1125,7 @@ class Agent:
             **kwargs
             ) -> PlotObject:
         ax = getAxes(ax)
-        return self._cycle.plotMSE(ax=ax, add_labels=add_labels, **kwargs)
+        return self._cycle.plotMSE(add_labels=add_labels, ax=ax, **kwargs)
     
     def plotControls(
             self, 

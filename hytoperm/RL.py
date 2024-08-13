@@ -1,12 +1,9 @@
 
-from typing import Tuple
+from typing import Tuple, List
+import warnings
 import numpy as np
 import networkx as nx
-
-from .World import *
-from .Experiment import *
-from .Estimator import *
-
+import math
 
 def JA(dt: float, 
        Omega: float,
@@ -191,4 +188,3 @@ def UpdateOmegas(dt: float,
             new_Omegas.append(OmegaI(dt, Omega, A[i], Q[i]))
             
     return new_Omegas
-
