@@ -767,8 +767,25 @@ class Target:
         po = PlotObject(ax.plot(self._p[0], self._p[1], **eka))
 
         if annotate:
-            dx = 0; dy = 0.05
-            po.add(ax.text(self._p[0] + dx, self._p[1] + dy, self.name))
+            best_phi = None
+            best_score = -np.inf
+
+            # look for best position to annotate
+            for phi in np.linspace(0, 2*np.pi, 10):
+                dx = 0.05*np.cos(phi)
+                dy = 0.05*np.sin(phi)                
+                dtb = self.region().distToBoundary(np.array([self._p[0] + dx, self._p[1] + dy]))
+                if dtb > best_score:
+                    best_score = dtb
+                    best_phi = phi
+
+            dx = 0.05*np.cos(best_phi)
+            dy = 0.05*np.sin(best_phi)
+            po.add(
+                ax.text(self._p[0] + dx, self._p[1] + dy, self.name, 
+                           horizontalalignment='center', 
+                           verticalalignment='center'
+            ))
 
         return po
 
