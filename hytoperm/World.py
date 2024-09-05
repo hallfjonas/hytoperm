@@ -859,6 +859,11 @@ class World:
             raise IndexError("Index of target out of bounds.")
         return self._targets[i]
     
+    def region(self, i : int) -> Region:
+        if i >= self.nRegions() or i < 0:
+            raise IndexError("Index of region out of bounds.")
+        return self._regions[i]
+
     def nTargets(self) -> int:
         return len(self._targets)
     
