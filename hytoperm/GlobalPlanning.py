@@ -398,7 +398,13 @@ class GlobalPathPlanner:
         for i_reg in initialRegions:
             for t_reg in targetRegions:
                 if i_reg == t_reg:
-                    return i_reg, i_reg.planPath(t0, tf)
+                    pts = i_reg.planPath(t0, tf)
+                    path = Tree(Node(pts[-1], [i_reg]))
+                    for p in reversed(pts[0:-1]):
+                        child = Tree(Node(p, [i_reg]))
+                        path.addChild(child)
+                        path = child
+                    return path, i_reg.travelCost(t0, tf)
                 
         # utilize target RRBT if possible
         for target in self._world.targets():
