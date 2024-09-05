@@ -46,6 +46,9 @@ class Experiment:
     
     def nTargets(self) -> int:
         return self._world.nTargets()
+    
+    def nRegions(self) -> int:
+        return self._world.nRegions()
 
     # modifiers
     def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
