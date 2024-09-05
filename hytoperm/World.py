@@ -451,13 +451,30 @@ class CPRegion(Region):
             )
         return PlotObject(ax.fill(chp[chv,0], chp[chv,1], **eka))
 
-    def randomPoint(self) -> np.ndarray:
+    def randomPoint(self, **kwargs) -> np.ndarray:
+        nump = len(self.getConvexHull().points)
+        alphas = []
+        p = np.zeros(2)
+        for i in range(nump-1):
+            m = 1-sum(alphas)            
+            if 'distribution' in kwargs and kwargs['distribution'] == 'uniform':
+                alphas.append(np.random.uniform(0,m))
+            else:
+                m = 0.9*m
+                alphas.append(max(0,min(np.random.normal(1/nump, 1/nump/10),m)))
+
+            p += alphas[-1] * self.getConvexHull().points[i]
+        alphas.append(1 - sum(alphas))
+        p += alphas[-1] * self.getConvexHull().points[-1]
+        return p
+
+    def randomPointUniform(self) -> np.ndarray:
         nump = len(self.getConvexHull().points)
         alphas = []
         p = np.zeros(2)
         for i in range(nump-1):
             m = 0.9*(1-sum(alphas))
-            alphas.append(max(0,min(np.random.normal(1/nump, 1/nump/10),m)))
+            alphas.append(np.random.uniform(0,m))
             p += alphas[-1] * self.getConvexHull().points[i]
         alphas.append(1 - sum(alphas))
         p += alphas[-1] * self.getConvexHull().points[-1]
