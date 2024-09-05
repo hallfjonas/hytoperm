@@ -158,7 +158,7 @@ class Region:
     def isTargetRegion(self) -> bool:
         return self.targetRegion
 
-    def randomPoint(self) -> np.ndarray:
+    def randomPoint(self, **kwargs) -> np.ndarray:
         pass
 
 
