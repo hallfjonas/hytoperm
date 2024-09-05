@@ -781,9 +781,8 @@ class Cycle:
             mseStart, 
             self._cycle_start, 
             self._cycle_start + self.getDuration(), 
-            alpha=0.2, 
             **ext
-            ))
+        ))
         return po
 
     def plotMSE(
@@ -1142,9 +1141,8 @@ class Agent:
 
     def plotCycle(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
-        po = PlotObject()
-        self._cycle.plot(ax, **kwargs)
-       
+        po = PlotObject(self._cycle.plot(ax, **kwargs))
+               
         for ms in self._monitoringSegments:
             p = ms.pTrajectory.x[:,-2]
             q = ms.pTrajectory.x[:,-1]
