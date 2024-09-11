@@ -66,4 +66,13 @@ class GraphAbstraction:
         # draw edges
         edge_labels = nx.get_edge_attributes(self.graph, 'weight')
         nx.draw_networkx_edges(self.graph, pos, ax=ax)
+
+    def simpleGraph(self) -> nx.Graph:
+        g = nx.Graph()
+        t: Target
+        for t in self.graph.nodes:
+            g.add_node(t.name)
+        for u, v, data in self.graph.edges(data=True):
+            g.add_edge(u.name, v.name, weight=data['weight'])
+        return g
     
