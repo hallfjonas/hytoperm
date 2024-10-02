@@ -704,7 +704,6 @@ class Target:
         
         self._r : Region = None                                                 # region
         self._p : np.ndarray = None                                             # position
-
         self._phi : np.ndarray = None                                           # internal state    
         self.A : np.ndarray = None                                              # internal state LTI term
         self.Q : np.ndarray = None                                              # internal state covariance of stochasticity
@@ -713,9 +712,9 @@ class Target:
 
         self.assignRegion(region)
         self.assignPosition(pos)
-        self.assignInternalState(phi0)
         self.assignStateMatrix(A)
         self.assignCovariance(Q)
+        self.assignInternalState(phi0)
         
     def p(self) -> np.ndarray:
         return self._p
@@ -732,7 +731,7 @@ class Target:
     def assignPosition(self, p : np.ndarray) -> None:
         if not isinstance(p, np.ndarray):
             raise ValueError("Expected argument of type numpy.ndarray.")
-        if (self.region() is not None):
+        if self.region() is not None:
             if not self.region().contains(p):
                 raise ValueError(
                     "Position must be contained in the target's region."
@@ -745,6 +744,10 @@ class Target:
         self._r = r
 
     def assignInternalState(self, phi0 : np.ndarray) -> None:
+        if phi0 is None:
+            if self.A is not None:
+                self._phi = np.zeros(self.A.shape[0])
+                return
         if not isinstance(phi0, np.ndarray):
             raise ValueError("Expected argument of type numpy.ndarray.")
         self._phi = phi0
@@ -822,7 +825,8 @@ class World:
             raise ValueError("Expected argument of type Target.")
         if target not in self._targets:
             self._targets.append(target)
-            target.region().targetRegion = True
+            if target.region() is not None:
+                target.region().targetRegion = True
 
     def setPartition(self) -> None:
         self._partition = Partition(self.regions()) 
