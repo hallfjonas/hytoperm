@@ -124,6 +124,11 @@ class Experiment:
                     )
         self._world.setRegions(regions)
     
+    def addAgent(self, agent : Agent) -> None:
+        if not isinstance(agent, Agent):
+            raise ValueError("Argument must be of type Agent.")
+        self._agents.append(agent)
+
     def addRandomAgent(
             self, 
             gpp : GlobalPathPlanner = None,
@@ -149,7 +154,7 @@ class Experiment:
 
                 sensor.setNoiseMatrix(target, np.eye(1))
                 sensor.setMeasurementMatrix(target, np.eye(1))
-        self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp, name=name))
+        self.addAgent(Agent(self._world, sensor=sensor, gpp=gpp, name=name))
 
     def addRandomTargets(
             self, 
