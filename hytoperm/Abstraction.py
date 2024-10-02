@@ -1,10 +1,13 @@
 
 # external imports
+from __future__ import annotations
 import networkx as nx
 
 # internal imports
 from .World import *
 from .GlobalPlanning import *
+from PlotObjects.plotobjects.palettes import *
+import math
 
 class AbstractionOptions:
     def __init__(self):
@@ -14,13 +17,12 @@ class GraphAbstraction:
     def __init__(
             self, 
             world : World, 
-            gpp : GlobalPathPlanner, 
+            gpp : GlobalPathPlanner = None, 
             opts : AbstractionOptions = None):
         self.graph : nx.DiGraph = None
         self.world: World = world
         self.options : AbstractionOptions = None
         self.setOptions(opts)
-        self.abstract(world, gpp)
 
     def setOptions(self, opts : AbstractionOptions):
         if opts is None:
@@ -31,7 +33,7 @@ class GraphAbstraction:
         self.options = opts
 
     def abstract(self, world : World, gpp : GlobalPathPlanner):
-        self.graph = nx.MultiDiGraph()
+        self.graph = nx.DiGraph()
         self.graph.add_nodes_from(world.targets())
         for t1 in world.targets():
             for t2 in world.targets():
@@ -121,4 +123,4 @@ class GraphAbstraction:
         for u, v, data in self.graph.edges(data=True):
             g.add_edge(u.name, v.name, weight=data['weight'])
         return g
-    
+        
