@@ -1,5 +1,6 @@
 
 # external imports
+from __future__ import annotations
 import warnings
 import numpy as np
 from typing import List, Dict, Set
@@ -464,6 +465,117 @@ class CPRegion(Region):
         return p
 
 
+class SphericalRegion(Region):
+    def __init__(self, center : np.ndarray, radius : float, targetRegion: bool = True):
+        self._center = center
+        self._radius = radius
+        self.targetRegion = targetRegion
+
+    def contains(self, x: np.ndarray, tol : float = 0) -> bool:
+        """
+        Checks if a point is contained within the region.
+        
+        Args:
+            x: Point to be checked.
+            tol: Tolerance for the check.
+
+        Returns:
+            True iff the point is contained within the region.
+        """
+        return np.linalg.norm(x - self._center) <= self._radius
+
+    def violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
+        """
+        Checks which constraints are violated at x.
+        
+        Args:
+            x: Point to be checked.
+            tol: Tolerance for the check.
+
+        Returns:
+            A list of violated constraints.
+        """
+        if self.contains(x, tol):
+            return []
+        return [0]
+
+    def distToBoundary(self, x: np.ndarray) -> float:
+        """
+        Computes the distance to the boundary of the region.
+
+        Args:
+            x: Point to be checked.
+
+        Returns:
+            The distance to the boundary.
+        """
+        return abs(np.linalg.norm(x - self._center) - self._radius)
+
+    def randomBoundaryPoint(self) -> np.ndarray:
+        alpha = np.random.uniform(0, 2*np.pi)
+        return self._center + self._radius * np.array([np.cos(alpha), np.sin(alpha)])
+
+    def projectToBoundary(self, x0, xf):
+        '''
+        This function projects a point onto the boundary of the region along the 
+        ray xf - x0, where x0 is assumed to be inside the region.
+        
+        Args:
+            x0: Initial point (within the region).
+            xf: Final point provides the direction (xf - x0).
+        '''
+        raise NotImplementedError("Projection to boundary not implemented for spherical regions.")
+
+    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+        '''
+        This function plans a path between two points in the region.
+        
+        Args:
+            x0: Initial point.
+            xf: Final point.
+
+        Returns:
+            A list of waypoints.
+        '''
+        return [x0, xf]
+
+    def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
+        """
+        Computes the travel cost between two points in the region.
+
+        Args:
+            x0: Initial point.
+            xf: Final point.
+        """
+        return np.linalg.norm(xf - x0)
+
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        return PlotObject(ax.Circle(self._center, self._radius, **kwargs, fill=False))
+
+    def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        return PlotObject(ax.Circle(self._center, self._radius, **kwargs, fill=True))
+
+    def p(self) -> np.ndarray:
+        return self._center
+
+    def isObstacle(self) -> bool:
+        return False
+    
+    def isTargetRegion(self) -> bool:
+        return self.targetRegion
+
+    def randomPoint(self) -> np.ndarray:
+        alpha = np.random.uniform(0, 2*np.pi)
+        r = np.random.uniform(0, self._radius)
+        return self._center + r * np.array([np.cos(alpha), np.sin(alpha)])
+
+    def intersects(self, other: SphericalRegion) -> bool:
+        """
+        Checks if the region intersects with another spherical region.
+        """
+        d = np.linalg.norm(self._center - other._center)
+        return d <= self._radius + other._radius
+
 class ObstacleCPRegion(CPRegion):
 
     def __init__(self, g, b, p : np.ndarray, domain : Domain = Domain()):
@@ -777,12 +889,15 @@ class World:
         self._partition : Partition = None
         self._domain : Domain = domain
 
-        self.setRegions(objs)
+        self.setRegionsFromObjects(objs)
         self.setPartition()
         
     def setRegions(self, objs) -> None:
         for obj in objs:
             try:
+                if isinstance(obj, Region):
+                    self.addRegion(obj)
+                    continue
                 self.addRegion(obj.region())
             finally:
                 pass

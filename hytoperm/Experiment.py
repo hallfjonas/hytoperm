@@ -14,8 +14,6 @@ from .Agent import *
 
 class Experiment:
     def __init__(self, name : str = "", domain : Domain = Domain()) -> None:
-        self._vc = []                                                           # Voronoi centers
-        self._voronoi = None                                                    # Voronoi object
         self._world : World = World()                                           # world object
         self._agents : List[Agent] = []                                         # agent object
         self._homogeneous_agents = False                                        # all agents have the same sensor model
@@ -38,9 +36,6 @@ class Experiment:
         idx = np.random.randint(0, self._world.nRegions())
         return self._world.regions()[idx]
 
-    def voronoi(self) -> Voronoi:
-        return self._voronoi
-    
     def nAgents(self) -> int:
         return len(self._agents)
     
@@ -48,78 +43,8 @@ class Experiment:
         return self._world.nTargets()
 
     # modifiers
-    def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
-        self._vc = []
-        counter = 0
-        
-        if (M < 0):
-            raise ValueError("Number of Voronoi points must be a nonnegative number.")
-        
-        while len(self._vc) < M:
-
-            # prevent infinite loop
-            counter += 1
-            if counter > 1000 * M:
-                raise Exception(
-                    "Could not generate enough Voronoi points. " + 
-                    "Try decreasing the minimum distance between points."
-                )
-
-            # sample new point
-            x = np.random.uniform(self._domain.xmin(), self._domain.xmax())
-            y = np.random.uniform(self._domain.ymin(), self._domain.ymax())
-            p = np.array([x, y])
-            
-            # always add first point
-            if len(self._vc) == 0:
-                self._vc.append(p)
-                continue
-            
-            # check if point is too close to existing points
-            dist = np.linalg.norm(self._vc - p, axis=1)
-            if np.min(dist) < min_dist:
-                continue
-
-            self._vc.append(p)
-
-        self._M = len(self._vc)
-        self._vc = np.array(self._vc)
-
     def generatePartitioning(self, n_obstacles=0) -> None:
-        
-        if self._vc.shape[0] > 1:
-            self._voronoi = Voronoi(self._vc)
-
-        regions = []
-        for i in range(self._M):
-            g = {}
-            b = {}
-            for j in range(self._M):
-                if i == j:
-                    continue
-
-                a = self._vc[j] - self._vc[i]
-                a = a / np.linalg.norm(a)
-                g[j] = a 
-                b[j] = a @ (self._vc[i] + self._vc[j]) / 2
-            
-            if i < self._M-n_obstacles:
-                dyn = ConstantDynamics(2,0,0,np.random.uniform(-0.5,0.5,2))
-                regions.append(ConstantDCPRegion(
-                    g,
-                    b,
-                    self._vc[i], 
-                    domain=self._domain, 
-                    dynamics=dyn)
-                    )      
-            else:
-                regions.append(ObstacleCPRegion(
-                    g,
-                    b,
-                    self._vc[i], 
-                    domain=self._domain)
-                    )
-        self._world.setRegions(regions)
+        pass
     
     def addRandomAgent(
             self, 
@@ -147,50 +72,6 @@ class Experiment:
                 sensor.setNoiseMatrix(target, np.eye(1))
                 sensor.setMeasurementMatrix(target, np.eye(1))
         self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp, name=name))
-
-    def addRandomTargets(
-            self, 
-            n : int = None, 
-            fraction : float = 0.5,
-            min_dist_to_boundary : float = 0.005
-            ) -> None:
-        target_counter = 0
-        if fraction < 0 or float(fraction) > 1:
-            raise ValueError("Fraction must be in [0,1].")
-        if n is None:
-            if fraction is None:
-                raise ValueError("Either n or fraction must be specified.")
-            n = self._world.nRegions() * fraction
-        n = math.floor(n)
-
-        if n > self._world.nRegions() - self._world.nObstacles():
-            raise ValueError("Number of targets exceeds number of regions.")
-
-        for region in self._world.regions():
-            if target_counter >= n:
-                break
-           
-            if region.isObstacle():
-                continue
-
-            cntr = 0
-            while True:
-                pos = region.randomPoint()
-                if region.distToBoundary(pos) > min_dist_to_boundary:
-                    break
-                cntr += 1
-                if cntr > 1000:
-                    raise Exception("Could not add target. Try decreasing minimum distance to boundary.")
-            phi0 = np.array([1.0])
-            Q = np.array([0.8])
-            A = np.array([0.001])
-            target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
-            target.name = str(target_counter+1)
-            self.addTarget(target)
-            target_counter += 1
-
-        if target_counter < n:
-            raise Exception("Could not add all targets.")
 
     def addTarget(self, target : Target) -> None:
         if not isinstance(target, Target):
@@ -269,14 +150,14 @@ class Experiment:
     
     @staticmethod
     def generate(
-            n_sets=15, 
-            fraction=0.5, 
             seed=None, 
             min_dist=0.0,
             n_agents=1,
             homogeneous_agents=True,
             n_obstacles=0,
-            domain=Domain()
+            domain=Domain(),
+            spherical=False,
+            **kwargs
             ) -> Experiment:
         '''
         generate: Generate a random experiment.
@@ -298,10 +179,16 @@ class Experiment:
         if seed is not None:
             np.random.seed(seed)
         try:
-            ex = Experiment(domain=domain)
-            ex.addRandomVoronoiPoints(n_sets, min_dist=min_dist)
-            ex.generatePartitioning(n_obstacles)
-            ex.addRandomTargets(fraction=fraction)
+            if not spherical:
+                ex = VoronoiExperiment(domain=domain)
+                ex.addRandomVoronoiPoints(kwargs.get('n_sets'), min_dist=min_dist)
+                ex.generatePartitioning(n_obstacles)
+                ex.addRandomTargets(fraction=kwargs.get('fraction'))
+            else:
+                ex = SphericalExperiment(domain=domain)
+                ex.addRandomSpheres(kwargs.get('n_targets'), min_radius=min_dist)
+                ex.generatePartitioning(n_obstacles)
+            
             gpp = GlobalPathPlanner(ex.world())
             sensor = None
             ex._homogeneous_agents = homogeneous_agents or n_agents == 1
@@ -313,3 +200,185 @@ class Experiment:
         except Exception as e:  
             print(e)
             return None
+
+class VoronoiExperiment(Experiment):
+    def __init__(self, name : str = "", domain : Domain = Domain()) -> None:
+        self._vc = []                                                           # Voronoi centers
+        self._voronoi = None                                                    # Voronoi object
+        super().__init__(name=name, domain=domain)
+
+    def voronoi(self) -> Voronoi:
+        return self._voronoi
+    
+    def addRandomVoronoiPoints(self, M : int, min_dist=0.0) -> None:
+        self._vc = []
+        counter = 0
+        
+        if (M < 0):
+            raise ValueError("Number of Voronoi points must be a nonnegative number.")
+        
+        while len(self._vc) < M:
+
+            # prevent infinite loop
+            counter += 1
+            if counter > 1000 * M:
+                raise Exception(
+                    "Could not generate enough Voronoi points. " + 
+                    "Try decreasing the minimum distance between points."
+                )
+
+            # sample new point
+            x = np.random.uniform(self._domain.xmin(), self._domain.xmax())
+            y = np.random.uniform(self._domain.ymin(), self._domain.ymax())
+            p = np.array([x, y])
+            
+            # always add first point
+            if len(self._vc) == 0:
+                self._vc.append(p)
+                continue
+            
+            # check if point is too close to existing points
+            dist = np.linalg.norm(self._vc - p, axis=1)
+            if np.min(dist) < min_dist:
+                continue
+
+            self._vc.append(p)
+
+        self._M = len(self._vc)
+        self._vc = np.array(self._vc)
+
+    def generatePartitioning(self, n_obstacles=0) -> None:
+        
+        if self._vc.shape[0] > 1:
+            self._voronoi = Voronoi(self._vc)
+
+        regions = []
+        for i in range(self._M):
+            g = {}
+            b = {}
+            for j in range(self._M):
+                if i == j:
+                    continue
+
+                a = self._vc[j] - self._vc[i]
+                a = a / np.linalg.norm(a)
+                g[j] = a 
+                b[j] = a @ (self._vc[i] + self._vc[j]) / 2
+            
+            if i < self._M-n_obstacles:
+                dyn = ConstantDynamics(2,0,0,np.random.uniform(-0.5,0.5,2))
+                regions.append(ConstantDCPRegion(
+                    g,
+                    b,
+                    self._vc[i], 
+                    domain=self._domain, 
+                    dynamics=dyn)
+                    )      
+            else:
+                regions.append(ObstacleCPRegion(
+                    g,
+                    b,
+                    self._vc[i], 
+                    domain=self._domain)
+                    )
+        self._world.setRegions(regions)
+    
+    def addRandomTargets(
+            self, 
+            n : int = None, 
+            fraction : float = 0.5,
+            min_dist_to_boundary : float = 0.005
+            ) -> None:
+        target_counter = 0
+        if fraction < 0 or float(fraction) > 1:
+            raise ValueError("Fraction must be in [0,1].")
+        if n is None:
+            if fraction is None:
+                raise ValueError("Either n or fraction must be specified.")
+            n = self._world.nRegions() * fraction
+        n = math.floor(n)
+
+        if n > self._world.nRegions() - self._world.nObstacles():
+            raise ValueError("Number of targets exceeds number of regions.")
+
+        for region in self._world.regions():
+            if target_counter >= n:
+                break
+           
+            if region.isObstacle():
+                continue
+
+            cntr = 0
+            while True:
+                pos = region.randomPoint()
+                if region.distToBoundary(pos) > min_dist_to_boundary:
+                    break
+                cntr += 1
+                if cntr > 1000:
+                    raise Exception("Could not add target. Try decreasing minimum distance to boundary.")
+            phi0 = np.array([1.0])
+            Q = np.array([0.8])
+            A = np.array([0.001])
+            target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
+            target.name = str(target_counter+1)
+            self.addTarget(target)
+            target_counter += 1
+
+        if target_counter < n:
+            raise Exception("Could not add all targets.")
+
+class SphericalExperiment(Experiment):
+    def __init__(self, name : str = "", domain : Domain = Domain()) -> None:
+        self._spheres: List[SphericalRegion] = []
+        super().__init__(name=name, domain=domain)
+
+    def addRandomSpheres(self, M: int, min_radius=0.0, max_radius=np.inf) -> None:
+        if M < 0:
+            raise ValueError("Number of target locations must be a nonnegative number.")
+        
+        dx = self._domain.xmax() - self._domain.xmin()
+        dy = self._domain.ymax() - self._domain.ymin()
+
+        targets: List[Target] = []
+        r_max = min(max_radius, dx/2, dy/2)
+
+        k = 0
+        while len(targets) < M:
+            
+            k += 1
+            if k > 1000 * M:
+                raise Exception("Could not generate enough target locations. Try decreasing the minimum or maximum radius.")
+
+            x = np.random.uniform(self._domain.xmin(), self._domain.xmax())
+            y = np.random.uniform(self._domain.ymin(), self._domain.ymax())
+            rad = np.random.uniform(min_radius, r_max)
+            
+            r = SphericalRegion(np.array([x, y]), rad)
+            for target in targets:
+                if r.intersects(target.region()):
+                    continue
+            targets.append(r)
+        self._spheres = targets
+
+    def generatePartitioning(self, n_obstacles=0) -> None:
+        self._world.setRegions(self._spheres)
+
+    def addRandomTargets(self) -> None:
+        for region in self._world.regions():
+            pos = region.randomPoint()
+            phi0 = np.array([1.0])
+            Q = np.array([0.8])
+            A = np.array([0.001])
+            target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
+            target.name = str(len(self._world.targets())+1)
+            self.addTarget(target)
+
+    def addCenteredTargets(self) -> None:
+        for region in self._world.regions():
+            pos = region.p()
+            phi0 = np.array([1.0])
+            Q = np.array([0.8])
+            A = np.array([0.001])
+            target = Target(pos=pos, region=region, phi0=phi0, Q=Q, A=A)
+            target.name = str(len(self._world.targets())+1)
+            self.addTarget(target)
