@@ -889,7 +889,7 @@ class World:
         self._partition : Partition = None
         self._domain : Domain = domain
 
-        self.setRegionsFromObjects(objs)
+        self.setRegions(objs)
         self.setPartition()
         
     def setRegions(self, objs) -> None:
