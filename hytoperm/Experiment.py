@@ -53,7 +53,7 @@ class Experiment:
             name : str = ""
             ) -> None:
         if sensor is None:
-            sensor = Sensor()
+            sensor = HeterogeneousSensor()
             for target in self._world.targets():
                 if target.name == '3':
                     sensor.setTargetQualityFunction(
@@ -77,7 +77,6 @@ class Experiment:
         if not isinstance(target, Target):
             raise ValueError("Argument must be of type Target.")
         self._world.addTarget(target)
-        self._M += 1
 
     # plotters
     def plotWorld(
@@ -87,11 +86,12 @@ class Experiment:
             fill_empty_regions=True,
             plot_partition=True,
             plot_targets=True,
-            plot_vector_field=True
+            plot_vector_field=True,
+            plot_domain=False,
+            ax=None
             ) -> Tuple[plt.Figure, plt.Axes]:
-        fig, ax = plt.subplots()
+        ax = getAxes(ax)        
         ax.set_aspect('equal', 'box')
-        fig.tight_layout()
         ax.axis('off')
         ax.set_xlim(self._domain.xmin()*1.01, self._domain.xmax()*1.01)
         ax.set_ylim(self._domain.ymin()*1.01, self._domain.ymax()*1.01)
@@ -108,10 +108,11 @@ class Experiment:
             fill_empty_regions=fill_empty_regions,
             plot_partition=plot_partition,
             plot_targets=plot_targets,
-            plot_vector_field=plot_vector_field
+            plot_vector_field=plot_vector_field,
+            plot_domain=plot_domain
             )
 
-        return fig, ax
+        return plt.gcf(), ax
 
     def zoomToTargetRegion(self, ax : plt.Axes, name : str):
         target = self._world.getTargetByName(name)
@@ -184,13 +185,23 @@ class Experiment:
                 ex.addRandomVoronoiPoints(kwargs.get('n_sets'), min_dist=min_dist)
                 ex.generatePartitioning(n_obstacles)
                 ex.addRandomTargets(fraction=kwargs.get('fraction'))
+                gpp = RRBTGlobalPlanner(ex.world())
             else:
                 ex = SphericalExperiment(domain=domain)
-                ex.addRandomSpheres(kwargs.get('n_targets'), min_radius=min_dist)
+                if not 'n_targets' in kwargs:
+                    raise ValueError("Number of targets must be specified for spherical experiments.")
+                radius = kwargs.get('radius', None)
+                ex.addRandomSpheres(
+                    kwargs.get('n_targets'), 
+                    min_dist=min_dist, 
+                    max_radius=radius if radius is not None else np.inf,
+                    min_radius=radius if radius is not None else min_dist
+                )
                 ex.generatePartitioning(n_obstacles)
+                ex.addCenteredTargets()
+                gpp = NormBasedGlobalPlanner(ex.world())
             
-            gpp = GlobalPathPlanner(ex.world())
-            sensor = None
+            sensor = kwargs.get('sensor', None)
             ex._homogeneous_agents = homogeneous_agents or n_agents == 1
             for i in range(n_agents):
                 ex.addRandomAgent(gpp=gpp, sensor=sensor, name=str(i))
@@ -221,7 +232,7 @@ class VoronoiExperiment(Experiment):
 
             # prevent infinite loop
             counter += 1
-            if counter > 1000 * M:
+            if counter > 10000 * M:
                 raise Exception(
                     "Could not generate enough Voronoi points. " + 
                     "Try decreasing the minimum distance between points."
@@ -244,7 +255,6 @@ class VoronoiExperiment(Experiment):
 
             self._vc.append(p)
 
-        self._M = len(self._vc)
         self._vc = np.array(self._vc)
 
     def generatePartitioning(self, n_obstacles=0) -> None:
@@ -253,10 +263,10 @@ class VoronoiExperiment(Experiment):
             self._voronoi = Voronoi(self._vc)
 
         regions = []
-        for i in range(self._M):
+        for i in range(len(self._vc)):
             g = {}
             b = {}
-            for j in range(self._M):
+            for j in range(len(self._vc)):
                 if i == j:
                     continue
 
@@ -265,7 +275,7 @@ class VoronoiExperiment(Experiment):
                 g[j] = a 
                 b[j] = a @ (self._vc[i] + self._vc[j]) / 2
             
-            if i < self._M-n_obstacles:
+            if i < len(self._vc) - n_obstacles:
                 dyn = ConstantDynamics(2,0,0,np.random.uniform(-0.5,0.5,2))
                 regions.append(ConstantDCPRegion(
                     g,
@@ -332,31 +342,39 @@ class SphericalExperiment(Experiment):
         self._spheres: List[SphericalRegion] = []
         super().__init__(name=name, domain=domain)
 
-    def addRandomSpheres(self, M: int, min_radius=0.0, max_radius=np.inf) -> None:
-        if M < 0:
+    def addRandomSpheres(self, M: int, min_radius=0.0, max_radius=np.inf, min_dist=0.0) -> None:
+        if M is None or M < 0:
             raise ValueError("Number of target locations must be a nonnegative number.")
         
         dx = self._domain.xmax() - self._domain.xmin()
         dy = self._domain.ymax() - self._domain.ymin()
 
         targets: List[Target] = []
-        r_max = min(max_radius, dx/2, dy/2)
-
         k = 0
         while len(targets) < M:
             
             k += 1
-            if k > 1000 * M:
-                raise Exception("Could not generate enough target locations. Try decreasing the minimum or maximum radius.")
+            if k > 10000 * M:
+                raise RuntimeError("Could not generate enough target locations. Try decreasing the minimum or maximum radius.")
 
             x = np.random.uniform(self._domain.xmin(), self._domain.xmax())
             y = np.random.uniform(self._domain.ymin(), self._domain.ymax())
-            rad = np.random.uniform(min_radius, r_max)
+            
+            r_m = min(max_radius, x - self._domain.xmin(), self._domain.xmax() - x, y - self._domain.ymin(), self._domain.ymax() - y)
+            
+            if r_m < min_radius:
+                continue
+            
+            rad = np.random.uniform(min_radius, r_m)
             
             r = SphericalRegion(np.array([x, y]), rad)
+            intersects = False
             for target in targets:
-                if r.intersects(target.region()):
-                    continue
+                if r.intersects(target.region(), tol=min_dist):
+                    intersects = True
+                    break
+            if intersects:
+                continue
             targets.append(r)
         self._spheres = targets
 
