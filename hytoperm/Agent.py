@@ -289,17 +289,12 @@ class MonitoringController:
         
         # input assertions
         region = target.region()
-        if not hasattr(region, 'dynamics'):
-            raise Exception("Expected target region to have a dynamics model.")
-        if not isinstance(region, CPRegion):
-            raise Exception(
-                "Not implemented for regions other than CPRegion."
-                )
-        dynamics : ConstantDynamics = region.dynamics()   
-        if not isinstance(dynamics, ConstantDynamics):
-            raise Exception(
-                "Not implemented for dynamics other than constant dyanmics."
-                )
+        v = np.zeros(2)
+        if hasattr(region, 'dynamics'):
+            dynamics : ConstantDynamics = region.dynamics()
+            if not isinstance(dynamics, ConstantDynamics):
+                    raise Exception("Not implemented for dynamics other than constant dyanmics.")
+            v = dynamics.v()
 
         # states
         no = target.getNumberOfStates()
@@ -323,7 +318,7 @@ class MonitoringController:
         N = self.N                  # number of control intervals
 
         # Model equations     
-        pDot = dynamics.v() + u
+        pDot = v + u
         oDot = omegaDot(p, Omega, target, sensor, True)
         xDot = cad.vertcat(pDot, oDot)
 
@@ -350,13 +345,17 @@ class MonitoringController:
         F = cad.Function('F',[X0,U,params],[X,Q],['x0','u0','p'],['xf','qf'])
 
         # Region constraints
-        region = target.region()
-        g_constr = region.g()
-        b_constr = region.b()
-        g_constr_term = []
-        for i in g_constr.keys():
-            g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
-        R = cad.Function('r',[X0],[cad.vertcat(*g_constr_term)],['x0'],['r'])
+        if (self.add_region_constraints):
+            region = target.region()
+            if isinstance(region, CPRegion):
+                g_constr = region.g()
+                b_constr = region.b()
+                g_constr_term = []
+                for i in g_constr.keys():
+                    g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
+                R = cad.Function('r',[X0],[cad.vertcat(*g_constr_term)],['x0'],['r'])
+            elif isinstance(region, SphericalRegion):
+                R = cad.Function('r',[X0],[cad.norm_2(X0[0:2]-region.center()) - region.radius()],['x0'],['r'])
 
         lbx = -np.inf*np.ones(nx)
         ubx = -lbx
@@ -1315,7 +1314,7 @@ class Agent:
         print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:6d} | {:>6s}".format(
             it, 
             self._global_costs[-1], 
-            self._global_gradient_norms[-1], 
+            np.max(self._kkt_violations[-1]),
             self._alphas[-1], 
             self._steady_state_iters[-1],
             'T' if self._isSteadyState[-1] else 'F'
