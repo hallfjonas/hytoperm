@@ -362,11 +362,9 @@ class GlobalPathPlanner:
     def __init__(self, world : World) -> None:
         self._world : World = world
         self._tsp : TSP = None
-        self._rrbts : Dict[Target, RRBT] = {}
         self._target_paths : Dict[Target, Dict[Target, Tree]]= {}
         self._plot_options = PlotOptions()
         self._have_graph = False
-        self.rrbt_iter = 200
 
     # getters
     def tsp(self) -> TSP:
@@ -385,6 +383,28 @@ class GlobalPathPlanner:
                 raise Exception("No path exists from {0} to {1} (even after utilizing TSP solver). Returning None".format(init.name, goal.name))
         return self._target_paths[init][goal]
 
+    # abstract methods
+    def planPathToTarget(
+            self,
+            init : np.ndarray,
+            goal : Target
+            ) -> Tuple[Tree, float]:
+        pass
+
+    def planGlobalPath(self, t0 : np.ndarray, tf : np.ndarray) -> Tuple[Tree, float]:
+        pass
+    
+    def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
+        '''
+        Determine whether the path is a direct connection from t1 and t2, i.e.,
+          (1) it starts from a point contained by the region of t1
+          (2) it ends at a point contained by the region of t2
+          (3) it does not pass through any other target region along the way
+
+        The first two cases will raise a warning.
+        '''
+        pass
+
     # modifiers
     def planPath(
             self, 
@@ -400,29 +420,13 @@ class GlobalPathPlanner:
                 if i_reg == t_reg:
                     return i_reg, i_reg.planPath(t0, tf)
                 
-        # utilize target RRBT if possible
+        # utilize target planners if possible
         for target in self._world.targets():
             if np.linalg.norm(target.p() - tf) < 1e-3:
                 return self.planPathToTarget(t0, target)
         
-        # otherwise, need to build a new RRBT
-        root = Tree(Node(tf, targetRegions))
-        rrbt = RRBT(self._world, root)
-        rrbt._plot_options = self._plot_options
-        rrbt.expandTree(iterations=self.rrbt_iter)
-        return rrbt.planPath(t0)
-
-    def planPathToTarget(
-            self,
-            init : np.ndarray,
-            goal : Target
-            ) -> Tuple[Tree, float]:
-        if not goal in self._rrbts:
-            targetpos = goal.p()
-            root = Tree(Node(targetpos, self._world.getRegions(targetpos)))
-            self._rrbts[goal] = RRBT(self._world, root)
-            self._rrbts[goal].expandTree(iterations=self.rrbt_iter)
-        return self._rrbts[goal].planPath(init)
+        # otherwise, use global planner
+        return self.planGlobalPath(t0, tf)
 
     def solveTSP(self) -> None:
         if self._tsp is None:
@@ -445,6 +449,128 @@ class GlobalPathPlanner:
                 self._tsp.setTargetDistance(i,j,plannedPath[1])
                 print(f"Distance from {i} to {j} is {plannedPath[1]}")
         self._have_graph = True
+
+    # plotters    
+    def plotTSPSolution(
+            self, 
+            ax : plt.Axes = None, 
+            annotate = False, 
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
+        if self._tsp.bestPermutation() is None:
+            print("No TSP solution exists. Please run 'solveTSP' first.")
+            return None
+        
+        if self._tsp.bestPermutation() is None:
+            return
+        po = PlotObject()
+        args = kwargs.copy()
+        for i in range(0,len(self._tsp.bestPermutation())):
+            currTarget = self._world.targets()[self._tsp.bestPermutation()[i-1]]
+            nextTarget = self._world.targets()[self._tsp.bestPermutation()[i]]
+            currPath = self._target_paths[currTarget][nextTarget]
+            po.add(currPath.plotPathToRoot(ax=ax, plot_direction=True, **args))
+            currPath = currPath.getParent()
+            
+            if annotate:
+                po.add(ax.annotate(
+                    f"{i}", 
+                    (currPath.getData().p()[0], currPath.getData().p()[1]), 
+                    fontsize=12, color='black')
+                )
+
+        return po
+
+class NormBasedGlobalPlanner(GlobalPathPlanner):
+    def __init__(self, world : World) -> None:
+        super().__init__(world)
+        
+    def planPathToTarget(
+            self,
+            init : np.ndarray,
+            goal : Target
+            ) -> Tuple[Tree, float]:
+        return self.planGlobalPath(init, goal.p())
+
+    def planGlobalPath(self, t0 : np.ndarray, tf : np.ndarray) -> Tuple[Tree, float]:
+        cost = np.linalg.norm(tf - t0)
+        rf: Region = self._world.getRegions(tf).pop()
+        r0: Region = self._world.getRegions(t0).pop()
+        path = Tree(Node(tf, set([rf])))
+        swf = Tree(Node(
+            rf.projectToBoundary(t0), 
+            set([rf]),
+            rf
+        ))
+        swf.setParent(path, rf.travelCost(tf, swf.getData().p()))
+        
+        child = Tree(Node(t0, set([r0])))
+        sw0 = Tree(Node(r0.projectToBoundary(tf), set([r0])))
+        sw0.setParent(swf, r0.travelCost(t0, sw0.getData().p()))
+        child.setParent(sw0, np.linalg.norm(sw0.getData().p() - swf.getData().p()))
+        return child, cost
+    
+    def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
+        '''
+        Determine whether the path is a direct connection from t1 and t2, i.e.,
+          (1) it starts from a point contained by the region of t1
+          (2) it ends at a point contained by the region of t2
+          (3) it does not pass through any other target region along the way
+
+        The first two cases will raise a warning.
+        '''
+        
+        # check if the path starts from a point contained by the region of t1
+        if not t1.region().contains(path.getData().p()):
+            warnings.warn("The path does not start from the region of t1.")
+            return False
+        
+        if not t2.region().contains(path.getRoot().getData().p()):
+            warnings.warn("The path does not end at the region of t2.")
+            return False
+        
+        xf = path.getRoot().getData().p()
+        x0 = path.getData().p()
+        dist = np.linalg.norm(xf - x0)
+        for alpha in np.linspace(0, 1, 1000):
+            x = alpha*x0 + (1-alpha)*xf
+            for region in self._world.getRegions(x, tol=0):
+                if region.isTargetRegion() and region != t1.region() and region != t2.region():
+                    return False
+
+        return True
+
+
+class RRBTGlobalPlanner(GlobalPathPlanner):
+    def __init__(self, world : World) -> None:
+        super().__init__(world)
+        self._rrbts : Dict[Target, RRBT] = {}
+        self.rrbt_iter = 200
+
+    def planPathToTarget(
+            self,
+            init : np.ndarray,
+            goal : Target
+            ) -> Tuple[Tree, float]:
+        if not goal in self._rrbts:
+            targetpos = goal.p()
+            root = Tree(Node(targetpos, self._world.getRegions(targetpos)))
+            self._rrbts[goal] = RRBT(self._world, root)
+            self._rrbts[goal].expandTree(iterations=self.rrbt_iter)
+        return self._rrbts[goal].planPath(init)
+
+    def planGlobalPath(self, t0: np.ndarray, tf: np.ndarray) -> Tuple[Tree, float]:
+        targetRegions = self._world.getRegions(tf)
+
+        if len(targetRegions) == 0:
+            raise ValueError("No regions found at target position. Please check if the target is within the world domain.")
+        
+        root = Tree(Node(tf, targetRegions))
+        rrbt = RRBT(self._world, root)
+        rrbt._plot_options = self._plot_options
+        rrbt.expandTree(iterations=self.rrbt_iter)
+        return rrbt.planPath(t0)
 
     def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
         '''
@@ -478,34 +604,3 @@ class GlobalPathPlanner:
 
         return True
     
-    # plotters    
-    def plotTSPSolution(
-            self, 
-            ax : plt.Axes = None, 
-            annotate = False, 
-            **kwargs
-            ) -> PlotObject:
-        ax = getAxes(ax)
-        if self._tsp.bestPermutation() is None:
-            print("No TSP solution exists. Please run 'solveTSP' first.")
-            return None
-        
-        if self._tsp.bestPermutation() is None:
-            return
-        po = PlotObject()
-        args = kwargs.copy()
-        for i in range(0,len(self._tsp.bestPermutation())):
-            currTarget = self._world.targets()[self._tsp.bestPermutation()[i-1]]
-            nextTarget = self._world.targets()[self._tsp.bestPermutation()[i]]
-            currPath = self._target_paths[currTarget][nextTarget]
-            po.add(currPath.plotPathToRoot(ax=ax, plot_direction=True, **args))
-            currPath = currPath.getParent()
-            
-            if annotate:
-                po.add(ax.annotate(
-                    f"{i}", 
-                    (currPath.getData().p()[0], currPath.getData().p()[1]), 
-                    fontsize=12, color='black')
-                )
-
-        return po
