@@ -289,17 +289,12 @@ class MonitoringController:
         
         # input assertions
         region = target.region()
-        if not hasattr(region, 'dynamics'):
-            raise Exception("Expected target region to have a dynamics model.")
-        if not isinstance(region, CPRegion):
-            raise Exception(
-                "Not implemented for regions other than CPRegion."
-                )
-        dynamics : ConstantDynamics = region.dynamics()   
-        if not isinstance(dynamics, ConstantDynamics):
-            raise Exception(
-                "Not implemented for dynamics other than constant dyanmics."
-                )
+        v = np.zeros(2)
+        if hasattr(region, 'dynamics'):
+            dynamics : ConstantDynamics = region.dynamics()
+            if not isinstance(dynamics, ConstantDynamics):
+                    raise Exception("Not implemented for dynamics other than constant dyanmics.")
+            v = dynamics.v()
 
         # states
         no = target.getNumberOfStates()
@@ -323,7 +318,7 @@ class MonitoringController:
         N = self.N                  # number of control intervals
 
         # Model equations     
-        pDot = dynamics.v() + u
+        pDot = v + u
         oDot = omegaDot(p, Omega, target, sensor, True)
         xDot = cad.vertcat(pDot, oDot)
 
@@ -350,13 +345,17 @@ class MonitoringController:
         F = cad.Function('F',[X0,U,params],[X,Q],['x0','u0','p'],['xf','qf'])
 
         # Region constraints
-        region = target.region()
-        g_constr = region.g()
-        b_constr = region.b()
-        g_constr_term = []
-        for i in g_constr.keys():
-            g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
-        R = cad.Function('r',[X0],[cad.vertcat(*g_constr_term)],['x0'],['r'])
+        if (self.add_region_constraints):
+            region = target.region()
+            if isinstance(region, CPRegion):
+                g_constr = region.g()
+                b_constr = region.b()
+                g_constr_term = []
+                for i in g_constr.keys():
+                    g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
+                R = cad.Function('r',[X0],[cad.vertcat(*g_constr_term)],['x0'],['r'])
+            elif isinstance(region, SphericalRegion):
+                R = cad.Function('r',[X0],[cad.norm_2(X0[0:2]-region.center()) - region.radius()],['x0'],['r'])
 
         lbx = -np.inf*np.ones(nx)
         ubx = -lbx
@@ -819,6 +818,7 @@ class Agent:
         self._sensor : Sensor = sensor                                          # utilized sensor        
         self._gpp : GlobalPathPlanner = None                                    # global path planner
         self._tvs : List[Target] = []                                           # target visiting sequence
+        self._K: int = None                                                      # length of the visiting sequence
         self._cycle : Cycle = None                                              # the world instance    
 
         # optimization parameters
@@ -830,6 +830,7 @@ class Agent:
         # optimization statistics
         self._kkt_residuals : Dict[int, float] = {}                             # map a target visit index to a KKT residual
         self._global_costs : List[float] = []                                   # global cost (per steady state cycle) 
+        self._global_gradients : List[float] = []                               # global gradients (per cycle)
         self._global_gradient_norms : List[float] = []                          # global gradient norm (per steady state cycle) 
         self._tau_vals : List[np.ndarray] = []                                  # monitoring durations (per steady state cycle)
         self._kkt_violations : List[np.ndarray] = []                            # KKT residuals (per steady state cycle)
@@ -866,9 +867,11 @@ class Agent:
     def computeVisitingSequence(self) -> None:
         self.gpp().solveTSP()
         self._tvs = self.gpp().tsp().getTargetVisitingSequence()
+        self._K = len(self._tvs)
 
     def setTargetVisitingSequence(self, tvs : List[Target]) -> None:
         self._tvs = tvs
+        self._K = len(self._tvs)
     
     def simulateCycle(self) -> None:
         
@@ -897,15 +900,15 @@ class Agent:
             dJ_dt = self.updateMonitoringDurations()
 
             # Compute first order stationarity condition
-            for i in range(len(self._tvs)):
+            for i in range(self._K):
                 self._kkt_residuals[i] = dJ_dt[i] - self._lambda[i]
             self._kkt_violations.append(
-                np.array(list(self._kkt_residuals.values()))
+                np.array([np.abs(res) for res in self._kkt_residuals.values()])
                 )
             
             self.printIteration(it)
 
-            o = np.max(np.abs(self._kkt_violations[-1])) < self.op.kkt_tolerance
+            o = np.max(self._kkt_violations[-1]) < self.op.kkt_tolerance
             if o and steady:
                 print("Optimal cycle found!")
                 break
@@ -918,17 +921,18 @@ class Agent:
     
     def initializeCycle(self) -> None:
         
-        if (len(self._tvs) <= 1):
+        if (self._K <= 1):
             warnings.warn("Expected at least two targets in the visiting sequence. Did you run 'computeVisitingSequence()'?")
             return
                     
         # create lists of trajectory segments
-        self._switchingSegments, self._tvs = self.initializeSwitchingSegments()
+        self._switchingSegments, tvs = self.initializeSwitchingSegments()
+        self.setTargetVisitingSequence(tvs)
         self._monitoringSegments = self.initializeMonitoringSegments()
         trajectorySegments : List[TrajectorySegment] = []
 
         # combine trajectory segments
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             trajectorySegments.append(self._switchingSegments[i])
             trajectorySegments.append(self._monitoringSegments[i])
 
@@ -944,7 +948,7 @@ class Agent:
         segments : List[SwitchingSegment] = []
         refined_tvs = []
 
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             ot = self._tvs[i-1]
             ct = self._tvs[i]
             swPath : Tree = self.gpp().targetPath(ot, ct).getParent()
@@ -1004,9 +1008,13 @@ class Agent:
             # a constant control law). In general doesn't need to be... 
             # So really, should have a trajectory to parent stored in the node 
             # or even better in an edge between the two nodes...
-            artp : DynamicCPRegion = node.getData().activeRegionToParent()
-            dyn : ConstantDynamics = artp.dynamics()
-            v = dyn.v().reshape(-1,1)            
+            artp = node.getData().activeRegionToParent()
+            v = np.zeros(2)
+            if hasattr(artp, 'dynamics'):
+                if isinstance(artp.dynamics(), ConstantDynamics):
+                    v = artp.dynamics().v
+            
+            v = v.reshape(-1,1)
             u = (psi - phi)/deltaT - v
             
             # update trajectories
@@ -1025,7 +1033,7 @@ class Agent:
 
     def initializeMonitoringSegments(self) -> List[MonitoringSegment]:
         segments : List[MonitoringSegment] = []
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             target = self._tvs[i]
             phi = self._switchingSegments[i].getEndPoint()
             nextIdx = (i+1) % len(self._switchingSegments)
@@ -1079,7 +1087,7 @@ class Agent:
         '''
         Simple projected gradient descend
         '''
-        dJ_dt = self.globalCostGradient()
+        self._global_gradients.append(dJ_dt)
         self._global_gradient_norms.append(np.linalg.norm(dJ_dt, ord=np.inf))
         if self._global_gradient_norms[-1] > self.op.tr:
             dJ_dt = dJ_dt * self.op.tr / self._global_gradient_norms[-1]
@@ -1230,7 +1238,25 @@ class Agent:
             **kwargs
             ) -> PlotObject:
         ax = getAxes(ax)
-        return PlotObject(ax.plot(self._global_gradient_norms, **kwargs))
+        return PlotObject(ax.plot(self._kkt_violations, **kwargs))
+        
+    def plotGlobalGradients(
+            self, 
+            ax : plt.Axes = None, 
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        Nk = len(self._global_gradients)
+        tc = _plotAttr.target_colors
+        for i in range(self._K):
+            eka = extendKeywordArgs(
+                {'color': tc[-int(self._tvs[i].name)+1]}, 
+                **kwargs
+            )
+            dJ_di = [self._global_gradients[k][i] for k in range(Nk)]
+            po.add(ax.plot(dJ_di, **eka))
+        return po
     
     def plotTauVals(
             self, 
@@ -1243,7 +1269,7 @@ class Agent:
         tv = np.array(self._tau_vals)
         for i in range(tv.shape[1]):
             eka = extendKeywordArgs(
-                {'color': _plotAttr.target_colors[-i]}, 
+                {'color': _plotAttr.target_colors[-int(self._tvs[i].name)+1]}, 
                 **kwargs
                 )
             po.add(ax.plot(tv[:,i], **eka))
@@ -1253,19 +1279,22 @@ class Agent:
                     {'alpha' : 0.75, 'linestyle' : '--'}, 
                     **eka
                     )
-                po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
+                po.add(ax.hlines(self._tau_min[i] + self.op.sigma, 0, len(tv[:,i]), **eka))
         return po
 
     def plotKKTViolations(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        po.add(PlotObject(ax.plot(self._kkt_violations, **kwargs)))
-        po.add(PlotObject(ax.axhspan(
-            -self.op.kkt_tolerance, 
-            self.op.kkt_tolerance, 
-            alpha=0.2, 
-            color='green'))
+        NK = len(self._kkt_violations)
+        tc = _plotAttr.target_colors
+        for i in range(self._K):
+            eka = extendKeywordArgs(
+                {'color': tc[-int(self._tvs[i].name)+1]}, 
+                **kwargs
             )
+            po.add(PlotObject(
+                ax.plot([self._kkt_violations[k][i] for k in range(NK)], 
+                        **eka)))
         return po
 
     def plotAlphas(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
@@ -1315,7 +1344,7 @@ class Agent:
         print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:6d} | {:>6s}".format(
             it, 
             self._global_costs[-1], 
-            self._global_gradient_norms[-1], 
+            np.max(self._kkt_violations[-1]),
             self._alphas[-1], 
             self._steady_state_iters[-1],
             'T' if self._isSteadyState[-1] else 'F'
