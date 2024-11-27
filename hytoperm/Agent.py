@@ -1123,7 +1123,7 @@ class Agent:
             
             self._cycle._cycle_start += self._cycle.getDuration()
 
-    def getGradientCycleCost(self) -> dict[str, np.ndarray]:
+    def getGradientCycleCost(self) -> Dict[str, np.ndarray]:
         """
         Compute the gradient of the cycle cost, i.e., of the cost of one 
         complete cycle (not scaled with the cycle duration).
@@ -1134,7 +1134,7 @@ class Agent:
             'psi': self._cycle.getGradientPsi()
         }
 
-    def getGradientT(self) -> dict[str, np.ndarray]:
+    def getGradientT(self) -> Dict[str, np.ndarray]:
         """
         Get the gradient of the cycle duration with respect to all parameters.
         """
@@ -1160,7 +1160,7 @@ class Agent:
             'a_psi': nablaDelta['a_psi']
         }
 
-    def globalCostGradients(self) -> dict[str, np.ndarray]:
+    def globalCostGradients(self) -> Dict[str, np.ndarray]:
         """
         Computes the global cost gradient with respect to all parameters
         """
