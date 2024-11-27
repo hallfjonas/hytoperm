@@ -1007,9 +1007,13 @@ class Agent:
             # a constant control law). In general doesn't need to be... 
             # So really, should have a trajectory to parent stored in the node 
             # or even better in an edge between the two nodes...
-            artp : DynamicCPRegion = node.getData().activeRegionToParent()
-            dyn : ConstantDynamics = artp.dynamics()
-            v = dyn.v().reshape(-1,1)            
+            artp = node.getData().activeRegionToParent()
+            v = np.zeros(2)
+            if hasattr(artp, 'dynamics'):
+                if isinstance(artp.dynamics(), ConstantDynamics):
+                    v = artp.dynamics().v
+            
+            v = v.reshape(-1,1)
             u = (psi - phi)/deltaT - v
             
             # update trajectories
