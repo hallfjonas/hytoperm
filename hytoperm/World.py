@@ -480,6 +480,12 @@ class SphericalRegion(Region):
         self._radius = radius
         self.targetRegion = targetRegion
 
+    def center(self) -> np.ndarray:
+        return self._center
+    
+    def radius(self) -> float:
+        return self._radius
+
     def contains(self, x: np.ndarray, tol : float = 0) -> bool:
         """
         Checks if a point is contained within the region.
