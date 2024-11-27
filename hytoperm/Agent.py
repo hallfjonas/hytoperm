@@ -818,6 +818,7 @@ class Agent:
         self._sensor : Sensor = sensor                                          # utilized sensor        
         self._gpp : GlobalPathPlanner = None                                    # global path planner
         self._tvs : List[Target] = []                                           # target visiting sequence
+        self._K: int = None                                                      # length of the visiting sequence
         self._cycle : Cycle = None                                              # the world instance    
 
         # optimization parameters
@@ -865,9 +866,11 @@ class Agent:
     def computeVisitingSequence(self) -> None:
         self.gpp().solveTSP()
         self._tvs = self.gpp().tsp().getTargetVisitingSequence()
+        self._K = len(self._tvs)
 
     def setTargetVisitingSequence(self, tvs : List[Target]) -> None:
         self._tvs = tvs
+        self._K = len(self._tvs)
     
     def simulateCycle(self) -> None:
         
@@ -896,7 +899,7 @@ class Agent:
             dJ_dt = self.updateMonitoringDurations()
 
             # Compute first order stationarity condition
-            for i in range(len(self._tvs)):
+            for i in range(self._K):
                 self._kkt_residuals[i] = dJ_dt[i] - self._lambda[i]
             self._kkt_violations.append(
                 np.array(list(self._kkt_residuals.values()))
@@ -917,17 +920,18 @@ class Agent:
     
     def initializeCycle(self) -> None:
         
-        if (len(self._tvs) <= 1):
+        if (self._K <= 1):
             warnings.warn("Expected at least two targets in the visiting sequence. Did you run 'computeVisitingSequence()'?")
             return
                     
         # create lists of trajectory segments
-        self._switchingSegments, self._tvs = self.initializeSwitchingSegments()
+        self._switchingSegments, tvs = self.initializeSwitchingSegments()
+        self.setTargetVisitingSequence(tvs)
         self._monitoringSegments = self.initializeMonitoringSegments()
         trajectorySegments : List[TrajectorySegment] = []
 
         # combine trajectory segments
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             trajectorySegments.append(self._switchingSegments[i])
             trajectorySegments.append(self._monitoringSegments[i])
 
@@ -943,7 +947,7 @@ class Agent:
         segments : List[SwitchingSegment] = []
         refined_tvs = []
 
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             ot = self._tvs[i-1]
             ct = self._tvs[i]
             swPath : Tree = self.gpp().targetPath(ot, ct).getParent()
@@ -1024,7 +1028,7 @@ class Agent:
 
     def initializeMonitoringSegments(self) -> List[MonitoringSegment]:
         segments : List[MonitoringSegment] = []
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             target = self._tvs[i]
             phi = self._switchingSegments[i].getEndPoint()
             nextIdx = (i+1) % len(self._switchingSegments)
