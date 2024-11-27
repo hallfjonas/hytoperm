@@ -92,13 +92,13 @@ class Region:
     def randomBoundaryPoint(self) -> np.ndarray:
         pass
 
-    def projectToBoundary(self, x0, xf):
+    def projectToBoundary(self, xf, x0 = None):
         '''
         This function projects a point onto the boundary of the region along the 
         ray xf - x0, where x0 is assumed to be inside the region.
         
         Args:
-            x0: Initial point (within the region).
+            x0: Initial point (within the region). Equals self.p() if None.
             xf: Final point provides the direction (xf - x0).
         '''
         pass
@@ -276,7 +276,16 @@ class CPRegion(Region):
         vtx2 = self._ch.points[self._ch.vertices[i-1]]
         return (1 - alpha) * vtx1 + alpha * vtx2
 
-    def projectToBoundary(self, x0, xf):
+    def projectToBoundary(self, xf, x0 = None):
+        '''
+        This function projects a point onto the boundary of the region along the 
+        ray xf - x0, where x0 is assumed to be inside the region.
+        
+        Args:
+            x0: Initial point (within the region). Equals self.p() if None.
+            xf: Final point provides the direction (xf - x0).
+        '''
+        x0 = self.p() if x0 is None else x0
         bdp = None
 
         if np.linalg.norm(xf - x0) < np.finfo(float).eps:
@@ -515,16 +524,18 @@ class SphericalRegion(Region):
         alpha = np.random.uniform(0, 2*np.pi)
         return self._center + self._radius * np.array([np.cos(alpha), np.sin(alpha)])
 
-    def projectToBoundary(self, x0, xf):
+    def projectToBoundary(self, xf, x0 = None):
         '''
         This function projects a point onto the boundary of the region along the 
         ray xf - x0, where x0 is assumed to be inside the region.
         
         Args:
-            x0: Initial point (within the region).
+            x0: Initial point (within the region). Equals self.p() if None.
             xf: Final point provides the direction (xf - x0).
         '''
-        raise NotImplementedError("Projection to boundary not implemented for spherical regions.")
+        if x0 is not None:
+            raise NotImplementedError("Projection to boundary not implemented for spherical regions.")
+        return self._center + self._radius * (xf - self._center) / np.linalg.norm(xf - self._center)
 
     def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         '''
