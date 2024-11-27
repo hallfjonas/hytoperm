@@ -209,6 +209,8 @@ class TrajectorySegment:
         self.params : SwitchingParameters = params                              # switching parameters for the segment
         self._cost : float = None                                               # the cost of the segment           
         self._gradient_tau = None                                               # the cost gradient with respect to trajectory duration
+        self._gradient_a_phi = None                                             # the cost gradient with respect to entrance point      
+        self._gradient_a_psi = None                                             # the cost gradient with respect to departure point
         self._ucs : Dict[Target : cad.Function] = ucs                           # an unmmonitored covariance simulator for each target
         self._cov_f : Dict[Target, np.ndarray] = {}
 
@@ -228,8 +230,21 @@ class TrajectorySegment:
     def getCost(self) -> float:
         return self._cost
     
-    def getGradient(self):
+    def getGradientTau(self) -> np.ndarray:
         return self._gradient_tau
+    
+    def getGradientPhi(self) -> np.ndarray:
+            return self._gradient_a_phi
+    
+    def getGradientPsi(self) -> np.ndarray:
+            return self._gradient_a_psi
+
+    def getGradients(self) -> Dict[str, np.ndarray]:
+        return {
+            'tau': self.getGradientTau(),
+            'phi': self.getGradientPhi(),
+            'psi': self.getGradientPsi()
+        }
 
     def getTerminalCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._cov_f
@@ -510,6 +525,8 @@ class MonitoringSegment(TrajectorySegment):
         self.updateTerminalCovarianceMatrix(self._target, omega.getEndPoint())
         
         self._cost = Jk
+        self._gradient_phi = -duals_p[0:2].full().flatten()
+        self._gradient_psi = -duals_p[2:4].full().flatten()
         self._gradient_tau = -duals_p[4].full().flatten()
         for target in self._ucs.keys():
             if target == self._target:
@@ -522,7 +539,9 @@ class MonitoringSegment(TrajectorySegment):
             self.updateMSETrajectory(target, mse)
             self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
             self._cost += Ik
-            self._gradient_tau += dIk_dt       
+            self._gradient_tau += dIk_dt 
+            # gradients of phi and psi are equal to 0 here!
+
 
 
 '''
@@ -597,13 +616,42 @@ class Cycle:
     def getCost(self) -> float:
         return sum(ts.getCost() for ts in self._trajectorySegments)
     
-    def getGradient(self) -> np.ndarray:
+    def getGradientTau(self) -> np.ndarray:
         monSeg : List[TrajectorySegment] = []
         for ts in self._trajectorySegments:
             if isinstance(ts, MonitoringSegment):
                 monSeg.append(ts)
-        return np.array([ts.getGradient() for ts in monSeg]).flatten()
+        return np.array([ts.getGradientTau() for ts in monSeg]).flatten()
 
+    def getGradientPhi(self) -> np.ndarray:
+        raise NotImplementedError("Not implemented yet.")
+        
+        monSeg : List[TrajectorySegment] = []
+        swSeg : List[TrajectorySegment] = []
+        for ts in self._trajectorySegments:
+            if isinstance(ts, MonitoringSegment):
+                monSeg.append(ts)
+            else:
+                swSeg.append(ts)
+        
+        # Questions
+        # 1. Do I want to have one dimensional gradients?
+        # 2. Gradient for the switching segments depends on the Deltas.
+        #        Where do I handle this dependency?
+
+        grad = np.array([ts.getGradientPhi() for ts in monSeg]).flatten()
+
+    def getGradientPsi(self) -> np.ndarray:
+        raise NotImplementedError("Not implemented yet.")
+        
+    def getGradients(self) -> Dict[str, np.ndarray]:
+        
+        return {
+            'tau': self.getGradientTau(),
+            'phi': self.getGradientPhi(),
+            'psi': self.getGradientPsi()
+        }
+        
     def getInitialCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._covAtCycleStart
     
@@ -1038,7 +1086,7 @@ class Agent:
             phi = self._switchingSegments[i].getEndPoint()
             nextIdx = (i+1) % len(self._switchingSegments)
             psi = self._switchingSegments[nextIdx].getStartPoint()
-            tf = max(0.1, 1.1*target.region().travelCost(phi, psi))
+            tf = max(0.1, 1.5*target.region().travelCost(phi, psi))
             self._tau[i] = tf
             self._tau_min[i] = target.region().travelCost(phi, psi)
 
@@ -1074,36 +1122,90 @@ class Agent:
                 return False, it
             
             self._cycle._cycle_start += self._cycle.getDuration()
-    
-    def globalCostGradient(self):
+
+    def getGradientCycleCost(self) -> dict[str, np.ndarray]:
+        """
+        Compute the gradient of the cycle cost, i.e., of the cost of one 
+        complete cycle (not scaled with the cycle duration).
+        """
+        return {
+            'tau': self._cycle.getGradientTau(),
+            'phi': self._cycle.getGradientPhi(),
+            'psi': self._cycle.getGradientPsi()
+        }
+
+    def getGradientT(self) -> dict[str, np.ndarray]:
+        """
+        Get the gradient of the cycle duration with respect to all parameters.
+        """
+
+        nablaDelta = {
+            'a_phi': np.zeros((self._K, 2)),
+            'a_psi': np.zeros((self._K, 2))
+        }
+            
+        k = 0
+        for ts in self._cycle._trajectorySegments:
+            if isinstance(ts, SwitchingSegment):
+                a = ts.getStartPoint()
+                b = ts.getEndPoint()
+                da, db = self.gpp().getGradientDelta(a, b) 
+                nablaDelta['a_psi'][k,:] = da
+                nablaDelta['a_phi'][k+1 % self._K,:] = db
+                k += 1
+                
+        return {
+            'tau': np.ones(self._K),
+            'a_phi': nablaDelta['a_phi'],
+            'a_psi': nablaDelta['a_psi']
+        }
+
+    def globalCostGradients(self) -> dict[str, np.ndarray]:
+        """
+        Computes the global cost gradient with respect to all parameters
+        """
         T = self._cycle.getDuration()
-        J = self._cycle.getCost()
-        dJ_dt = self._cycle.getGradient()
+        C = self._cycle.getCost()
+
+        nablaT = self.getGradientT()
+        nablaC = self.getGradientCycleCost()
+
+        nablaJ = {}
+        for param in nablaT.keys():
+            nablaJ[param] = (nablaC[param] * T - nablaT[param] * C)/T**2
         
+        raise NotImplementedError("Not implemented yet.")
+        # Need to handle the following somewhere:
+            # 1. Gradient of monitoring and switching segments wrt phi and psi
+            # 2. Gradient of Time wrt phi and psi
+            # 3. Need to update return value below to account for all gradients
+
         # global average cost gradient
-        return (dJ_dt * T - J * np.ones(len(dJ_dt)))/T**2
+        return nablaJ
 
     def updateMonitoringDurations(self) -> None:
         '''
         Simple projected gradient descend
         '''
+        dJ = self.globalCostGradients()
         self._global_gradients.append(dJ_dt)
         self._global_gradient_norms.append(np.linalg.norm(dJ_dt, ord=np.inf))
         if self._global_gradient_norms[-1] > self.op.tr:
             dJ_dt = dJ_dt * self.op.tr / self._global_gradient_norms[-1]
         
         self._tau_vals.append(
-            np.array([self._tau[i] for i in range(len(self._tvs))])
+            np.array([self._tau[i] for i in range(self._K)])
             )
-        for i in range(len(self._tvs)):
-            if self._tau[i] == self._tau_min[i] and dJ_dt[i] > 0:
+        for i in range(self._K):
+            if self._tau[i] == self._tau_min[i] + self.op.sigma and dJ_dt[i] > 0:
                 self._lambda[i] = dJ_dt[i]
             else:
+                lwrs = 0.1 if len(self._tau_vals) >= 1500 else 0
                 self._lambda[i] = 0
                 self._tau[i] = max(
                     self._tau_min[i] + self.op.sigma, 
-                    self._tau[i] - self.op.alpha * dJ_dt[i]
-                    )
+                    self._tau[i] - self.op.alpha * dJ_dt[i] - lwrs
+                )
             self._monitoringSegments[i].params._tf = self._tau[i]
         self.op.alpha *= self.op.beta
         self._alphas.append(self.op.alpha)

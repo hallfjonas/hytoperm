@@ -369,7 +369,14 @@ class GlobalPathPlanner:
     # getters
     def tsp(self) -> TSP:
         return self._tsp
-    
+
+    def getGradientDelta(self, t0: np.ndarray, tf: np.ndarray) -> np.ndarray:
+        """
+        Compute the gradient of the switching duration from t0 to tf wrt the 
+        start and end point.
+        """
+        pass
+
     def targetPath(self, init : Target, goal : Target) -> Tree:
         if init not in self._target_paths:
             warnings.warn("No path exists from {0} to any other target. Running TSP solver".format(init.name))
@@ -485,7 +492,24 @@ class GlobalPathPlanner:
 class NormBasedGlobalPlanner(GlobalPathPlanner):
     def __init__(self, world : World) -> None:
         super().__init__(world)
-        
+        self._sigma = 1e-6                                                      # regularization parameter     
+       
+    def getGradientDelta(self, t0: np.ndarray, tf: np.ndarray) -> np.ndarray:
+        """
+        Compute the gradient of the switching duration from t0 to tf wrt the 
+        start and end point.
+        """
+        Delta = self.planPath(t0, tf)[1]
+
+        if Delta < self._sigma:
+            print(f"Gradient is approaching infinity. Using relaxed distance instead.")
+            Delta = self._sigma          
+
+        d0 = (t0 - tf)/Delta
+        df = (tf - t0)/Delta
+
+        return d0, df
+ 
     def planPathToTarget(
             self,
             init : np.ndarray,
@@ -548,6 +572,13 @@ class RRBTGlobalPlanner(GlobalPathPlanner):
         self._rrbts : Dict[Target, RRBT] = {}
         self.rrbt_iter = 200
 
+    def getGradientDelta(self, t0: np.ndarray, tf: np.ndarray) -> np.ndarray:
+        """
+        Compute the gradient of the switching duration from t0 to tf wrt the 
+        start and end point.
+        """
+        raise NotImplementedError("This method is not implemented for RRBTGlobalPlanner")
+    
     def planPathToTarget(
             self,
             init : np.ndarray,
