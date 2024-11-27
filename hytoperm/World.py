@@ -567,10 +567,22 @@ class SphericalRegion(Region):
         return np.linalg.norm(xf - x0)
 
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
-        return PlotObject(ax.Circle(self._center, self._radius, **kwargs, fill=False))
+        x = [self._center[0] + self._radius * np.cos(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        y = [self._center[1] + self._radius * np.sin(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        return PlotObject(ax.plot(x, y, **kwargs))
 
     def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
-        return PlotObject(ax.Circle(self._center, self._radius, **kwargs, fill=True))
+        if self.isObstacle():
+            eka = extendKeywordArgs(
+                _plotAttr.obstacle_background.getAttributes(), **kwargs
+            )
+        else:
+            eka = extendKeywordArgs(
+                _plotAttr.partition_background.getAttributes(), **kwargs
+            )
+        x = [self._center[0] + self._radius * np.cos(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        y = [self._center[0] + self._radius * np.sin(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        return PlotObject(ax.fill(x, y, **eka))
 
     def p(self) -> np.ndarray:
         return self._center
@@ -586,11 +598,11 @@ class SphericalRegion(Region):
         r = np.random.uniform(0, self._radius)
         return self._center + r * np.array([np.cos(alpha), np.sin(alpha)])
 
-    def intersects(self, other: SphericalRegion) -> bool:
+    def intersects(self, other: SphericalRegion, tol: float = 0.0) -> bool:
         """
-        Checks if the region intersects with another spherical region.
+        Checks if the region, inflated by tol, intersects with another spherical region.
         """
-        d = np.linalg.norm(self._center - other._center)
+        d = np.linalg.norm(self._center - other._center) - tol
         return d <= self._radius + other._radius
 
 class ObstacleCPRegion(CPRegion):
@@ -1042,7 +1054,8 @@ class World:
             fill_empty_regions=True,
             plot_partition=True,
             plot_targets=True,
-            plot_vector_field=True
+            plot_vector_field=True,
+            plot_domain=False
             ) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()        
@@ -1056,13 +1069,17 @@ class World:
         if plot_targets:
             po.add(self.plotTargets(ax, add_target_labels))
 
+        if plot_domain:
+            po.add(self.plotDomain(ax))
+
         return po
 
     def plotTargets(self, ax : plt.Axes = None, add_target_labels=False) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        for target in self._targets:
-            po.add(target.plot(ax, annotate=add_target_labels))
+        for i, target in enumerate(self._targets):
+            col = _plotAttr.target_colors[-i]
+            po.add(target.plot(ax, annotate=add_target_labels, color=col))
 
         return po
 
