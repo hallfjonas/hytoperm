@@ -830,6 +830,7 @@ class Agent:
         # optimization statistics
         self._kkt_residuals : Dict[int, float] = {}                             # map a target visit index to a KKT residual
         self._global_costs : List[float] = []                                   # global cost (per steady state cycle) 
+        self._global_gradients : List[float] = []                               # global gradients (per cycle)
         self._global_gradient_norms : List[float] = []                          # global gradient norm (per steady state cycle) 
         self._tau_vals : List[np.ndarray] = []                                  # monitoring durations (per steady state cycle)
         self._kkt_violations : List[np.ndarray] = []                            # KKT residuals (per steady state cycle)
@@ -902,12 +903,12 @@ class Agent:
             for i in range(self._K):
                 self._kkt_residuals[i] = dJ_dt[i] - self._lambda[i]
             self._kkt_violations.append(
-                np.array(list(self._kkt_residuals.values()))
+                np.array([np.abs(res) for res in self._kkt_residuals.values()])
                 )
             
             self.printIteration(it)
 
-            o = np.max(np.abs(self._kkt_violations[-1])) < self.op.kkt_tolerance
+            o = np.max(self._kkt_violations[-1]) < self.op.kkt_tolerance
             if o and steady:
                 print("Optimal cycle found!")
                 break
@@ -1086,7 +1087,7 @@ class Agent:
         '''
         Simple projected gradient descend
         '''
-        dJ_dt = self.globalCostGradient()
+        self._global_gradients.append(dJ_dt)
         self._global_gradient_norms.append(np.linalg.norm(dJ_dt, ord=np.inf))
         if self._global_gradient_norms[-1] > self.op.tr:
             dJ_dt = dJ_dt * self.op.tr / self._global_gradient_norms[-1]
@@ -1237,7 +1238,25 @@ class Agent:
             **kwargs
             ) -> PlotObject:
         ax = getAxes(ax)
-        return PlotObject(ax.plot(self._global_gradient_norms, **kwargs))
+        return PlotObject(ax.plot(self._kkt_violations, **kwargs))
+        
+    def plotGlobalGradients(
+            self, 
+            ax : plt.Axes = None, 
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        Nk = len(self._global_gradients)
+        tc = _plotAttr.target_colors
+        for i in range(self._K):
+            eka = extendKeywordArgs(
+                {'color': tc[-int(self._tvs[i].name)+1]}, 
+                **kwargs
+            )
+            dJ_di = [self._global_gradients[k][i] for k in range(Nk)]
+            po.add(ax.plot(dJ_di, **eka))
+        return po
     
     def plotTauVals(
             self, 
@@ -1250,7 +1269,7 @@ class Agent:
         tv = np.array(self._tau_vals)
         for i in range(tv.shape[1]):
             eka = extendKeywordArgs(
-                {'color': _plotAttr.target_colors[-i]}, 
+                {'color': _plotAttr.target_colors[-int(self._tvs[i].name)+1]}, 
                 **kwargs
                 )
             po.add(ax.plot(tv[:,i], **eka))
@@ -1260,19 +1279,22 @@ class Agent:
                     {'alpha' : 0.75, 'linestyle' : '--'}, 
                     **eka
                     )
-                po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
+                po.add(ax.hlines(self._tau_min[i] + self.op.sigma, 0, len(tv[:,i]), **eka))
         return po
 
     def plotKKTViolations(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        po.add(PlotObject(ax.plot(self._kkt_violations, **kwargs)))
-        po.add(PlotObject(ax.axhspan(
-            -self.op.kkt_tolerance, 
-            self.op.kkt_tolerance, 
-            alpha=0.2, 
-            color='green'))
+        NK = len(self._kkt_violations)
+        tc = _plotAttr.target_colors
+        for i in range(self._K):
+            eka = extendKeywordArgs(
+                {'color': tc[-int(self._tvs[i].name)+1]}, 
+                **kwargs
             )
+            po.add(PlotObject(
+                ax.plot([self._kkt_violations[k][i] for k in range(NK)], 
+                        **eka)))
         return po
 
     def plotAlphas(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
