@@ -519,21 +519,38 @@ class NormBasedGlobalPlanner(GlobalPathPlanner):
 
     def planGlobalPath(self, t0 : np.ndarray, tf : np.ndarray) -> Tuple[Tree, float]:
         cost = np.linalg.norm(tf - t0)
-        rf: Region = self._world.getRegions(tf).pop()
-        r0: Region = self._world.getRegions(t0).pop()
-        path = Tree(Node(tf, set([rf])))
-        swf = Tree(Node(
-            rf.projectToBoundary(t0), 
-            set([rf]),
-            rf
-        ))
-        swf.setParent(path, rf.travelCost(tf, swf.getData().p()))
+        rf: Region = self._world.getRegion(tf)
+        r0: Region = self._world.getRegion(t0)
+
+        if rf == r0:
+            nf = Node(tf, set([rf]))
+            n0 = Node(t0, set([r0]))
+            path = Tree(n0)
+            cost = np.linalg.norm(tf - t0)
+            path.setParent(Tree(nf), cost)
+            return path, cost
         
-        child = Tree(Node(t0, set([r0])))
-        sw0 = Tree(Node(r0.projectToBoundary(tf), set([r0])))
-        sw0.setParent(swf, r0.travelCost(t0, sw0.getData().p()))
-        child.setParent(sw0, np.linalg.norm(sw0.getData().p() - swf.getData().p()))
-        return child, cost
+        path = Tree(Node(tf, set([rf])))
+        if isinstance(rf, Region):
+
+            swf = Tree(Node(
+                rf.projectToBoundary(t0), 
+                set([rf]),
+                rf
+            ))
+            swf.setParent(path, rf.travelCost(tf, swf.getData().p()))
+            path = swf
+        
+        if isinstance(r0, Region):
+            sw0 = Tree(Node(r0.projectToBoundary(tf), set([r0])))
+            ctp = np.linalg.norm(sw0.getData().p() - path.getData().p())
+            sw0.setParent(path, ctp)
+            path = sw0
+        
+        final_path = Tree(Node(t0, set([r0])))
+        ctp = np.linalg.norm(final_path.getData().p() - path.getData().p())
+        final_path.setParent(path, ctp)
+        return final_path, final_path.getData().costToRoot()
     
     def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
         '''
