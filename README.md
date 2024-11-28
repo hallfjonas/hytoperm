@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from hytoperm import *
 
 # generate and plot the expriment setup
-ex = Experiment.generate()
+ex = VoronoiExperiment.generate(n_sets=12)
 fig, ax = ex.plotWorld()
 ex.agent().plotSensorQuality()
 
