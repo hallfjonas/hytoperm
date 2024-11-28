@@ -1,7 +1,7 @@
 
 # external imports
 import casadi as cad
-
+import numpy as np
 
 class NLPSolver:
     def __init__(
@@ -12,7 +12,8 @@ class NLPSolver:
             ubw = None, 
             lbg = None, 
             ubg = None, 
-            quiet = True
+            quiet = True,
+            method = 'ipopt'
             ) -> None:
         self.solver = None
         self.lbw = None
@@ -22,6 +23,7 @@ class NLPSolver:
         self.w0 = None
         self.params = None
         self.print_level = 0 if quiet else 4
+        self.method = method
         self.initialize(prob, w0, lbw, ubw, lbg, ubg)
 
     def initialize(
@@ -36,7 +38,7 @@ class NLPSolver:
         opts = {}
         opts['ipopt.print_level'] = self.print_level 
         opts['print_time'] = self.print_level
-        self.solver = cad.nlpsol('solver', 'ipopt', prob, opts)
+        self.solver = cad.nlpsol('solver', self.method, prob, opts)
         self.lbw = cad.vertcat(*lbw)
         self.ubw = cad.vertcat(*ubw)
         self.lbg = cad.vertcat(*lbg)
@@ -44,14 +46,24 @@ class NLPSolver:
         self.w0 = cad.vertcat(*w0)
 
     def solve(self):
-        return self.solver(
-            x0=self.w0, 
-            lbx=self.lbw, 
-            ubx=self.ubw, 
-            lbg=self.lbg, 
-            ubg=self.ubg, 
-            p=self.params
-            )
+        if self.params is None:
+            return self.solver(
+                x0=self.w0, 
+                lbx=self.lbw, 
+                ubx=self.ubw, 
+                lbg=self.lbg, 
+                ubg=self.ubg
+                )
+        else:
+            return self.solver(
+                x0=self.w0, 
+                lbx=self.lbw, 
+                ubx=self.ubw, 
+                lbg=self.lbg, 
+                ubg=self.ubg, 
+                p=self.params
+                )
+        
 
 
 class OptimizationParameters:

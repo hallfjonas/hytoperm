@@ -6,7 +6,7 @@ import networkx as nx
 # internal imports
 from .World import *
 from .GlobalPlanning import *
-from PlotObjects.plotobjects.palettes import *
+from .PyPlotHelpers.Palettes import *
 import math
 
 class AbstractionOptions:

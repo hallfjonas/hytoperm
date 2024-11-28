@@ -22,7 +22,7 @@ def omegaDot(p, Omega, target : Target, sensor : Sensor, inTargetRegion=False):
     R_inv = sensor.getMeasurementNoiseInverse(target)
     unmonitored = Q + A @ Omega + Omega @ A.T
     if inTargetRegion:
-        mf = sensor.getQualityFunction(target)(p, target.p())
+        mf = sensor.getQualityFunction(target=target)(p, target.p())
         return unmonitored  - mf*mf*Omega @ H.T @ R_inv @ H @ Omega
     return unmonitored
 
@@ -137,10 +137,7 @@ def simulateUnmonitoredOmega(fun : cad.Function, tf, Omega0):
     mseTrajectory = Trajectory(cadToNumpy(sim[1], no, N+1), t_grid)
     omegaTrajectory = Trajectory(cadToNumpy(sim[2], no*no, N+1), t_grid)
     
-    # gradient: dIk_dtf = loss function evaluated at the terminal time
-    dIk_dtf = mseTrajectory.getEndPoint()
-
-    return mseTrajectory, omegaTrajectory, Ik, dIk_dtf
+    return mseTrajectory, omegaTrajectory, Ik, mseTrajectory.getEndPoint()
 
 
 '''
@@ -153,7 +150,7 @@ class CovarianceParameters:
         self.Q : np.ndarray = target.Q
         self.H : np.ndarray = sensor.getMeasurementMatrix(target)
         self.R_inv : np.ndarray = sensor.getMeasurementNoiseInverse(target)
-        self.sqf : SensingQualityFunction = sensor.getQualityFunction(target)
+        self.sqf : SensingQualityFunction = sensor.getQualityFunction(target=target)
 
 
 '''
@@ -209,6 +206,8 @@ class TrajectorySegment:
         self.params : SwitchingParameters = params                              # switching parameters for the segment
         self._cost : float = None                                               # the cost of the segment           
         self._gradient_tau = None                                               # the cost gradient with respect to trajectory duration
+        self._gradient_a_phi = None                                             # the cost gradient with respect to entrance point      
+        self._gradient_a_psi = None                                             # the cost gradient with respect to departure point
         self._ucs : Dict[Target : cad.Function] = ucs                           # an unmmonitored covariance simulator for each target
         self._cov_f : Dict[Target, np.ndarray] = {}
 
@@ -228,8 +227,21 @@ class TrajectorySegment:
     def getCost(self) -> float:
         return self._cost
     
-    def getGradient(self):
+    def getGradientTau(self) -> np.ndarray:
         return self._gradient_tau
+    
+    def getGradientPhi(self) -> np.ndarray:
+            return self._gradient_a_phi
+    
+    def getGradientPsi(self) -> np.ndarray:
+            return self._gradient_a_psi
+
+    def getGradients(self) -> Dict[str, np.ndarray]:
+        return {
+            'tau': self.getGradientTau(),
+            'phi': self.getGradientPhi(),
+            'psi': self.getGradientPsi()
+        }
 
     def getTerminalCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._cov_f
@@ -289,17 +301,12 @@ class MonitoringController:
         
         # input assertions
         region = target.region()
-        if not hasattr(region, 'dynamics'):
-            raise Exception("Expected target region to have a dynamics model.")
-        if not isinstance(region, CPRegion):
-            raise Exception(
-                "Not implemented for regions other than CPRegion."
-                )
-        dynamics : ConstantDynamics = region.dynamics()   
-        if not isinstance(dynamics, ConstantDynamics):
-            raise Exception(
-                "Not implemented for dynamics other than constant dyanmics."
-                )
+        v = np.zeros(2)
+        if hasattr(region, 'dynamics'):
+            dynamics : ConstantDynamics = region.dynamics()
+            if not isinstance(dynamics, ConstantDynamics):
+                    raise Exception("Not implemented for dynamics other than constant dyanmics.")
+            v = dynamics.v()
 
         # states
         no = target.getNumberOfStates()
@@ -323,7 +330,7 @@ class MonitoringController:
         N = self.N                  # number of control intervals
 
         # Model equations     
-        pDot = dynamics.v() + u
+        pDot = v + u
         oDot = omegaDot(p, Omega, target, sensor, True)
         xDot = cad.vertcat(pDot, oDot)
 
@@ -350,13 +357,17 @@ class MonitoringController:
         F = cad.Function('F',[X0,U,params],[X,Q],['x0','u0','p'],['xf','qf'])
 
         # Region constraints
-        region = target.region()
-        g_constr = region.g()
-        b_constr = region.b()
-        g_constr_term = []
-        for i in g_constr.keys():
-            g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
-        R = cad.Function('r',[X0],[cad.vertcat(*g_constr_term)],['x0'],['r'])
+        if (self.add_region_constraints):
+            region = target.region()
+            if isinstance(region, CPRegion):
+                g_constr = region.g()
+                b_constr = region.b()
+                g_constr_term = []
+                for i in g_constr.keys():
+                    g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
+                R = cad.Function('r',[X0],[cad.vertcat(*g_constr_term)],['x0'],['r'])
+            elif isinstance(region, SphericalRegion):
+                R = cad.Function('r',[X0],[cad.norm_2(X0[0:2]-region.center()) - region.radius()],['x0'],['r'])
 
         lbx = -np.inf*np.ones(nx)
         ubx = -lbx
@@ -511,6 +522,8 @@ class MonitoringSegment(TrajectorySegment):
         self.updateTerminalCovarianceMatrix(self._target, omega.getEndPoint())
         
         self._cost = Jk
+        self._gradient_a_phi = -duals_p[0:2].full().flatten()
+        self._gradient_a_psi = -duals_p[2:4].full().flatten()
         self._gradient_tau = -duals_p[4].full().flatten()
         for target in self._ucs.keys():
             if target == self._target:
@@ -523,7 +536,9 @@ class MonitoringSegment(TrajectorySegment):
             self.updateMSETrajectory(target, mse)
             self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
             self._cost += Ik
-            self._gradient_tau += dIk_dt       
+            self._gradient_tau += dIk_dt 
+            # gradients of phi and psi are equal to 0 here!
+
 
 
 '''
@@ -533,13 +548,48 @@ class SwitchingSegment(TrajectorySegment):
     def __init__(
             self, 
             ucs : Dict[Target, cad.Function], 
+            gpp : GlobalPathPlanner,
             params : SwitchingParameters = None
             ) -> None:
         super().__init__(ucs, params)
+        self._gpp : GlobalPathPlanner = gpp
+
+    def gpp(self) -> GlobalPathPlanner:
+        return self._gpp
 
     def update(self) -> None:
         self._cost = 0
         self._gradient_tau = 0
+
+        # computed by chain rule (first compute the outer value)
+        self._gradient_a_psi = 0
+        self._gradient_a_phi = 0
+        
+        for target in self._ucs.keys():
+            mse, Omega, Ik, mseEnd = simulateUnmonitoredOmega(
+                self._ucs[target], 
+                self.params._tf, 
+                self.params._Omega0[target]
+            )
+            self.updateMSETrajectory(target, mse)
+            self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
+            self._cost += Ik
+            self._gradient_tau += mseEnd 
+
+            # chain rule (outer)
+            self._gradient_a_phi += mseEnd
+            self._gradient_a_psi += mseEnd
+            # gradients of phi and psi are equal to 0 here!
+
+        # chain rule (inner)
+        da_psi, da_phi = self.gpp().getGradientDelta(
+            self.getStartPoint(),
+            self.getEndPoint()
+        )
+
+        # chain rule (outer * inner)
+        self._gradient_a_phi = self._gradient_a_phi * da_phi
+        self._gradient_a_psi = self._gradient_a_psi * da_psi
 
         # Don't need to update the control or path, but reset to 0 relative time
         t0 = self.uTrajectory.t[0]
@@ -576,7 +626,7 @@ class Cycle:
         self._trajectorySegments : List[TrajectorySegment] = ts
         self._covAtCycleStart : Dict[Target, np.ndarray] = omega0
         self._covAtCycleEnd : Dict[Target, np.ndarray] = None
-
+        
         # statistics
         self._cycle_start : float = t0
         self._counter : int = counter
@@ -589,6 +639,9 @@ class Cycle:
     def getDuration(self) -> float:
         return sum([ts.getDuration() for ts in self._trajectorySegments])
 
+    def K(self) -> int:
+        return int(len(self._trajectorySegments) / 2)
+
     def getStartTime(self) -> float:
         return self._cycle_start
     
@@ -598,13 +651,36 @@ class Cycle:
     def getCost(self) -> float:
         return sum(ts.getCost() for ts in self._trajectorySegments)
     
-    def getGradient(self) -> np.ndarray:
+    def getGradientTau(self) -> np.ndarray:
         monSeg : List[TrajectorySegment] = []
         for ts in self._trajectorySegments:
             if isinstance(ts, MonitoringSegment):
                 monSeg.append(ts)
-        return np.array([ts.getGradient() for ts in monSeg]).flatten()
+        return np.array([ts.getGradientTau() for ts in monSeg]).flatten()
 
+    def getGradientSwitches(self) -> np.ndarray:
+        grad_phi = np.zeros((self.K(), 2))
+        grad_psi = np.zeros((self.K(), 2))
+        l = 0
+        k = 0
+        for ts in self._trajectorySegments:
+            grad_phi[k,:] = grad_phi[k,:] + ts.getGradientPhi()
+            grad_psi[k,:] = grad_psi[k,:] + ts.getGradientPsi()
+            l = l + 1
+            if l == 2:
+                l = 0
+                k = k + 1
+        
+        return grad_phi, grad_psi
+
+    def getGradients(self) -> Dict[str, np.ndarray]:
+        
+        return {
+            'tau': self.getGradientTau(),
+            'phi': self.getGradientPhi(),
+            'psi': self.getGradientPsi()
+        }
+        
     def getInitialCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._covAtCycleStart
     
@@ -819,6 +895,7 @@ class Agent:
         self._sensor : Sensor = sensor                                          # utilized sensor        
         self._gpp : GlobalPathPlanner = None                                    # global path planner
         self._tvs : List[Target] = []                                           # target visiting sequence
+        self._K: int = None                                                      # length of the visiting sequence
         self._cycle : Cycle = None                                              # the world instance    
 
         # optimization parameters
@@ -830,6 +907,7 @@ class Agent:
         # optimization statistics
         self._kkt_residuals : Dict[int, float] = {}                             # map a target visit index to a KKT residual
         self._global_costs : List[float] = []                                   # global cost (per steady state cycle) 
+        self._global_gradients : List[float] = []                               # global gradients (per cycle)
         self._global_gradient_norms : List[float] = []                          # global gradient norm (per steady state cycle) 
         self._tau_vals : List[np.ndarray] = []                                  # monitoring durations (per steady state cycle)
         self._kkt_violations : List[np.ndarray] = []                            # KKT residuals (per steady state cycle)
@@ -857,18 +935,18 @@ class Agent:
                 )
         
     def setGlobalPathPlanner(self, gpp : GlobalPathPlanner = None) -> None:
-        if gpp is None:
-            gpp = GlobalPathPlanner(self.world())
         if not isinstance(gpp, GlobalPathPlanner):
-            raise ValueError("Expected a GlobalPathPlanner instance. Ignoring input.")
+            raise ValueError("Expected a GlobalPathPlanner instance.")
         self._gpp = gpp
    
     def computeVisitingSequence(self) -> None:
         self.gpp().solveTSP()
         self._tvs = self.gpp().tsp().getTargetVisitingSequence()
+        self._K = len(self._tvs)
 
     def setTargetVisitingSequence(self, tvs : List[Target]) -> None:
         self._tvs = tvs
+        self._K = len(self._tvs)
     
     def simulateCycle(self) -> None:
         
@@ -897,15 +975,15 @@ class Agent:
             dJ_dt = self.updateMonitoringDurations()
 
             # Compute first order stationarity condition
-            for i in range(len(self._tvs)):
+            for i in range(self._K):
                 self._kkt_residuals[i] = dJ_dt[i] - self._lambda[i]
             self._kkt_violations.append(
-                np.array(list(self._kkt_residuals.values()))
+                np.array([np.abs(res) for res in self._kkt_residuals.values()])
                 )
             
             self.printIteration(it)
 
-            o = np.max(np.abs(self._kkt_violations[-1])) < self.op.kkt_tolerance
+            o = np.max(self._kkt_violations[-1]) < self.op.kkt_tolerance
             if o and steady:
                 print("Optimal cycle found!")
                 break
@@ -918,17 +996,18 @@ class Agent:
     
     def initializeCycle(self) -> None:
         
-        if (len(self._tvs) <= 1):
+        if (self._K <= 1):
             warnings.warn("Expected at least two targets in the visiting sequence. Did you run 'computeVisitingSequence()'?")
             return
                     
         # create lists of trajectory segments
-        self._switchingSegments, self._tvs = self.initializeSwitchingSegments()
+        self._switchingSegments, tvs = self.initializeSwitchingSegments()
+        self.setTargetVisitingSequence(tvs)
         self._monitoringSegments = self.initializeMonitoringSegments()
         trajectorySegments : List[TrajectorySegment] = []
 
         # combine trajectory segments
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             trajectorySegments.append(self._switchingSegments[i])
             trajectorySegments.append(self._monitoringSegments[i])
 
@@ -944,7 +1023,7 @@ class Agent:
         segments : List[SwitchingSegment] = []
         refined_tvs = []
 
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             ot = self._tvs[i-1]
             ct = self._tvs[i]
             swPath : Tree = self.gpp().targetPath(ot, ct).getParent()
@@ -985,7 +1064,7 @@ class Agent:
             for target in self.world().targets():
                 if node.getData().activeRegionToParent() == target.region():
                     sp = SwitchingParameters(ep,dp,tf,N=self._N)
-                    ts = SwitchingSegment(self._ucs, sp)
+                    ts = SwitchingSegment(self._ucs, self.gpp(), sp)
                     ts.pTrajectory = pTrajectory
                     ts.uTrajectory = uTrajectory
                     n = None
@@ -1004,9 +1083,13 @@ class Agent:
             # a constant control law). In general doesn't need to be... 
             # So really, should have a trajectory to parent stored in the node 
             # or even better in an edge between the two nodes...
-            artp : DynamicCPRegion = node.getData().activeRegionToParent()
-            dyn : ConstantDynamics = artp.dynamics()
-            v = dyn.v().reshape(-1,1)            
+            artp = node.getData().activeRegionToParent()
+            v = np.zeros(2)
+            if hasattr(artp, 'dynamics'):
+                if isinstance(artp.dynamics(), ConstantDynamics):
+                    v = artp.dynamics().v()
+            
+            v = v.reshape(-1,1)
             u = (psi - phi)/deltaT - v
             
             # update trajectories
@@ -1025,12 +1108,12 @@ class Agent:
 
     def initializeMonitoringSegments(self) -> List[MonitoringSegment]:
         segments : List[MonitoringSegment] = []
-        for i in range(len(self._tvs)):
+        for i in range(self._K):
             target = self._tvs[i]
             phi = self._switchingSegments[i].getEndPoint()
             nextIdx = (i+1) % len(self._switchingSegments)
             psi = self._switchingSegments[nextIdx].getStartPoint()
-            tf = max(0.1, 1.1*target.region().travelCost(phi, psi))
+            tf = max(0.1, 1.5*target.region().travelCost(phi, psi))
             self._tau[i] = tf
             self._tau_min[i] = target.region().travelCost(phi, psi)
 
@@ -1066,36 +1149,86 @@ class Agent:
                 return False, it
             
             self._cycle._cycle_start += self._cycle.getDuration()
-    
-    def globalCostGradient(self):
+
+    def getGradientCycleCost(self) -> Dict[str, np.ndarray]:
+        """
+        Compute the gradient of the cycle cost, i.e., of the cost of one 
+        complete cycle (not scaled with the cycle duration).
+        """
+        d_a_phi, d_a_psi = self._cycle.getGradientSwitches()
+        return {
+            'tau': self._cycle.getGradientTau(),
+            'a_phi': d_a_phi,
+            'a_psi': d_a_psi
+        }
+
+    def getGradientT(self) -> Dict[str, np.ndarray]:
+        """
+        Get the gradient of the cycle duration with respect to all parameters.
+        """
+
+        nablaDelta = {
+            'a_phi': np.zeros((self._K, 2)),
+            'a_psi': np.zeros((self._K, 2))
+        }
+            
+        k = 0
+        for ts in self._cycle._trajectorySegments:
+            if isinstance(ts, SwitchingSegment):
+                a = ts.getStartPoint()
+                b = ts.getEndPoint()
+                da, db = self.gpp().getGradientDelta(a, b) 
+                nablaDelta['a_psi'][k,:] = da
+                nablaDelta['a_phi'][(k+1) % self._K,:] = db
+                k += 1
+                
+        return {
+            'tau': np.ones(self._K),
+            'a_phi': nablaDelta['a_phi'],
+            'a_psi': nablaDelta['a_psi']
+        }
+
+    def globalCostGradients(self) -> Dict[str, np.ndarray]:
+        """
+        Computes the global cost gradient with respect to all parameters
+        """
         T = self._cycle.getDuration()
-        J = self._cycle.getCost()
-        dJ_dt = self._cycle.getGradient()
+        C = self._cycle.getCost()
+
+        nablaT = self.getGradientT()
+        nablaC = self.getGradientCycleCost()
+
+        nablaJ = {}
+        for param in nablaT.keys():
+            nablaJ[param] = (nablaC[param] * T - nablaT[param] * C)/T**2
         
         # global average cost gradient
-        return (dJ_dt * T - J * np.ones(len(dJ_dt)))/T**2
+        return nablaJ
 
     def updateMonitoringDurations(self) -> None:
         '''
         Simple projected gradient descend
         '''
-        dJ_dt = self.globalCostGradient()
+        dJ = self.globalCostGradients()
+        dJ_dt = dJ['tau']
+        self._global_gradients.append(dJ_dt)
         self._global_gradient_norms.append(np.linalg.norm(dJ_dt, ord=np.inf))
         if self._global_gradient_norms[-1] > self.op.tr:
             dJ_dt = dJ_dt * self.op.tr / self._global_gradient_norms[-1]
         
         self._tau_vals.append(
-            np.array([self._tau[i] for i in range(len(self._tvs))])
+            np.array([self._tau[i] for i in range(self._K)])
             )
-        for i in range(len(self._tvs)):
-            if self._tau[i] == self._tau_min[i] and dJ_dt[i] > 0:
+        for i in range(self._K):
+            if self._tau[i] == self._tau_min[i] + self.op.sigma and dJ_dt[i] > 0:
                 self._lambda[i] = dJ_dt[i]
             else:
+                lwrs = 0.1 if len(self._tau_vals) >= 1500 else 0
                 self._lambda[i] = 0
                 self._tau[i] = max(
                     self._tau_min[i] + self.op.sigma, 
-                    self._tau[i] - self.op.alpha * dJ_dt[i]
-                    )
+                    self._tau[i] - self.op.alpha * dJ_dt[i] - lwrs
+                )
             self._monitoringSegments[i].params._tf = self._tau[i]
         self.op.alpha *= self.op.beta
         self._alphas.append(self.op.alpha)
@@ -1230,7 +1363,25 @@ class Agent:
             **kwargs
             ) -> PlotObject:
         ax = getAxes(ax)
-        return PlotObject(ax.plot(self._global_gradient_norms, **kwargs))
+        return PlotObject(ax.plot(self._kkt_violations, **kwargs))
+        
+    def plotGlobalGradients(
+            self, 
+            ax : plt.Axes = None, 
+            **kwargs
+            ) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        Nk = len(self._global_gradients)
+        tc = _plotAttr.target_colors
+        for i in range(self._K):
+            eka = extendKeywordArgs(
+                {'color': tc[-int(self._tvs[i].name)+1]}, 
+                **kwargs
+            )
+            dJ_di = [self._global_gradients[k][i] for k in range(Nk)]
+            po.add(ax.plot(dJ_di, **eka))
+        return po
     
     def plotTauVals(
             self, 
@@ -1243,7 +1394,7 @@ class Agent:
         tv = np.array(self._tau_vals)
         for i in range(tv.shape[1]):
             eka = extendKeywordArgs(
-                {'color': _plotAttr.target_colors[-i]}, 
+                {'color': _plotAttr.target_colors[-int(self._tvs[i].name)+1]}, 
                 **kwargs
                 )
             po.add(ax.plot(tv[:,i], **eka))
@@ -1253,19 +1404,22 @@ class Agent:
                     {'alpha' : 0.75, 'linestyle' : '--'}, 
                     **eka
                     )
-                po.add(ax.hlines(self._tau_min[i], 0, len(tv[:,i])-1, **eka))
+                po.add(ax.hlines(self._tau_min[i] + self.op.sigma, 0, len(tv[:,i]), **eka))
         return po
 
     def plotKKTViolations(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        po.add(PlotObject(ax.plot(self._kkt_violations, **kwargs)))
-        po.add(PlotObject(ax.axhspan(
-            -self.op.kkt_tolerance, 
-            self.op.kkt_tolerance, 
-            alpha=0.2, 
-            color='green'))
+        NK = len(self._kkt_violations)
+        tc = _plotAttr.target_colors
+        for i in range(self._K):
+            eka = extendKeywordArgs(
+                {'color': tc[-int(self._tvs[i].name)+1]}, 
+                **kwargs
             )
+            po.add(PlotObject(
+                ax.plot([self._kkt_violations[k][i] for k in range(NK)], 
+                        **eka)))
         return po
 
     def plotAlphas(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
@@ -1288,7 +1442,7 @@ class Agent:
                 for target in self._world.targets():
                     region = target.region()
                     if region.contains(p):
-                        Z[i,j] = sensor.getSensingQuality(target)
+                        Z[i,j] = sensor.getSensingQuality(target=target)
         sqAttr = _plotAttr.sensor_quality.getAttributes()
         eka = extendKeywordArgs(sqAttr, **kwargs)
         cf = ax.contourf(X, Y, Z, **eka)
@@ -1315,7 +1469,7 @@ class Agent:
         print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:6d} | {:>6s}".format(
             it, 
             self._global_costs[-1], 
-            self._global_gradient_norms[-1], 
+            np.max(self._kkt_violations[-1]),
             self._alphas[-1], 
             self._steady_state_iters[-1],
             'T' if self._isSteadyState[-1] else 'F'

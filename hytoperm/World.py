@@ -1,5 +1,6 @@
 
 # external imports
+from __future__ import annotations
 import warnings
 import numpy as np
 from typing import List, Dict, Set
@@ -91,13 +92,13 @@ class Region:
     def randomBoundaryPoint(self) -> np.ndarray:
         pass
 
-    def projectToBoundary(self, x0, xf):
+    def projectToBoundary(self, xf, x0 = None):
         '''
         This function projects a point onto the boundary of the region along the 
         ray xf - x0, where x0 is assumed to be inside the region.
         
         Args:
-            x0: Initial point (within the region).
+            x0: Initial point (within the region). Equals self.p() if None.
             xf: Final point provides the direction (xf - x0).
         '''
         pass
@@ -275,7 +276,16 @@ class CPRegion(Region):
         vtx2 = self._ch.points[self._ch.vertices[i-1]]
         return (1 - alpha) * vtx1 + alpha * vtx2
 
-    def projectToBoundary(self, x0, xf):
+    def projectToBoundary(self, xf, x0 = None):
+        '''
+        This function projects a point onto the boundary of the region along the 
+        ray xf - x0, where x0 is assumed to be inside the region.
+        
+        Args:
+            x0: Initial point (within the region). Equals self.p() if None.
+            xf: Final point provides the direction (xf - x0).
+        '''
+        x0 = self.p() if x0 is None else x0
         bdp = None
 
         if np.linalg.norm(xf - x0) < np.finfo(float).eps:
@@ -480,6 +490,137 @@ class CPRegion(Region):
         p += alphas[-1] * self.getConvexHull().points[-1]
         return p
 
+
+class SphericalRegion(Region):
+    def __init__(self, center : np.ndarray, radius : float, targetRegion: bool = True):
+        self._center = center
+        self._radius = radius
+        self.targetRegion = targetRegion
+
+    def center(self) -> np.ndarray:
+        return self._center
+    
+    def radius(self) -> float:
+        return self._radius
+
+    def contains(self, x: np.ndarray, tol : float = 0) -> bool:
+        """
+        Checks if a point is contained within the region.
+        
+        Args:
+            x: Point to be checked.
+            tol: Tolerance for the check.
+
+        Returns:
+            True iff the point is contained within the region.
+        """
+        return np.linalg.norm(x - self._center) <= self._radius
+
+    def violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
+        """
+        Checks which constraints are violated at x.
+        
+        Args:
+            x: Point to be checked.
+            tol: Tolerance for the check.
+
+        Returns:
+            A list of violated constraints.
+        """
+        if self.contains(x, tol):
+            return []
+        return [0]
+
+    def distToBoundary(self, x: np.ndarray) -> float:
+        """
+        Computes the distance to the boundary of the region.
+
+        Args:
+            x: Point to be checked.
+
+        Returns:
+            The distance to the boundary.
+        """
+        return abs(np.linalg.norm(x - self._center) - self._radius)
+
+    def randomBoundaryPoint(self) -> np.ndarray:
+        alpha = np.random.uniform(0, 2*np.pi)
+        return self._center + self._radius * np.array([np.cos(alpha), np.sin(alpha)])
+
+    def projectToBoundary(self, xf, x0 = None):
+        '''
+        This function projects a point onto the boundary of the region along the 
+        ray xf - x0, where x0 is assumed to be inside the region.
+        
+        Args:
+            x0: Initial point (within the region). Equals self.p() if None.
+            xf: Final point provides the direction (xf - x0).
+        '''
+        if x0 is not None:
+            raise NotImplementedError("Projection to boundary not implemented for spherical regions.")
+        return self._center + self._radius * (xf - self._center) / np.linalg.norm(xf - self._center)
+
+    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+        '''
+        This function plans a path between two points in the region.
+        
+        Args:
+            x0: Initial point.
+            xf: Final point.
+
+        Returns:
+            A list of waypoints.
+        '''
+        return [x0, xf]
+
+    def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
+        """
+        Computes the travel cost between two points in the region.
+
+        Args:
+            x0: Initial point.
+            xf: Final point.
+        """
+        return np.linalg.norm(xf - x0)
+
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        x = [self._center[0] + self._radius * np.cos(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        y = [self._center[1] + self._radius * np.sin(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        return PlotObject(ax.plot(x, y, **kwargs))
+
+    def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        if self.isObstacle():
+            eka = extendKeywordArgs(
+                _plotAttr.obstacle_background.getAttributes(), **kwargs
+            )
+        else:
+            eka = extendKeywordArgs(
+                _plotAttr.partition_background.getAttributes(), **kwargs
+            )
+        x = [self._center[0] + self._radius * np.cos(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        y = [self._center[0] + self._radius * np.sin(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        return PlotObject(ax.fill(x, y, **eka))
+
+    def p(self) -> np.ndarray:
+        return self._center
+
+    def isObstacle(self) -> bool:
+        return False
+    
+    def isTargetRegion(self) -> bool:
+        return self.targetRegion
+
+    def randomPoint(self) -> np.ndarray:
+        alpha = np.random.uniform(0, 2*np.pi)
+        r = np.random.uniform(0, self._radius)
+        return self._center + r * np.array([np.cos(alpha), np.sin(alpha)])
+
+    def intersects(self, other: SphericalRegion, tol: float = 0.0) -> bool:
+        """
+        Checks if the region, inflated by tol, intersects with another spherical region.
+        """
+        d = np.linalg.norm(self._center - other._center) - tol
+        return d <= self._radius + other._radius
 
 class ObstacleCPRegion(CPRegion):
 
@@ -803,6 +944,9 @@ class World:
     def setRegions(self, objs) -> None:
         for obj in objs:
             try:
+                if isinstance(obj, Region):
+                    self.addRegion(obj)
+                    continue
                 self.addRegion(obj.region())
             finally:
                 pass
@@ -896,15 +1040,17 @@ class World:
             None, if no region contains the point.
             Otherwise, a unique region that contains p. If p is contained in multiple regions, return one of those regions.
         '''
-        regs = list(self.getRegions(p, tol))
-        if len(regs) == 0:
-            return None
+        regs = self.getRegions(p, tol)
         if len(regs) > 1:
             warnings.warn("Point is in multiple regions. Returning first region.")
-            return regs[0]
-        return regs[0]
+        for r in regs: 
+            return r
+        return None
 
     def getRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
+        """
+        Returns all regions that contain the point p with a given tolerance.
+        """
         regions = set()
         for r in self._regions:
             if r.contains(p, tol=tol):
@@ -936,7 +1082,8 @@ class World:
             fill_empty_regions=True,
             plot_partition=True,
             plot_targets=True,
-            plot_vector_field=True
+            plot_vector_field=True,
+            plot_domain=False
             ) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()        
@@ -950,13 +1097,17 @@ class World:
         if plot_targets:
             po.add(self.plotTargets(ax, add_target_labels))
 
+        if plot_domain:
+            po.add(self.plotDomain(ax))
+
         return po
 
     def plotTargets(self, ax : plt.Axes = None, add_target_labels=False) -> PlotObject:
         ax = getAxes(ax)
         po = PlotObject()
-        for target in self._targets:
-            po.add(target.plot(ax, annotate=add_target_labels))
+        for i, target in enumerate(self._targets):
+            col = _plotAttr.target_colors[-i]
+            po.add(target.plot(ax, annotate=add_target_labels, color=col))
 
         return po
 
