@@ -62,7 +62,10 @@ class Node:
 
     def updateRegions(self, r : Set[Region], rtp : Region = None) -> None:
         if not isinstance(r, set):
-            raise ValueError("Regions must be a set of Region objects.")
+            try:
+                r = set(r)
+            except:
+                raise ValueError("Regions must be a set of Region objects.")
         for region in r:
             self.addRegion(region)
         if rtp is not None:

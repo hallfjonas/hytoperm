@@ -159,7 +159,7 @@ class Region:
     def isTargetRegion(self) -> bool:
         return self.targetRegion
 
-    def randomPoint(self) -> np.ndarray:
+    def randomPoint(self, **kwargs) -> np.ndarray:
         pass
 
 
@@ -461,13 +461,30 @@ class CPRegion(Region):
             )
         return PlotObject(ax.fill(chp[chv,0], chp[chv,1], **eka))
 
-    def randomPoint(self) -> np.ndarray:
+    def randomPoint(self, **kwargs) -> np.ndarray:
+        nump = len(self.getConvexHull().points)
+        alphas = []
+        p = np.zeros(2)
+        for i in range(nump-1):
+            m = 1-sum(alphas)            
+            if 'distribution' in kwargs and kwargs['distribution'] == 'uniform':
+                alphas.append(np.random.uniform(0,m))
+            else:
+                m = 0.9*m
+                alphas.append(max(0,min(np.random.normal(1/nump, 1/nump/10),m)))
+
+            p += alphas[-1] * self.getConvexHull().points[i]
+        alphas.append(1 - sum(alphas))
+        p += alphas[-1] * self.getConvexHull().points[-1]
+        return p
+
+    def randomPointUniform(self) -> np.ndarray:
         nump = len(self.getConvexHull().points)
         alphas = []
         p = np.zeros(2)
         for i in range(nump-1):
             m = 0.9*(1-sum(alphas))
-            alphas.append(max(0,min(np.random.normal(1/nump, 1/nump/10),m)))
+            alphas.append(np.random.uniform(0,m))
             p += alphas[-1] * self.getConvexHull().points[i]
         alphas.append(1 - sum(alphas))
         p += alphas[-1] * self.getConvexHull().points[-1]
@@ -828,7 +845,6 @@ class Target:
         
         self._r : Region = None                                                 # region
         self._p : np.ndarray = None                                             # position
-
         self._phi : np.ndarray = None                                           # internal state    
         self.A : np.ndarray = None                                              # internal state LTI term
         self.Q : np.ndarray = None                                              # internal state covariance of stochasticity
@@ -837,9 +853,9 @@ class Target:
 
         self.assignRegion(region)
         self.assignPosition(pos)
-        self.assignInternalState(phi0)
         self.assignStateMatrix(A)
         self.assignCovariance(Q)
+        self.assignInternalState(phi0)
         
     def p(self) -> np.ndarray:
         return self._p
@@ -856,7 +872,7 @@ class Target:
     def assignPosition(self, p : np.ndarray) -> None:
         if not isinstance(p, np.ndarray):
             raise ValueError("Expected argument of type numpy.ndarray.")
-        if (self.region() is not None):
+        if self.region() is not None:
             if not self.region().contains(p):
                 raise ValueError(
                     "Position must be contained in the target's region."
@@ -869,6 +885,10 @@ class Target:
         self._r = r
 
     def assignInternalState(self, phi0 : np.ndarray) -> None:
+        if phi0 is None:
+            if self.A is not None:
+                self._phi = np.zeros(self.A.shape[0])
+                return
         if not isinstance(phi0, np.ndarray):
             raise ValueError("Expected argument of type numpy.ndarray.")
         self._phi = phi0
@@ -949,7 +969,8 @@ class World:
             raise ValueError("Expected argument of type Target.")
         if target not in self._targets:
             self._targets.append(target)
-            target.region().targetRegion = True
+            if target.region() is not None:
+                target.region().targetRegion = True
 
     def setPartition(self) -> None:
         self._partition = Partition(self.regions()) 
@@ -986,6 +1007,11 @@ class World:
             raise IndexError("Index of target out of bounds.")
         return self._targets[i]
     
+    def region(self, i : int) -> Region:
+        if i >= self.nRegions() or i < 0:
+            raise IndexError("Index of region out of bounds.")
+        return self._regions[i]
+
     def nTargets(self) -> int:
         return len(self._targets)
     

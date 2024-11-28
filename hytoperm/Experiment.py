@@ -41,18 +41,17 @@ class Experiment:
     
     def nTargets(self) -> int:
         return self._world.nTargets()
+    
+    def nRegions(self) -> int:
+        return self._world.nRegions()
 
     # modifiers
     def generatePartitioning(self, **kwargs) -> None:
         pass
     
-    def addAgent(
-            self, 
-            gpp : GlobalPathPlanner = None,
-            sensor : Sensor = None,
-            name : str = ""
-            ) -> None:
-        agent = Agent(self._world, sensor=sensor, gpp=gpp, name=name)
+    def addAgent(self, agent: Agent) -> None:
+        if not isinstance(agent, Agent):
+            raise ValueError("Argument must be of type Agent.")
         self._agents.append(agent)
 
     def addAgentHomogeneousSensor(
@@ -67,7 +66,7 @@ class Experiment:
         sensor.setTargetQualityFunction(GaussianQualityFunction())
         sensor.setNoiseMatrix(np.eye(1))
         sensor.setMeasurementMatrix(np.eye(1))
-        self.addAgent(gpp=gpp, sensor=sensor, name=name)
+        self.addAgent(Agent(gpp=gpp, sensor=sensor, name=name))
 
     def addAgentHeterogeneousSensor(
                 self, 
@@ -95,7 +94,7 @@ class Experiment:
 
             sensor.setNoiseMatrix(np.eye(1), target=target)
             sensor.setMeasurementMatrix(np.eye(1), target=target)
-        self.addAgent(gpp=gpp, sensor=sensor, name=name)
+        self.addAgent(Agent(gpp=gpp, sensor=sensor, name=name))
 
     def addTarget(self, target : Target) -> None:
         if not isinstance(target, Target):

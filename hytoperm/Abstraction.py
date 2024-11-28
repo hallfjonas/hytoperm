@@ -1,10 +1,13 @@
 
 # external imports
+from __future__ import annotations
 import networkx as nx
 
 # internal imports
 from .World import *
 from .GlobalPlanning import *
+from PlotObjects.plotobjects.palettes import *
+import math
 
 class AbstractionOptions:
     def __init__(self):
@@ -14,13 +17,12 @@ class GraphAbstraction:
     def __init__(
             self, 
             world : World, 
-            gpp : GlobalPathPlanner, 
+            gpp : GlobalPathPlanner = None, 
             opts : AbstractionOptions = None):
         self.graph : nx.DiGraph = None
         self.world: World = world
         self.options : AbstractionOptions = None
         self.setOptions(opts)
-        self.abstract(world, gpp)
 
     def setOptions(self, opts : AbstractionOptions):
         if opts is None:
@@ -31,7 +33,7 @@ class GraphAbstraction:
         self.options = opts
 
     def abstract(self, world : World, gpp : GlobalPathPlanner):
-        self.graph = nx.MultiDiGraph()
+        self.graph = nx.DiGraph()
         self.graph.add_nodes_from(world.targets())
         for t1 in world.targets():
             for t2 in world.targets():
@@ -66,4 +68,59 @@ class GraphAbstraction:
         # draw edges
         edge_labels = nx.get_edge_attributes(self.graph, 'weight')
         nx.draw_networkx_edges(self.graph, pos, ax=ax)
+
+    def highlightNeighborhood(self, node, agents: List[np.ndarray] = [], covered: List[Target] = [], alpha_non_neighbor=0.1, ax : plt.Axes = None, **kwargs):
+        
+        # define alphas
+        alpha_node = lambda n : 1.0 if n == node or (n not in covered and n in self.graph[node]) else alpha_non_neighbor 
+        alpha_edge = lambda n, m: 1.0 if n == node and m in self.graph[n] and m not in covered else alpha_non_neighbor           
+
+        pos = nx.spring_layout(self.graph)
+        target: Target
+        for target in self.graph.nodes:
+            pos[target] = target.p()
+            self.graph.nodes[target]['name'] = f"T{target.name}"
+            self.graph.nodes[target]['color'] = pastel_warm[0]
+            self.graph.nodes[target]['alpha'] = alpha_node(target)
+        
+        # add agents
+        for i, a in enumerate(agents):
+            self.graph.add_node(i, pos=a, name=f"A{i}", color=pastel_cold[1], alpha=1.0)
+            pos[i] = a
+
+        # draw targets
+        for n in self.graph.nodes:
+            # if n in enumerate(agents):
+            #     continue
+            nx.draw_networkx_nodes(
+                self.graph, pos, 
+                nodelist=[n], 
+                label=self.graph.nodes[n]['name'], 
+                node_color=self.graph.nodes[n]['color'], 
+                alpha=self.graph.nodes[n]['alpha']
+            )
+
+        # Remove agents again
+        for i, a in enumerate(agents):
+            self.graph.remove_node(i)
+
+        for n in self.graph.nodes():
+            for m in self.graph.nodes():
+                if m not in self.graph[n]:
+                    continue
+                nx.draw_networkx_edges(
+                    self.graph, 
+                    pos, 
+                    edgelist=[(n,m)],
+                    alpha=alpha_edge(n, m)
+                )
     
+    def simpleGraph(self) -> nx.Graph:
+        g = nx.Graph()
+        t: Target
+        for t in self.graph.nodes:
+            g.add_node(t.name)
+        for u, v, data in self.graph.edges(data=True):
+            g.add_edge(u.name, v.name, weight=data['weight'])
+        return g
+        
