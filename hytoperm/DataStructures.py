@@ -69,8 +69,6 @@ class Node:
             self.activate_region_to_parent(rtp)
 
     def addRegion(self, r : Region) -> None:
-        if not isinstance(r, Region):
-            raise ValueError("Region must be a Region object.")
         self._r.add(r)
         
     def updateCostToRoot(self, costToRoot : float):
