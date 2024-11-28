@@ -137,10 +137,7 @@ def simulateUnmonitoredOmega(fun : cad.Function, tf, Omega0):
     mseTrajectory = Trajectory(cadToNumpy(sim[1], no, N+1), t_grid)
     omegaTrajectory = Trajectory(cadToNumpy(sim[2], no*no, N+1), t_grid)
     
-    # gradient: dIk_dtf = loss function evaluated at the terminal time
-    dIk_dtf = mseTrajectory.getEndPoint()
-
-    return mseTrajectory, omegaTrajectory, Ik, dIk_dtf
+    return mseTrajectory, omegaTrajectory, Ik, mseTrajectory.getEndPoint()
 
 
 '''
@@ -153,7 +150,7 @@ class CovarianceParameters:
         self.Q : np.ndarray = target.Q
         self.H : np.ndarray = sensor.getMeasurementMatrix(target)
         self.R_inv : np.ndarray = sensor.getMeasurementNoiseInverse(target)
-        self.sqf : SensingQualityFunction = sensor.getQualityFunction(target)
+        self.sqf : SensingQualityFunction = sensor.getQualityFunction(target=target)
 
 
 '''
@@ -525,8 +522,8 @@ class MonitoringSegment(TrajectorySegment):
         self.updateTerminalCovarianceMatrix(self._target, omega.getEndPoint())
         
         self._cost = Jk
-        self._gradient_phi = -duals_p[0:2].full().flatten()
-        self._gradient_psi = -duals_p[2:4].full().flatten()
+        self._gradient_a_phi = -duals_p[0:2].full().flatten()
+        self._gradient_a_psi = -duals_p[2:4].full().flatten()
         self._gradient_tau = -duals_p[4].full().flatten()
         for target in self._ucs.keys():
             if target == self._target:
@@ -551,13 +548,48 @@ class SwitchingSegment(TrajectorySegment):
     def __init__(
             self, 
             ucs : Dict[Target, cad.Function], 
+            gpp : GlobalPathPlanner,
             params : SwitchingParameters = None
             ) -> None:
         super().__init__(ucs, params)
+        self._gpp : GlobalPathPlanner = gpp
+
+    def gpp(self) -> GlobalPathPlanner:
+        return self._gpp
 
     def update(self) -> None:
         self._cost = 0
         self._gradient_tau = 0
+
+        # computed by chain rule (first compute the outer value)
+        self._gradient_a_psi = 0
+        self._gradient_a_phi = 0
+        
+        for target in self._ucs.keys():
+            mse, Omega, Ik, mseEnd = simulateUnmonitoredOmega(
+                self._ucs[target], 
+                self.params._tf, 
+                self.params._Omega0[target]
+            )
+            self.updateMSETrajectory(target, mse)
+            self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
+            self._cost += Ik
+            self._gradient_tau += mseEnd 
+
+            # chain rule (outer)
+            self._gradient_a_phi += mseEnd
+            self._gradient_a_psi += mseEnd
+            # gradients of phi and psi are equal to 0 here!
+
+        # chain rule (inner)
+        da_psi, da_phi = self.gpp().getGradientDelta(
+            self.getStartPoint(),
+            self.getEndPoint()
+        )
+
+        # chain rule (outer * inner)
+        self._gradient_a_phi = self._gradient_a_phi * da_phi
+        self._gradient_a_psi = self._gradient_a_psi * da_psi
 
         # Don't need to update the control or path, but reset to 0 relative time
         t0 = self.uTrajectory.t[0]
@@ -594,7 +626,7 @@ class Cycle:
         self._trajectorySegments : List[TrajectorySegment] = ts
         self._covAtCycleStart : Dict[Target, np.ndarray] = omega0
         self._covAtCycleEnd : Dict[Target, np.ndarray] = None
-
+        
         # statistics
         self._cycle_start : float = t0
         self._counter : int = counter
@@ -606,6 +638,9 @@ class Cycle:
     # getters
     def getDuration(self) -> float:
         return sum([ts.getDuration() for ts in self._trajectorySegments])
+
+    def K(self) -> int:
+        return int(len(self._trajectorySegments) / 2)
 
     def getStartTime(self) -> float:
         return self._cycle_start
@@ -623,27 +658,21 @@ class Cycle:
                 monSeg.append(ts)
         return np.array([ts.getGradientTau() for ts in monSeg]).flatten()
 
-    def getGradientPhi(self) -> np.ndarray:
-        raise NotImplementedError("Not implemented yet.")
-        
-        monSeg : List[TrajectorySegment] = []
-        swSeg : List[TrajectorySegment] = []
+    def getGradientSwitches(self) -> np.ndarray:
+        grad_phi = np.zeros((self.K(), 2))
+        grad_psi = np.zeros((self.K(), 2))
+        l = 0
+        k = 0
         for ts in self._trajectorySegments:
-            if isinstance(ts, MonitoringSegment):
-                monSeg.append(ts)
-            else:
-                swSeg.append(ts)
+            grad_phi[k,:] = grad_phi[k,:] + ts.getGradientPhi()
+            grad_psi[k,:] = grad_psi[k,:] + ts.getGradientPsi()
+            l = l + 1
+            if l == 2:
+                l = 0
+                k = k + 1
         
-        # Questions
-        # 1. Do I want to have one dimensional gradients?
-        # 2. Gradient for the switching segments depends on the Deltas.
-        #        Where do I handle this dependency?
+        return grad_phi, grad_psi
 
-        grad = np.array([ts.getGradientPhi() for ts in monSeg]).flatten()
-
-    def getGradientPsi(self) -> np.ndarray:
-        raise NotImplementedError("Not implemented yet.")
-        
     def getGradients(self) -> Dict[str, np.ndarray]:
         
         return {
@@ -1126,10 +1155,11 @@ class Agent:
         Compute the gradient of the cycle cost, i.e., of the cost of one 
         complete cycle (not scaled with the cycle duration).
         """
+        d_a_phi, d_a_psi = self._cycle.getGradientSwitches()
         return {
             'tau': self._cycle.getGradientTau(),
-            'phi': self._cycle.getGradientPhi(),
-            'psi': self._cycle.getGradientPsi()
+            'a_phi': d_a_phi,
+            'a_psi': d_a_psi
         }
 
     def getGradientT(self) -> Dict[str, np.ndarray]:
@@ -1149,7 +1179,7 @@ class Agent:
                 b = ts.getEndPoint()
                 da, db = self.gpp().getGradientDelta(a, b) 
                 nablaDelta['a_psi'][k,:] = da
-                nablaDelta['a_phi'][k+1 % self._K,:] = db
+                nablaDelta['a_phi'][(k+1) % self._K,:] = db
                 k += 1
                 
         return {
@@ -1172,12 +1202,6 @@ class Agent:
         for param in nablaT.keys():
             nablaJ[param] = (nablaC[param] * T - nablaT[param] * C)/T**2
         
-        raise NotImplementedError("Not implemented yet.")
-        # Need to handle the following somewhere:
-            # 1. Gradient of monitoring and switching segments wrt phi and psi
-            # 2. Gradient of Time wrt phi and psi
-            # 3. Need to update return value below to account for all gradients
-
         # global average cost gradient
         return nablaJ
 
@@ -1186,6 +1210,7 @@ class Agent:
         Simple projected gradient descend
         '''
         dJ = self.globalCostGradients()
+        dJ_dt = dJ['tau']
         self._global_gradients.append(dJ_dt)
         self._global_gradient_norms.append(np.linalg.norm(dJ_dt, ord=np.inf))
         if self._global_gradient_norms[-1] > self.op.tr:
