@@ -66,7 +66,7 @@ class Experiment:
         sensor.setTargetQualityFunction(GaussianQualityFunction())
         sensor.setNoiseMatrix(np.eye(1))
         sensor.setMeasurementMatrix(np.eye(1))
-        self.addAgent(Agent(gpp=gpp, sensor=sensor, name=name))
+        self.addAgent(Agent(world=self.world(), gpp=gpp, sensor=sensor, name=name))
 
     def addAgentHeterogeneousSensor(
                 self, 
@@ -94,7 +94,8 @@ class Experiment:
 
             sensor.setNoiseMatrix(np.eye(1), target=target)
             sensor.setMeasurementMatrix(np.eye(1), target=target)
-        self.addAgent(Agent(gpp=gpp, sensor=sensor, name=name))
+        agent = Agent(world=self.world(), gpp=gpp, sensor=sensor, name=name)
+        self.addAgent(agent)
 
     def addTarget(self, target : Target) -> None:
         if not isinstance(target, Target):
