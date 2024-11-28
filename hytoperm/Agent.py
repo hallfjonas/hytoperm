@@ -906,10 +906,8 @@ class Agent:
                 )
         
     def setGlobalPathPlanner(self, gpp : GlobalPathPlanner = None) -> None:
-        if gpp is None:
-            gpp = GlobalPathPlanner(self.world())
         if not isinstance(gpp, GlobalPathPlanner):
-            raise ValueError("Expected a GlobalPathPlanner instance. Ignoring input.")
+            raise ValueError("Expected a GlobalPathPlanner instance.")
         self._gpp = gpp
    
     def computeVisitingSequence(self) -> None:
