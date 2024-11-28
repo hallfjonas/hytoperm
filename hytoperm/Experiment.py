@@ -43,35 +43,59 @@ class Experiment:
         return self._world.nTargets()
 
     # modifiers
-    def generatePartitioning(self, n_obstacles=0) -> None:
+    def generatePartitioning(self, **kwargs) -> None:
         pass
     
-    def addRandomAgent(
+    def addAgent(
             self, 
             gpp : GlobalPathPlanner = None,
             sensor : Sensor = None,
             name : str = ""
             ) -> None:
-        if sensor is None:
-            sensor = HeterogeneousSensor()
-            for target in self._world.targets():
-                if target.name == '3':
-                    sensor.setTargetQualityFunction(
-                        target, 
-                        SinusoidalQualityFunction(
-                            c1=np.random.uniform(3,20),
-                            c2=np.random.uniform(3,20)
-                            )
-                        )
-                else:
-                    sensor.setTargetQualityFunction(
-                        target, 
-                        GaussianQualityFunction()
-                        )
+        agent = Agent(self._world, sensor=sensor, gpp=gpp, name=name)
+        self._agents.append(agent)
 
-                sensor.setNoiseMatrix(target, np.eye(1))
-                sensor.setMeasurementMatrix(target, np.eye(1))
-        self._agents.append(Agent(self._world, sensor=sensor, gpp=gpp, name=name))
+    def addAgentHomogeneousSensor(
+                self, 
+                gpp : GlobalPathPlanner = None, 
+                name : str = ""
+                ) -> None:
+        """
+        Build a homogeneous sensor and add an agent with this sensor.
+        """
+        sensor = HomogeneousSensor()
+        sensor.setTargetQualityFunction(GaussianQualityFunction())
+        sensor.setNoiseMatrix(np.eye(1))
+        sensor.setMeasurementMatrix(np.eye(1))
+        self.addAgent(gpp=gpp, sensor=sensor, name=name)
+
+    def addAgentHeterogeneousSensor(
+                self, 
+                gpp : GlobalPathPlanner = None, 
+                name : str = ""
+                ) -> None:
+        """
+        Build a sample heterogeneous sensor and add an agent with this sensor.
+        """
+        sensor = HeterogeneousSensor()
+        for target in self._world.targets():
+            if target.name == '3':
+                sensor.setTargetQualityFunction(
+                    SinusoidalQualityFunction(
+                        c1=np.random.uniform(3,20),
+                        c2=np.random.uniform(3,20)
+                        ),
+                    target=target 
+                    )
+            else:
+                sensor.setTargetQualityFunction(
+                    GaussianQualityFunction(),
+                    target=target 
+                    )
+
+            sensor.setNoiseMatrix(np.eye(1), target=target)
+            sensor.setMeasurementMatrix(np.eye(1), target=target)
+        self.addAgent(gpp=gpp, sensor=sensor, name=name)
 
     def addTarget(self, target : Target) -> None:
         if not isinstance(target, Target):
@@ -152,10 +176,6 @@ class Experiment:
     @staticmethod
     def generate(
             seed=None, 
-            min_dist=0.0,
-            n_agents=1,
-            homogeneous_agents=True,
-            n_obstacles=0,
             domain=Domain(),
             spherical=False,
             **kwargs
@@ -164,59 +184,91 @@ class Experiment:
         generate: Generate a random experiment.
         
         Parameters:
-        n_sets: int
-            Number of sets for the partition.
-        fraction: float
-            Fraction of regions that will contain targets.
-        seed: int
+        seed: int (default = None)
             Seed for the random number generator.
-        min_dist: float
-            Minimum distance between Voronoi points.
-        n_agents: int
-            Number of agents (multi-agent scenarios are experimental!).
-        homogenoeous_agents: bool
-            If True, all agents will have the same sensor model.
+        domain: Domain (default = Domain())
+            Specify a domain to bound the mission space.
+        **kwargs: dict
+            Special keyword arguments for the specific experiment type.
         '''
-        if seed is not None:
-            np.random.seed(seed)
-        try:
-            if not spherical:
-                ex = VoronoiExperiment(domain=domain)
-                ex.addRandomVoronoiPoints(kwargs.get('n_sets'), min_dist=min_dist)
-                ex.generatePartitioning(n_obstacles)
-                ex.addRandomTargets(fraction=kwargs.get('fraction'))
-                gpp = RRBTGlobalPlanner(ex.world())
-            else:
-                ex = SphericalExperiment(domain=domain)
-                if not 'n_targets' in kwargs:
-                    raise ValueError("Number of targets must be specified for spherical experiments.")
-                radius = kwargs.get('radius', None)
-                ex.addRandomSpheres(
-                    kwargs.get('n_targets'), 
-                    min_dist=min_dist, 
-                    max_radius=radius if radius is not None else np.inf,
-                    min_radius=radius if radius is not None else min_dist
-                )
-                ex.generatePartitioning(n_obstacles)
-                ex.addCenteredTargets()
-                gpp = NormBasedGlobalPlanner(ex.world())
-            
-            sensor = kwargs.get('sensor', None)
-            ex._homogeneous_agents = homogeneous_agents or n_agents == 1
-            for i in range(n_agents):
-                ex.addRandomAgent(gpp=gpp, sensor=sensor, name=str(i))
-                if homogeneous_agents:
-                    sensor = ex.agent().sensor()
-            return ex
-        except Exception as e:  
-            print(e)
-            return None
+        raise NotImplementedError("You tried to generate an abstract experiment. Please call the generate method of a specific experiment type.")
+
+    def addAgents(
+            self, 
+            n_agents: int,
+            gpp: GlobalPathPlanner = None,
+            sensor: Sensor = None
+            ) -> None:
+        
+        for i in range(n_agents):
+            ex.addRandomAgent(gpp=gpp, sensor=sensor, name=str(i))
+            if homogeneous_agents:
+                sensor = ex.agent().sensor()
+
+    def getFraction(self, **kwargs):
+        return kwargs.get('fraction', 0.33)
+
+    def getNTargets(self, **kwargs):
+        if 'n_targets' in kwargs:
+            return kwargs.get('n_targets')
+        
+        fraction = self.getFraction(**kwargs)
+        if 'n_sets' in kwargs:
+            return math.floor(kwargs.get('n_sets') * fraction)
+        
+        raise ValueError("Number of targets must be specified. Do this either directly by passing argument 'n_targets', or indirectly from the equation n_targets = fraction * n_sets.")
+
+    def getNSets(self, **kwargs):
+        if 'n_sets' in kwargs:
+            return kwargs.get('n_sets')
+        
+        fraction = self.getFraction(**kwargs)
+        if 'n_targets' in kwargs:
+            return math.ceil(kwargs.get('n_targets') / fraction)
+        
+        raise ValueError("Number of sets must be specified. Do this either directly by passing argument 'n_sets', or indirectly from the equation n_targets = fraction * n_sets.")
 
 class VoronoiExperiment(Experiment):
     def __init__(self, name : str = "", domain : Domain = Domain()) -> None:
         self._vc = []                                                           # Voronoi centers
         self._voronoi = None                                                    # Voronoi object
         super().__init__(name=name, domain=domain)
+
+    def generate(
+            seed=None, 
+            domain=Domain(),
+            **kwargs
+            ) -> VoronoiExperiment:
+        '''
+        generate: Generate a random Voronoi-based experiment.
+        
+        Special keyword arguments:
+        n_targets: int
+            Number of targets. If not specified, it is computed via the equation 
+            n_targets = fraction * n_sets.
+        n_sets: int
+            Number of sets for the partition. If not specified, it is computed 
+            via the equation n_targets = fraction * n_sets.
+        fraction: float (default = 0.33)
+            Fraction of regions that will contain targets.
+        min_dist: float (default = 0.1)
+            Minimum distance between Voronoi points.
+        n_obstacles: int
+            Number of regions that will be obstacles.
+        '''
+        if seed is not None:
+            np.random.seed(seed)
+        
+        ex = VoronoiExperiment(domain=domain)
+        ex.addRandomVoronoiPoints(
+            ex.getNSets(**kwargs), 
+            min_dist=kwargs.get('min_dist', 0.1)
+        )
+        ex.generatePartitioning(**kwargs)
+        ex.addRandomTargets(n=ex.getNTargets(**kwargs))
+        gpp = RRBTGlobalPlanner(ex.world())
+        ex.addAgentHomogeneousSensor(gpp=gpp)            
+        return ex
 
     def voronoi(self) -> Voronoi:
         return self._voronoi
@@ -233,7 +285,7 @@ class VoronoiExperiment(Experiment):
             # prevent infinite loop
             counter += 1
             if counter > 10000 * M:
-                raise Exception(
+                raise RuntimeError(
                     "Could not generate enough Voronoi points. " + 
                     "Try decreasing the minimum distance between points."
                 )
@@ -257,8 +309,15 @@ class VoronoiExperiment(Experiment):
 
         self._vc = np.array(self._vc)
 
-    def generatePartitioning(self, n_obstacles=0) -> None:
-        
+    def generatePartitioning(self, **kwargs) -> None:
+        """
+        Generate a partitioning of the domain using the Voronoi centers.
+
+        Special keyword arguments:
+        n_obstacles: int (default = 0)
+            Number of regions that will be obstacles.
+        """
+        n_obstacles = kwargs.get('n_obstacles', 0)        
         if self._vc.shape[0] > 1:
             self._voronoi = Voronoi(self._vc)
 
@@ -342,6 +401,41 @@ class SphericalExperiment(Experiment):
         self._spheres: List[SphericalRegion] = []
         super().__init__(name=name, domain=domain)
 
+    def generate(
+            seed=None, 
+            domain=Domain(),
+            **kwargs
+            ) -> Experiment:
+        '''
+        generate: Generate a random experiment with spherical regions.
+        
+        Special keyword arguments:
+        n_targets: int
+            Number of target locations.
+        radius: float (default = None)
+            Maximum radius of the targets. If None, the radius is randomized.
+        min_dist: float
+            Minimum distance between target regions.
+        '''
+        pass
+        if seed is not None:
+            np.random.seed(seed)
+        ex = SphericalExperiment(domain=domain)
+        n_targets = ex.getNTargets(**kwargs)
+        radius = kwargs.get('radius', None)
+        min_dist = kwargs.get('min_dist', 0.1)
+        ex.addRandomSpheres(
+            n_targets,
+            min_dist=min_dist, 
+            max_radius=radius if radius is not None else np.inf,
+            min_radius=radius if radius is not None else min_dist
+        )
+        ex.generatePartitioning(**kwargs)
+        ex.addCenteredTargets()
+        gpp = NormBasedGlobalPlanner(ex.world())
+        ex.addAgentHomogeneousSensor(gpp=gpp)
+        return ex
+
     def addRandomSpheres(self, M: int, min_radius=0.0, max_radius=np.inf, min_dist=0.0) -> None:
         if M is None or M < 0:
             raise ValueError("Number of target locations must be a nonnegative number.")
@@ -378,7 +472,7 @@ class SphericalExperiment(Experiment):
             targets.append(r)
         self._spheres = targets
 
-    def generatePartitioning(self, n_obstacles=0) -> None:
+    def generatePartitioning(self, **kwargs) -> None:
         self._world.setRegions(self._spheres)
 
     def addRandomTargets(self) -> None:
