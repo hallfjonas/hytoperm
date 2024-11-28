@@ -1035,7 +1035,7 @@ class Agent:
             for target in self.world().targets():
                 if node.getData().activeRegionToParent() == target.region():
                     sp = SwitchingParameters(ep,dp,tf,N=self._N)
-                    ts = SwitchingSegment(self._ucs, sp)
+                    ts = SwitchingSegment(self._ucs, self.gpp(), sp)
                     ts.pTrajectory = pTrajectory
                     ts.uTrajectory = uTrajectory
                     n = None
