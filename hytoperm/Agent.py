@@ -22,7 +22,7 @@ def omegaDot(p, Omega, target : Target, sensor : Sensor, inTargetRegion=False):
     R_inv = sensor.getMeasurementNoiseInverse(target)
     unmonitored = Q + A @ Omega + Omega @ A.T
     if inTargetRegion:
-        mf = sensor.getQualityFunction(target)(p, target.p())
+        mf = sensor.getQualityFunction(target=target)(p, target.p())
         return unmonitored  - mf*mf*Omega @ H.T @ R_inv @ H @ Omega
     return unmonitored
 
@@ -1419,7 +1419,7 @@ class Agent:
                 for target in self._world.targets():
                     region = target.region()
                     if region.contains(p):
-                        Z[i,j] = sensor.getSensingQuality(target)
+                        Z[i,j] = sensor.getSensingQuality(target=target)
         sqAttr = _plotAttr.sensor_quality.getAttributes()
         eka = extendKeywordArgs(sqAttr, **kwargs)
         cf = ax.contourf(X, Y, Z, **eka)

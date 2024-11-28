@@ -105,7 +105,7 @@ class Sensor:
         pass
     
     def getSensingQuality(self, target: Target) -> float:
-        return self.getQualityFunction(target)(self.getPosition(), target.p())
+        return self.getQualityFunction(target=target)(self.getPosition(), target.p())
         
     def getMeasurementMatrix(self, target: Target) -> np.ndarray:
         pass
@@ -233,18 +233,18 @@ class HeterogeneousSensor(Sensor):
         return self.targetToSQFMapper()[self.getTarget(kwargs)]
     
     def getSensingQuality(self, **kwargs) -> float:
-        return self.getQualityFunction(self.getTarget(kwargs))(
+        return self.getQualityFunction(target=self.getTarget(kwargs))(
             self.getPosition(), self.getTarget(kwargs).p()
         )
     
     def getMeasurementMatrix(self, target: Target) -> np.ndarray:
-        return self._ttHm[self.getTarget(target)]
+        return self._ttHm[target]
 
     def getMeasurementNoiseMatrix(self, target: Target) -> np.ndarray:
-        return self._ttRm[self.getTarget(target)]
+        return self._ttRm[target]
 
     def getMeasurementNoiseInverse(self, target: Target) -> np.ndarray:
-        return self._ttRinvm[self.getTarget(target)]
+        return self._ttRinvm[target]
 
     def setTargetQualityFunction(
             self, 
