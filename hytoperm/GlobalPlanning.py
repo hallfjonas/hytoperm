@@ -577,7 +577,8 @@ class RRBTGlobalPlanner(GlobalPathPlanner):
         Compute the gradient of the switching duration from t0 to tf wrt the 
         start and end point.
         """
-        raise NotImplementedError("This method is not implemented for RRBTGlobalPlanner")
+        warnings.warn("This method is not implemented for RRBTGlobalPlanner. Returning 0 gradient.")
+        return np.zeros(2), np.zeros(2)
     
     def planPathToTarget(
             self,
