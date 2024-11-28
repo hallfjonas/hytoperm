@@ -1014,13 +1014,12 @@ class World:
             None, if no region contains the point.
             Otherwise, a unique region that contains p. If p is contained in multiple regions, return one of those regions.
         '''
-        regs = list(self.getRegions(p, tol))
-        if len(regs) == 0:
-            return None
+        regs = self.getRegions(p, tol)
         if len(regs) > 1:
             warnings.warn("Point is in multiple regions. Returning first region.")
-            return regs[0]
-        return regs[0]
+        for r in regs: 
+            return r
+        return None
 
     def getRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
         """
