@@ -8,9 +8,9 @@ from hytoperm import *
 
 class TestAbstraction(unittest.TestCase):
     def testCompleteGraph(self):
-        ex = Experiment.generate(n_sets=20)
+        ex = VoronoiExperiment.generate(n_sets=20)
         assert(isinstance(ex, Experiment))
-        gpp = GlobalPathPlanner(ex._world)
+        gpp = RRBTGlobalPlanner(ex._world)
         opts = AbstractionOptions()
         opts.onlyDirectConnections = False
         ga = GraphAbstraction(ex._world, gpp, opts)
@@ -20,9 +20,9 @@ class TestAbstraction(unittest.TestCase):
         plt.close()
 
     def testIncompleteGraph(self):
-        ex = Experiment.generate(n_sets=20)
+        ex = VoronoiExperiment.generate(n_sets=20)
         assert(isinstance(ex, Experiment))
-        gpp = GlobalPathPlanner(ex._world)
+        gpp = ex.agent().gpp()
         opts = AbstractionOptions()
         opts.onlyDirectConnections = True
         ga = GraphAbstraction(ex._world, gpp, opts)

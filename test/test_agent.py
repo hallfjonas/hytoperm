@@ -2,6 +2,7 @@
 # external imports
 import unittest
 import random
+import time
 
 # internal imports
 from hytoperm import *
@@ -11,7 +12,7 @@ class TestAgent(unittest.TestCase):
     
     def testLocalController(self):
         n_sets = 20
-        ex = Experiment.generate(n_sets=n_sets)
+        ex = SphericalExperiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         
         target = ex._world.targets()[0]
@@ -34,15 +35,15 @@ class TestAgent(unittest.TestCase):
 
     def testCycle(self):
         n_sets = 8
-        ex = Experiment.generate(n_sets=n_sets)
+        ex = VoronoiExperiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         ex.agent().computeVisitingSequence()
         ex.agent().initializeCycle()
         ex.agent()._cycle.simulate()
         ex.agent().plotCycle()
 
-    def testBilevelOptimization(self, n_sets=10):
-        ex = Experiment.generate(n_sets=n_sets)
+    def testBilevelOptimization(self, n_sets=10, n_targets=5):
+        ex = SphericalExperiment.generate(n_targets=n_targets)
         assert(isinstance(ex, Experiment))
         ex.agent().computeVisitingSequence()
         ex.agent().op.alpha = 0.1
@@ -52,17 +53,19 @@ class TestAgent(unittest.TestCase):
 
     def testMultiAgentCycles(self):
         n_sets = 8
-        ex = Experiment.generate(n_sets=n_sets, n_agents=3)
+        ex = SphericalExperiment.generate(n_targets=5)
         assert(isinstance(ex, Experiment))
+        ex.addAgentHeterogeneousSensor(ex.agent().gpp())
+        ex.addAgentHeterogeneousSensor(ex.agent().gpp())
         ex.agent(0).computeVisitingSequence()
         ex.agent(1).setTargetVisitingSequence(
             [ex.world().target(i) for i in range(ex.world().nTargets())]
             )
+        indices = np.arange(ex.world().nTargets())
+        random.shuffle(indices)
         ex.agent(2).setTargetVisitingSequence(
-            random.shuffle(
-                [ex.world().target(i) for i in range(ex.world().nTargets())]
-                )
-            )
+            [ex.world().target(i) for i in indices]
+        )
         
         for agent in ex.agents():
             agent.computeVisitingSequence()
@@ -71,7 +74,7 @@ class TestAgent(unittest.TestCase):
 
     def testTrajectoryPointsProgrammatically(self):
         n_sets = 8
-        ex = Experiment.generate(n_sets=n_sets)
+        ex = VoronoiExperiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         ex.agent().computeVisitingSequence()
         ex.agent().initializeCycle()
