@@ -1060,7 +1060,7 @@ class Agent:
             v = np.zeros(2)
             if hasattr(artp, 'dynamics'):
                 if isinstance(artp.dynamics(), ConstantDynamics):
-                    v = artp.dynamics().v
+                    v = artp.dynamics().v()
             
             v = v.reshape(-1,1)
             u = (psi - phi)/deltaT - v
