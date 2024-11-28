@@ -1023,6 +1023,9 @@ class World:
         return regs[0]
 
     def getRegions(self, p : np.ndarray, tol = 1e-10) -> Set[Region]:
+        """
+        Returns all regions that contain the point p with a given tolerance.
+        """
         regions = set()
         for r in self._regions:
             if r.contains(p, tol=tol):
