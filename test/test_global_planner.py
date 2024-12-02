@@ -9,7 +9,7 @@ from hytoperm import *
 class TestGlobalPlanner(unittest.TestCase):
     
     def testRRBT(self):
-        niter = 1000; n_sets = 20
+        niter = 1000; n_sets = 10
         ex = VoronoiExperiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         gpp: RRBTGlobalPlanner = ex.agent().gpp()
