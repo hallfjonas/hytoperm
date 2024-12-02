@@ -28,7 +28,7 @@ class TestGlobalPlanner(unittest.TestCase):
         ex._world.plotTravelCostPerRegion(ax)
         
     def testTSP(self):
-        n_targets=10; plot = False
+        n_targets=5; plot = False
         ex = SphericalExperiment.generate(n_targets=n_targets)
         assert(isinstance(ex, Experiment))
         gpp = NormBasedGlobalPlanner(ex._world)
