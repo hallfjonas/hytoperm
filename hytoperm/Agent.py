@@ -596,18 +596,6 @@ class SwitchingSegment(TrajectorySegment):
         self.uTrajectory.shiftTime(-t0)
         self.pTrajectory.shiftTime(-t0)
 
-        # update mse trajectories
-        for target in self._ucs.keys():
-            mse, Omega, Ik, dIk_dtf = simulateUnmonitoredOmega(
-                self._ucs[target], 
-                self.params._tf, 
-                self.params._Omega0[target]
-            )
-            self.updateMSETrajectory(target, mse)
-            self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
-            self._cost += Ik
-            self._gradient_tau += dIk_dtf
-
 
 '''
 Cycle: a sequence of trajectory segments that make up a complete cycle
@@ -972,7 +960,7 @@ class Agent:
             self._steady_state_iters.append(ssc)
             self._isSteadyState.append(steady)
 
-            dJ_dt = self.updateMonitoringDurations()
+            dJ_dt = self.updateParameters()
 
             # Compute first order stationarity condition
             for i in range(self._K):
@@ -1205,7 +1193,7 @@ class Agent:
         # global average cost gradient
         return nablaJ
 
-    def updateMonitoringDurations(self) -> None:
+    def updateParameters(self) -> None:
         '''
         Simple projected gradient descend
         '''
@@ -1223,11 +1211,10 @@ class Agent:
             if self._tau[i] == self._tau_min[i] + self.op.sigma and dJ_dt[i] > 0:
                 self._lambda[i] = dJ_dt[i]
             else:
-                lwrs = 0.1 if len(self._tau_vals) >= 1500 else 0
                 self._lambda[i] = 0
                 self._tau[i] = max(
                     self._tau_min[i] + self.op.sigma, 
-                    self._tau[i] - self.op.alpha * dJ_dt[i] - lwrs
+                    self._tau[i] - self.op.alpha * dJ_dt[i]
                 )
             self._monitoringSegments[i].params._tf = self._tau[i]
         self.op.alpha *= self.op.beta
