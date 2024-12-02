@@ -75,6 +75,8 @@ class TestWorld(unittest.TestCase):
             po_reg.remove()
             po_regs.remove()
             pn.remove()
+        plt.ioff()
+        plt.close()
 
     def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
