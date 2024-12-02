@@ -49,9 +49,7 @@ class TestWorld(unittest.TestCase):
         ex.addRandomVoronoiPoints(10)
         ex.generatePartitioning(n_obstacles=1)
         
-        plt.ion()
         fig, ax = ex.plotWorld()
-        plt.show()
         for region in ex.world().regions():
             p = region.randomPoint()
             po = region.fill()
@@ -75,8 +73,6 @@ class TestWorld(unittest.TestCase):
             po_reg.remove()
             po_regs.remove()
             pn.remove()
-        plt.ioff()
-        plt.close()
 
     def testWorldGenerationPass(self):
         for n_sets in pass_settings["n_sets"]:
