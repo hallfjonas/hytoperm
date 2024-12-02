@@ -888,8 +888,9 @@ class Agent:
 
         # optimization parameters
         self._tau : Dict[int, float] = {}                                       # map a target visit index to a monitoring duration
-        self._lambda : Dict[int, float] = {}                                    # map a target visit index to a monitoring duration dual
-        self._tau_min : Dict[int, float] = {}                                   # map a target visit index to a minimum monitoring duration
+        self._a_phi : Dict[int, np.ndarray] = {}                                # map a target visit index to an entrance point
+        self._a_psi : Dict[int, np.ndarray] = {}                                # map a target visit index to a departure point
+        self._lambda : Dict[int, float] = {}                                    # map a target visit index to a dual of the kth bilevel optimization constraint
         self.op : OptimizationParameters = OptimizationParameters()             # optimization parameters
         
         # optimization statistics
@@ -897,7 +898,9 @@ class Agent:
         self._global_costs : List[float] = []                                   # global cost (per steady state cycle) 
         self._global_gradients : List[float] = []                               # global gradients (per cycle)
         self._global_gradient_norms : List[float] = []                          # global gradient norm (per steady state cycle) 
-        self._tau_vals : List[np.ndarray] = []                                  # monitoring durations (per steady state cycle)
+        self._tau_vals : List[np.ndarray] = []                                  # monitoring durations (per steady state cycle) 
+        self._a_phi_vals : List[np.ndarray] = []                                # entrance points (per target)
+        self._a_psi_vals : List[np.ndarray] = []                                # departure points (per target)
         self._kkt_violations : List[np.ndarray] = []                            # KKT residuals (per steady state cycle)
         self._steady_state_iters : List[int] = []                               # number of iterations to reach steady state
         self._alphas : List[float] = []                                         # step sizes (per steady state cycle)
@@ -1103,7 +1106,8 @@ class Agent:
             psi = self._switchingSegments[nextIdx].getStartPoint()
             tf = max(0.1, 1.5*target.region().travelCost(phi, psi))
             self._tau[i] = tf
-            self._tau_min[i] = target.region().travelCost(phi, psi)
+            self._a_phi[i] = phi
+            self._a_psi[i] = psi
 
             params = SwitchingParameters(
                 SwitchingPoint(phi), 
@@ -1193,29 +1197,28 @@ class Agent:
         # global average cost gradient
         return nablaJ
 
+    def _storeParameters(self) -> None:
+        self._tau_vals.append(np.array([self._tau[i] for i in range(self._K)]))
+        self._a_phi_vals.append(self._a_phi)
+        self._a_psi_vals.append(self._a_psi)
+
     def updateParameters(self) -> None:
         '''
         Simple projected gradient descend
         '''
-        dJ = self.globalCostGradients()
-        dJ_dt = dJ['tau']
-        self._global_gradients.append(dJ_dt)
-        self._global_gradient_norms.append(np.linalg.norm(dJ_dt, ord=np.inf))
-        if self._global_gradient_norms[-1] > self.op.tr:
-            dJ_dt = dJ_dt * self.op.tr / self._global_gradient_norms[-1]
         
-        self._tau_vals.append(
-            np.array([self._tau[i] for i in range(self._K)])
-            )
-        for i in range(self._K):
-            if self._tau[i] == self._tau_min[i] + self.op.sigma and dJ_dt[i] > 0:
-                self._lambda[i] = dJ_dt[i]
-            else:
-                self._lambda[i] = 0
-                self._tau[i] = max(
-                    self._tau_min[i] + self.op.sigma, 
-                    self._tau[i] - self.op.alpha * dJ_dt[i]
-                )
+        dJ = self.globalCostGradients()
+        
+        # store some stats
+        nrm = max(np.linalg.norm(dJ['tau'][k], ord=np.inf) for k in dJ.keys())
+        self._global_gradients.append(dJ)
+        self._global_gradient_norms.append(nrm)
+        self._storeParameters()
+
+        # shorten the step size if outside the trust region
+        if nrm > self.op.tr:
+            dJ_dt = dJ_dt * self.op.tr / nrm
+
             self._monitoringSegments[i].params._tf = self._tau[i]
         self.op.alpha *= self.op.beta
         self._alphas.append(self.op.alpha)
@@ -1391,7 +1394,6 @@ class Agent:
                     {'alpha' : 0.75, 'linestyle' : '--'}, 
                     **eka
                     )
-                po.add(ax.hlines(self._tau_min[i] + self.op.sigma, 0, len(tv[:,i]), **eka))
         return po
 
     def plotKKTViolations(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
