@@ -400,7 +400,7 @@ class GlobalPathPlanner:
 
     def planGlobalPath(self, t0 : np.ndarray, tf : np.ndarray) -> Tuple[Tree, float]:
         pass
-    
+
     def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
         '''
         Determine whether the path is a direct connection from t1 and t2, i.e.,
@@ -410,6 +410,9 @@ class GlobalPathPlanner:
 
         The first two cases will raise a warning.
         '''
+        pass
+
+    def getSwitchingPath(self, t1: Target, t2: Target) -> Tree:
         pass
 
     # modifiers
@@ -493,7 +496,7 @@ class NormBasedGlobalPlanner(GlobalPathPlanner):
     def __init__(self, world : World) -> None:
         super().__init__(world)
         self._sigma = 1e-6                                                      # regularization parameter     
-       
+
     def getGradientDelta(self, t0: np.ndarray, tf: np.ndarray) -> np.ndarray:
         """
         Compute the gradient of the switching duration from t0 to tf wrt the 
@@ -509,7 +512,7 @@ class NormBasedGlobalPlanner(GlobalPathPlanner):
         df = (tf - t0)/Delta
 
         return d0, df
- 
+
     def planPathToTarget(
             self,
             init : np.ndarray,
@@ -522,36 +525,18 @@ class NormBasedGlobalPlanner(GlobalPathPlanner):
         rf: Region = self._world.getRegion(tf)
         r0: Region = self._world.getRegion(t0)
 
-        if rf == r0:
-            nf = Node(tf, set([rf]))
-            n0 = Node(t0, set([r0]))
-            path = Tree(n0)
-            cost = np.linalg.norm(tf - t0)
-            path.setParent(Tree(nf), cost)
-            return path, cost
-        
-        path = Tree(Node(tf, set([rf])))
-        if isinstance(rf, Region):
+        nf = Node(tf, set([rf]))
+        n0 = Node(t0, set([r0]))
+        path = Tree(n0)
+        cost = np.linalg.norm(tf - t0)
+        path.setParent(Tree(nf), cost)
+        return path, cost
 
-            swf = Tree(Node(
-                rf.projectToBoundary(t0), 
-                set([rf]),
-                rf
-            ))
-            swf.setParent(path, rf.travelCost(tf, swf.getData().p()))
-            path = swf
-        
-        if isinstance(r0, Region):
-            sw0 = Tree(Node(r0.projectToBoundary(tf), set([r0])))
-            ctp = np.linalg.norm(sw0.getData().p() - path.getData().p())
-            sw0.setParent(path, ctp)
-            path = sw0
-        
-        final_path = Tree(Node(t0, set([r0])))
-        ctp = np.linalg.norm(final_path.getData().p() - path.getData().p())
-        final_path.setParent(path, ctp)
-        return final_path, final_path.getData().costToRoot()
-    
+    def getSwitchingPath(self, t1: Target, t2: Target) -> Tuple[Tree, float]:
+        p1 = t1.region().projectToBoundary(t2.p())
+        p2 = t2.region().projectToBoundary(t1.p())
+        return self.planGlobalPath(p1, p2)    
+
     def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
         '''
         Determine whether the path is a direct connection from t1 and t2, i.e.,
@@ -620,6 +605,29 @@ class RRBTGlobalPlanner(GlobalPathPlanner):
         rrbt._plot_options = self._plot_options
         rrbt.expandTree(iterations=self.rrbt_iter)
         return rrbt.planPath(t0)
+
+    def getSwitchingPath(self, t1: Target, t2: Target) -> Tree:
+        path, _ = self.planPathToTarget(t1.p(), t2)
+        while not t1.region().isBoundaryPoint(path.getData().p()):
+            path = path.getParent()
+        
+        r2 = t2.region()
+        final_path = Tree(path.getData())
+        while not r2.isBoundaryPoint(path.getData().p()):
+            
+            if path.isRoot():
+                raise RuntimeError("Path does not include a boundary point of the terminal region.")
+            
+            ctp = path.getData().costToParent()
+            path = path.getParent()
+            next_parent = Node(path.getData().p(), path.getData().regions())
+            final_path.setParent(next_parent, ctp)
+            final_path = Tree(path.getData(), final_path)
+
+        while final_path.hasChild():
+            final_path = final_path.getChild()
+
+        return final_path, final_path.getData().costToRoot()
 
     def isDirectConnection(self, t1 : Target, t2 : Target, path : Tree):
         '''

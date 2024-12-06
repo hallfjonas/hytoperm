@@ -16,8 +16,7 @@ class TestExample(unittest.TestCase):
         ex.agent().computeVisitingSequence()
         op = OptimizationParameters()
         op.optimization_iters = 3
-        ex.agent().op = op
-        ex.agent().optimizeCycle()
+        ex.agent().optimizeCycle(op=op)
         ex.agent().plotCycle()
 
     def testSphericalExample(self):
@@ -27,8 +26,7 @@ class TestExample(unittest.TestCase):
         ex.agent().computeVisitingSequence()
         op = OptimizationParameters()
         op.optimization_iters = 3
-        ex.agent().op = op
-        ex.agent().optimizeCycle()
+        ex.agent().optimizeCycle(op)
         ex.agent().plotCycle()
 
 

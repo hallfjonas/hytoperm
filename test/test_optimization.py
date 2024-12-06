@@ -18,8 +18,6 @@ class TestOptimization(unittest.TestCase):
         ng = 1
         x0 = np.array([1.0, 1.0])
 
-
-
         BFGS(
             nx=nx,
             ng=ng,

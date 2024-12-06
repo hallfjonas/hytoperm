@@ -24,7 +24,13 @@ class TestAgent(unittest.TestCase):
         Omega0 = {}
         for t in ex._world.targets():
             Omega0[t] = np.eye(1)
-        lmp = SwitchingParameters(phi=phi,psi=psi,tf=tf,Omega0=Omega0)
+        lmp = LocalParameters(
+            r=[target.region()],
+            phi=target.region().getPolarAngle(phi.p()),
+            psi=target.region().getPolarAngle(psi.p()),
+            tf=tf,
+            Omega0=Omega0
+        )
         mc = MonitoringController(target, sensor)
 
         mc.buildOptimalMonitoringSolver(target, sensor)
@@ -38,18 +44,20 @@ class TestAgent(unittest.TestCase):
         ex = VoronoiExperiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         ex.agent().computeVisitingSequence()
-        ex.agent().initializeCycle()
-        ex.agent()._cycle.simulate()
+        ex.agent().initializeDecomposition()
+        ex.agent().decomposition._cycle.simulate()
         ex.agent().plotCycle()
 
     def testBilevelOptimization(self, n_sets=10, n_targets=5):
         ex = SphericalExperiment.generate(n_targets=n_targets)
         assert(isinstance(ex, Experiment))
+
+        op = OptimizationParameters()
+        op.alpha = 0.1
+        op.beta = 0.9
+        op.optimization_iters = 10
         ex.agent().computeVisitingSequence()
-        ex.agent().op.alpha = 0.1
-        ex.agent().op.beta = 0.9
-        ex.agent().op.optimization_iters = 10
-        ex.agent().optimizeCycle()
+        ex.agent().optimizeCycle(op)
 
     def testMultiAgentCycles(self):
         n_sets = 8
@@ -69,28 +77,28 @@ class TestAgent(unittest.TestCase):
         
         for agent in ex.agents():
             agent.computeVisitingSequence()
-            agent.initializeCycle()
-            agent._cycle.simulate()
+            agent.initializeDecomposition()
+            agent.decomposition._cycle.simulate()
 
     def testTrajectoryPointsProgrammatically(self):
         n_sets = 8
         ex = VoronoiExperiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
         ex.agent().computeVisitingSequence()
-        ex.agent().initializeCycle()
-        ex.agent()._cycle.simulate()
+        ex.agent().initializeDecomposition()
+        ex.agent().decomposition._cycle.simulate()
 
-        for i in range(1,len(ex.agent()._switchingSegments)):
+        for i in range(ex.agent().decomposition.K()):
             ## Check if switching segment starts near last monitoring segment
-            ms = ex.agent()._monitoringSegments[i-1]
-            ss = ex.agent()._switchingSegments[i]
+            ms = ex.agent().decomposition.monitoringSegment(i)
+            ss = ex.agent().decomposition.switchingSegment(i)
             ms_end = ms.pTrajectory.x[:,-1]
             ss_start = ss.pTrajectory.x[:,0]
             dist = np.linalg.norm(ms_end-ss_start)
             self.assertLessEqual(dist, 1e-5, msg=f"Distance between ms {i-1} end and ss {i} start: {dist}")
 
             ## Check if switching segment ends near next monitoring segment
-            ms_next = ex.agent()._monitoringSegments[i]
+            ms_next = ex.agent().decomposition.monitoringSegment(i+1)
             ms_start = ms_next.pTrajectory.x[:,0]
             ss_end = ss.pTrajectory.x[:,-1]
             dist = np.linalg.norm(ms_start-ss_end)

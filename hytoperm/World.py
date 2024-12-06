@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.colors as colors
 from scipy.spatial import ConvexHull
+import casadi as cad
 
 # internal imports
 from .PyPlotHelpers.Plotters import *
@@ -89,6 +90,19 @@ class Region:
         """
         pass
 
+    def isBoundaryPoint(self, x: np.ndarray, tol : float = 1e-5) -> bool:
+        """
+        Checks if a point is on the boundary of the region.
+        
+        Args:
+            x: Point to be checked.
+            tol: Tolerance for the check.
+
+        Returns:
+            True iff the point is on the boundary of the region.
+        """
+        return np.abs(self.distToBoundary(x)) < tol
+
     def randomBoundaryPoint(self) -> np.ndarray:
         pass
 
@@ -101,6 +115,26 @@ class Region:
             x0: Initial point (within the region). Equals self.p() if None.
             xf: Final point provides the direction (xf - x0).
         '''
+        pass
+
+    def getBoundaryPoint(self, alpha : float) -> np.ndarray:
+        """
+        Get a boundary point that corresponds to the boundary point projection
+        from the point x0 = self.p along the ray xf - x0, where xf has a polar
+        angle of alpha with respect to the point self.p.
+        """
+        x0 = self.p()
+        xf = x0 + np.array([np.cos(alpha), np.sin(alpha)])
+        return self.projectToBoundary(xf)
+
+    def getPolarAngle(self, x : np.ndarray) -> float:
+        """
+        Get the polar angle of a point x with respect to the point self.p.
+        """
+        dx = x - self.p()
+        return np.arctan2([dx[1]], [dx[0]])
+
+    def getBoundaryDerivative(self, alpha: float) -> np.ndarray:
         pass
 
     def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
@@ -119,6 +153,16 @@ class Region:
     def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         """
         Computes the travel cost between two points in the region.
+
+        Args:
+            x0: Initial point.
+            xf: Final point.
+        """
+        pass
+
+    def travelCostJacobian(self, x0 : np.ndarray, xf : np.ndarray) -> np.ndarray:
+        """
+        Computes the Jacobian of the travel cost between two points in the region.
 
         Args:
             x0: Initial point.
@@ -213,7 +257,7 @@ class CPRegion(Region):
         self._domain : Domain = None
 
         self.assignConstraints(g, b, domain)
-        self.assignPoint(p)      
+        self.assignPoint(p)
 
     def copy(self):
         return CPRegion(self.g(), self.b(), self.domain())
@@ -427,6 +471,20 @@ class CPRegion(Region):
     def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         return np.linalg.norm(xf - x0)
 
+    def getBoundaryDerivative(self, alpha: float, **kwargs) -> np.ndarray:      
+        x = self.getBoundaryPoint(alpha)
+        gs = []
+        for i in self.g().keys():
+            g = self.g()[i]
+            b = self.b()[i]
+            if np.abs(np.dot(g,x) - b) < 1e-5:
+                gs.append(g)
+        
+        i = np.random.randint(0, len(gs))
+        return np.array((-gs[i][1], gs[i][0]))
+            
+        raise RuntimeError("No constraint appears to be active at the boundary point.")
+
     def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         return [x0, xf]
 
@@ -497,7 +555,7 @@ class SphericalRegion(Region):
         Returns:
             True iff the point is contained within the region.
         """
-        return np.linalg.norm(x - self._center) <= self._radius
+        return np.linalg.norm(x - self._center) <= self._radius + tol
 
     def violates(self, x: np.ndarray, tol : float = 0) -> List[int]:
         """
@@ -540,8 +598,11 @@ class SphericalRegion(Region):
             xf: Final point provides the direction (xf - x0).
         '''
         if x0 is not None:
-            raise NotImplementedError("Projection to boundary not implemented for spherical regions.")
+            raise NotImplementedError("For spherical regions the projection to boundary is only implemented for x0 = center.")
         return self._center + self._radius * (xf - self._center) / np.linalg.norm(xf - self._center)
+
+    def getBoundaryDerivative(self, alpha: float, **kwargs) -> np.ndarray:
+        return self._radius * np.array([-np.sin(alpha), np.cos(alpha)])
 
     def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
         '''
@@ -566,9 +627,28 @@ class SphericalRegion(Region):
         """
         return np.linalg.norm(xf - x0)
 
+    def travelCostJacobian(self, x0 : np.ndarray, xf : np.ndarray) -> np.ndarray:
+        """
+        Computes the Jacobian of the travel cost between two points in the region.
+
+        Args:
+            x0: Initial point.
+            xf: Final point.
+        """
+        dist = np.linalg.norm(xf - x0)
+
+        if dist < 1e-10:
+            warnings.warn("Regularizing travel cost gradient.")
+            dist = 1e-10
+
+        dxf = (xf - x0)/dist
+        dx0 = (x0 - xf)/dist
+        return np.array([dxf, dx0]).reshape((4,))
+
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         x = [self._center[0] + self._radius * np.cos(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
         y = [self._center[1] + self._radius * np.sin(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        ax = getAxes(ax)
         return PlotObject(ax.plot(x, y, **kwargs))
 
     def fill(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
@@ -581,7 +661,7 @@ class SphericalRegion(Region):
                 _plotAttr.partition_background.getAttributes(), **kwargs
             )
         x = [self._center[0] + self._radius * np.cos(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
-        y = [self._center[0] + self._radius * np.sin(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
+        y = [self._center[1] + self._radius * np.sin(alpha) for alpha in np.linspace(0, 2*np.pi, 100)]
         return PlotObject(ax.fill(x, y, **eka))
 
     def p(self) -> np.ndarray:
@@ -754,7 +834,6 @@ class DynamicCPRegion(CPRegion):
     def dynamics(self) -> Dynamics:
         return self._dynamics
 
-
 class ConstantDCPRegion(DynamicCPRegion):
     def __init__(self, g,b,p,domain,dynamics : ConstantDynamics):
         super().__init__(g,b,p,domain,dynamics)
@@ -809,7 +888,49 @@ class ConstantDCPRegion(DynamicCPRegion):
             t_star = max(t1,t2)
         u_star = (xf - x0)/t_star - v
         return t_star
+   
+    def travelCostJacobian(self, x0 : np.ndarray, xf : np.ndarray) -> np.ndarray:
+        """
+        Computes the Jacobian of the travel cost between two points in the region.
 
+        Args:
+            x0: Initial point.
+            xf: Final point.
+        """
+        v = self.dynamics().v()
+        a = np.dot(v,v) - 1
+        b = -2 * np.dot(xf - x0, v)
+        c = np.dot(xf - x0, xf - x0)
+
+        # final point is equal to initial point
+        if c < np.finfo(float).eps:
+            return np.zeros(4)
+
+        # missing affine part (allows for factoring out t)
+        if abs(a) < np.finfo(float).eps:
+            if b >= 0:
+                return np.zeros(4)
+            else:
+                return np.array([0,0,0,-1/b])
+
+        # general solution
+        delta = pow(b,2) - 4 * a * c
+        t_star = 0
+        if (delta < 0):
+            return np.zeros(4)
+        
+        t1 = (-b + np.sqrt(delta)) / (2 * a)
+        t2 = (-b - np.sqrt(delta)) / (2 * a)
+        if t1 < 0 and t2 < 0:
+            return np.zeros(4)
+
+        if t1 > 0 and t2 > 0:
+            t_star = min(t1,t2)
+        else:
+            t_star = max(t1,t2)
+        u_star = (xf - x0)/t_star - v
+        return np.array([u_star[0], u_star[1], -u_star[0], -u_star[1]]) / t_star**2
+    
     def setV(self, v : np.ndarray) -> None:
         if not isinstance(v, np.ndarray):
             raise ValueError("Argument must be a numpy array.")

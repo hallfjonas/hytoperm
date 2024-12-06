@@ -8,6 +8,7 @@ import collections
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Set, List
+import warnings
 
 # internal imports
 from .World import Region
@@ -72,7 +73,7 @@ class Node:
         self._r.add(r)
         
     def updateCostToRoot(self, costToRoot : float):
-        self._ctr = costToRoot
+        self._ctr = float(costToRoot)
 
     def updateCostToParent(self, costToParent : float):
         self._ctp = costToParent
@@ -187,12 +188,14 @@ class Tree(object):
             Set node's parent node.
 
             Parameters:
-            - parent (Tree): The parent node to be set.
+            - parent (Tree/Node): The parent node to be set.
             - costToParent (float): The time to reach parent node.
         """
         if not isinstance(parent, Tree):
-            raise TypeError('Parent of Tree should be a Tree type.')
-            
+            if not isinstance(parent, Node):
+                raise TypeError('Parent of Tree should be a Tree or Node type.')
+            parent = Tree(parent)
+
         parent.addChild(self)
         self.getData().updateCostToParent(costToParent)
         costToRoot = costToParent + parent.getData().costToRoot()
@@ -204,7 +207,7 @@ class Tree(object):
         """
         return self.__parent
     
-    def getChild(self, index) -> Tree:
+    def getChild(self, index: int = None) -> Tree:
         """  
             Get node's No. index child node.
             @param index: Which child node to get in children list, starts with 
@@ -213,6 +216,12 @@ class Tree(object):
             @raise IndexError: if the index is out of range 
         """
         try:
+            if index is None:
+                if len(self.__children) == 1:
+                    return self.__children[0]
+                else:
+                    warnings.warn("Multiple children, returning first child.")
+                    return self.__children[0]
             return self.__children[index]
         except IndexError:
             raise IndexError("Index starts with 0 to number of children - 1")
@@ -554,6 +563,22 @@ class Tree(object):
                 self.getParent().getPathToRoot()), 
                 axis=1
                 )
+
+    def plot(
+            self, 
+            po : PlotObject = None, 
+            ax : plt.Axes = None, 
+            annotate_cost = False, 
+            plot_direction = False, 
+            **kwargs
+            ) -> PlotObject:
+        return self.plotPathToRoot(
+            po, 
+            ax, 
+            annotate_cost=annotate_cost, 
+            plot_direction=plot_direction, 
+            **kwargs
+        )
 
     def plotPathToRoot(
             self, 

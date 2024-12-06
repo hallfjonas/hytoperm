@@ -15,7 +15,7 @@ class Trajectory:
         self._po : PlotObject = PlotObject()
 
     def extend(self, x : np.ndarray, t : np.ndarray) -> None:
-        self.assertDims(x, t)
+        x, t = self.assertDims(x, t)
         self.x = np.append(self.x, x, 1)
         self.t = np.append(self.t, t)
 
@@ -23,13 +23,15 @@ class Trajectory:
         self.extend(trj.x, trj.t)
 
     def assertDims(self, x : np.ndarray, t : np.ndarray) -> None:
-        if x.ndim != 2:
-            raise ValueError("State array must be two-dimensional")
         if t.ndim != 1:
             raise ValueError("Time array must be one-dimensional")
-        if x.shape[1] != t.shape[0]:
+        x_ret = x
+        if x.ndim != 2:
+            x_ret = x.reshape(-1,1)
+        if x_ret.shape[1] != t.shape[0]:
             raise ValueError("State and time arrays must have the same length")
-
+        return x_ret, t
+    
     def getInitialValue(self) -> np.ndarray:
         return self.x[:,0]
 
