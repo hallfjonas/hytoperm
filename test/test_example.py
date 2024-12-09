@@ -10,6 +10,11 @@ from hytoperm import *
 class TestExample(unittest.TestCase):
 
     def testVoronoiExample(self):
+        
+        # This tests seems to occasionally fail.
+        # I am fixing the seed to ensure reproducibility.
+        # If you see a failed test result, loop up the seed and debug with that.
+        
         seed = np.random.randint(0, 10000)
         ex = VoronoiExperiment.generate(
             seed=seed,
