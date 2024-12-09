@@ -1307,14 +1307,17 @@ class Decomposition:
         for i in range(self.K()):
             target = self.getTarget(i)
             swPath = swPaths[i]
+            next_target = self.getTarget(i+1)
             while True:
                 swSeg, target, swPath = self.extractSwitchingSegment(swPath,target)
 
-                if swSeg is not None:
-                    segments.append(swSeg)
-                    refined_tvs.append(target)
+                if swSeg is None:
+                    raise Exception("Expected a switching segment.")
 
-                if swPath is None or not swPath.hasParent():
+                segments.append(swSeg)
+                refined_tvs.append(target)
+
+                if target == next_target:
                     break
         
         return refined_tvs[0:-1], segments
