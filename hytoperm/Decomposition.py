@@ -799,10 +799,16 @@ class DecomposedCycle:
         else:
             self.pTrajectory.appendTrajectory(ts.pTrajectory)
             self.uTrajectory.appendTrajectory(ts.uTrajectory)
-        for target in ts.mseTrajectories.keys():
-            self.mseTrajectories[target].appendTrajectory(
-                ts.mseTrajectories[target]
-            )
+        
+            for target in ts.mseTrajectories.keys():
+                self.mseTrajectories[target].appendTrajectory(
+                    ts.mseTrajectories[target]
+                )
+                
+                L = self.mseTrajectories[target].t
+                for x, y in zip(L, L[1:]):
+                    if x > y:
+                        raise Exception("Trajectory time points are not sorted.")
 
     # plotters
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
