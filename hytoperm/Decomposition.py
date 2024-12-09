@@ -807,8 +807,8 @@ class DecomposedCycle:
                 
                 L = self.mseTrajectories[target].t
                 for x, y in zip(L, L[1:]):
-                    if x > y:
-                        raise Exception("Trajectory time points are not sorted.")
+                    if x > y + 1e-6:
+                        warnings.warn("Time vector is not strictly increasing.")
 
     # plotters
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
@@ -1085,6 +1085,7 @@ class Decomposition:
 
         # store the parameters
         self._storeParameters(stats)
+        stats.alphas.append(alpha)
 
     def checkFeasibility(self) -> bool:
         for k in range(self.K()):
@@ -1565,7 +1566,6 @@ class Decomposition:
             stats.tau_values.append(self.getTauVec())
             stats.phi_values.append(self.getPsiVec())
             stats.psi_values.append(self.getPhiVec())
-            stats.alphas.append(1)
             stats.iterate += 1
 
     def plotMonitoringSegments(
