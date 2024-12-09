@@ -3,7 +3,7 @@
 from __future__ import annotations
 import warnings
 import numpy as np
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Tuple
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
 import matplotlib.colors as colors
@@ -124,7 +124,7 @@ class Region:
         angle of alpha with respect to the point self.p.
         """
         x0 = self.p()
-        xf = x0 + np.array([np.cos(alpha), np.sin(alpha)])
+        xf = x0 + np.array([np.cos(alpha), np.sin(alpha)]).flatten()
         return self.projectToBoundary(xf)
 
     def getPolarAngle(self, x : np.ndarray) -> float:
@@ -137,7 +137,11 @@ class Region:
     def getBoundaryDerivative(self, alpha: float) -> np.ndarray:
         pass
 
-    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+    def planPath(
+            self, 
+            x0 : np.ndarray, 
+            xf : np.ndarray
+            ) -> Tuple[List[np.ndarray], float]:
         '''
         This function plans a path between two points in the region.
         
@@ -485,8 +489,12 @@ class CPRegion(Region):
             
         raise RuntimeError("No constraint appears to be active at the boundary point.")
 
-    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
-        return [x0, xf]
+    def planPath(
+            self, 
+            x0 : np.ndarray, 
+            xf : np.ndarray
+            ) -> Tuple[List[np.ndarray], float]:
+        return [x0, xf], self.travelCost(x0, xf)
 
     def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
@@ -602,9 +610,13 @@ class SphericalRegion(Region):
         return self._center + self._radius * (xf - self._center) / np.linalg.norm(xf - self._center)
 
     def getBoundaryDerivative(self, alpha: float, **kwargs) -> np.ndarray:
-        return self._radius * np.array([-np.sin(alpha), np.cos(alpha)])
+        return self._radius * np.array([-np.sin(alpha), np.cos(alpha)]).flatten()
 
-    def planPath(self, x0 : np.ndarray, xf : np.ndarray) -> List[np.ndarray]:
+    def planPath(
+            self, 
+            x0 : np.ndarray, 
+            xf : np.ndarray
+            ) -> Tuple[List[np.ndarray], float]:
         '''
         This function plans a path between two points in the region.
         
@@ -615,7 +627,7 @@ class SphericalRegion(Region):
         Returns:
             A list of waypoints.
         '''
-        return [x0, xf]
+        return [x0, xf], self.travelCost(x0, xf)
 
     def travelCost(self, x0 : np.ndarray, xf : np.ndarray) -> float:
         """

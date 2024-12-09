@@ -14,7 +14,7 @@ class TestAgent(unittest.TestCase):
         n_sets = 20
         ex = SphericalExperiment.generate(n_sets=n_sets)
         assert(isinstance(ex, Experiment))
-        
+
         target = ex._world.targets()[0]
         sensor = ex.agent().sensor()
 
@@ -25,9 +25,8 @@ class TestAgent(unittest.TestCase):
         for t in ex._world.targets():
             Omega0[t] = np.eye(1)
         lmp = LocalParameters(
-            r=[target.region()],
-            phi=target.region().getPolarAngle(phi.p()),
-            psi=target.region().getPolarAngle(psi.p()),
+            a_phi=phi.p(),
+            a_psi=psi.p(),
             tf=tf,
             Omega0=Omega0
         )

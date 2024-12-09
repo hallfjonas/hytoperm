@@ -37,17 +37,15 @@ LocalParameters: the parameters that define a trajectory segment, i.e., it is
 class LocalParameters:
     def __init__(
             self, 
-            r: List[Region],
-            phi: float,                                                         # entrance point (polar angle of the boundary point on the first region)
-            psi: float,                                                         # departure point (polar angle of the boundary point on the last region)
+            a_phi: np.ndarray,                                                         # entrance point (polar angle of the boundary point on the first region)
+            a_psi: np.ndarray,                                                         # departure point (polar angle of the boundary point on the last region)
             tf: float,                                                          # duration
             Omega0 : Dict[Target, np.ndarray] = {},                             # initial covariance matrices for all targets
             N = 100,                                                            # number of discretization nodes
             rho: float = 0.0,                                                   # slack variable
             ) -> None:
-        self._r: List[Region] = r
-        self._phi: float = float(phi)
-        self._psi: float = float(psi)
+        self._a_phi: np.ndarray = a_phi
+        self._a_psi: np.ndarray = a_psi
         self._Omega0 : Dict[Target, np.ndarray] = Omega0
         self._rho : float = rho
         self._tf : float = float(tf)
@@ -102,33 +100,17 @@ class LocalParameters:
         """
         return self._tf
 
-    def getStartRegion(self) -> Region:
-        """
-        Get the (target)-region associated with the initial point.
-        """
-        return self._r[0]
-    
-    def getEndRegion(self) -> Region:
-        """
-        Get the (target)-region associated with the terminal point.
-        """
-        return self._r[-1]
-
     def getStartPoint(self) -> SwitchingPoint:
         """
         Get the initial boundary point.
         """
-        return SwitchingPoint(
-            self.getStartRegion().getBoundaryPoint(self._phi)
-        )
+        return SwitchingPoint(self._a_phi)
 
     def getEndPoint(self) -> SwitchingPoint:
         """
         Get the terminal boundary point.
         """
-        return SwitchingPoint(
-            self.getEndRegion().getBoundaryPoint(self._psi)
-        )
+        return SwitchingPoint(self._a_psi)
     
 
 """
@@ -138,8 +120,8 @@ class LocalMonitoringParameters(LocalParameters):
     def __init__(
             self, 
             r: Region,
-            phi: float,                                                         # entrance point (angle)
-            psi: float,                                                         # departure point (angle)
+            a_phi: np.ndarray,                                                         # entrance point (angle)
+            a_psi: np.ndarray,                                                         # departure point (angle)
             tf: float,                                                          # duration
             Omega0 : Dict[Target, np.ndarray] = {},                             # initial covariance matrices for all targets
             N = 100,                                                            # number of discretization nodes
@@ -148,13 +130,17 @@ class LocalMonitoringParameters(LocalParameters):
 
         if not isinstance(r, Region):
             raise RuntimeError("Expected input of type Region.")
-        super().__init__([r], phi, psi, tf, Omega0, N, rho)
+        
+        super().__init__(a_phi, a_psi, tf, Omega0, N, rho)
+        self._r = r
+        self._phi: float = r.getPolarAngle(a_phi)
+        self._psi: float = r.getPolarAngle(a_psi)
 
     def getRegion(self) -> Region:
         """
         Get the region associated with the segment.
         """
-        return self.getStartRegion()
+        return self._r
 
     def hk(self):
         """
@@ -167,13 +153,10 @@ class LocalMonitoringParameters(LocalParameters):
             rho_param: the slack variable
         """
 
-        if len(self._r) > 1:
-            raise RuntimeError("This constraint can only be formed for single region trajectories (e.g., monitoring segments).")
-        
         tau = self.getDuration()
         a_phi = self.getStartPoint().p()
         a_psi = self.getEndPoint().p()
-        return tau - self._r[0].travelCost(a_phi, a_psi)
+        return tau - self.getRegion().travelCost(a_phi, a_psi)
     
     def hk_slacked(self):
         """
@@ -186,21 +169,15 @@ class LocalMonitoringParameters(LocalParameters):
             rho_param: the slack variable
         """
 
-        if len(self._r) > 1:
-            raise RuntimeError("This constraint can only be formed for single region trajectories (e.g., monitoring segments).")
-                
         return self.hk() - self._rho
 
     def nabla_hk(self, **kwargs):
-
-        if len(self._r) > 1:
-            raise RuntimeError("This constraint can only be formed for single region trajectories (e.g., monitoring segments).")
 
         db_dphi = self.getRegion().getBoundaryDerivative(self._phi)
         db_dpsi = self.getRegion().getBoundaryDerivative(self._psi)
         a_phi = self.getStartPoint()
         a_psi = self.getEndPoint()
-        dDelta = self._r[0].travelCostJacobian(a_phi.p(), a_psi.p())
+        dDelta = self.getRegion().travelCostJacobian(a_phi.p(), a_psi.p())
         dDelta_aphi = dDelta[0:2]
         dDelta_apsi = dDelta[2:4]
         return np.array([
@@ -246,10 +223,10 @@ class TrajectorySegment:
         )
 
     def getStartPoint(self) -> np.ndarray:
-        return self.getStartRegion().getBoundaryPoint(self.params._phi)
+        return self.params._a_phi
     
     def getEndPoint(self) -> np.ndarray:
-        return self.getEndRegion().getBoundaryPoint(self.params._psi)
+        return self.params._a_psi
     
     def getStartRegion(self) -> Region:
         return self.params._r[0]
@@ -266,20 +243,11 @@ class TrajectorySegment:
     def getGradientTau(self) -> np.ndarray:
         return self._gradient_tau
     
-    def getGradientPhi(self) -> np.ndarray:
-        da_dphi = self.getStartRegion().getBoundaryDerivative(self.params._phi)
+    def getGradientPhi(self, da_dphi) -> np.ndarray:
         return np.dot(self._gradient_a_phi, da_dphi)
     
-    def getGradientPsi(self) -> np.ndarray:
-        da_dpsi = self.getEndRegion().getBoundaryDerivative(self.params._psi)
+    def getGradientPsi(self, da_dpsi) -> np.ndarray:
         return np.dot(self._gradient_a_psi, da_dpsi)
-
-    def getSegmentCostGradients(self) -> Dict[str, np.ndarray]:
-        return {
-            'tau': self.getGradientTau(),
-            'phi': self.getGradientPhi(),
-            'psi': self.getGradientPsi()
-        }
 
     def getTerminalCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._cov_f
@@ -312,9 +280,19 @@ class TrajectorySegment:
             self.mseTrajectories[target].shiftTime(t0)
 
     # plotters
+    def plot(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        return self.plotInMissionSpace(ax, **kwargs)
+
     def plotInMissionSpace(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
         ax = getAxes(ax)
         return self.pTrajectory.plotStateVsState(0, 1, ax, **kwargs)
+
+    def plotBoundaryPoints(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
+        ax = getAxes(ax)
+        po = PlotObject()
+        po.add(self.params.getStartPoint().plot(ax, **kwargs))
+        po.add(self.params.getEndPoint().plot(ax, **kwargs))
+        return po
 
 
 '''
@@ -703,12 +681,9 @@ class DecomposedCycle:
                 if not isinstance(ts, SwitchingSegment):
                     raise Exception("Assumed to begin with monitoring segment, and end with switching segment.")
             
-            if np.linalg.norm(old_seg.getEndPoint() - new_seg.getStartPoint()) > 1e-6:  
+            if np.linalg.norm(old_seg.getEndPoint() - new_seg.getStartPoint()) != 0:
                 raise Exception("Subsequent trajectories don't connect.")
             
-            if old_seg.getEndRegion() != new_seg.getStartRegion():
-                raise Exception("Subsequent trajectories don't have overlapping regions.")
-
     # getters
     def getDuration(self) -> float:
         return sum([ts.getDuration() for ts in self._trajectorySegments])
@@ -739,8 +714,11 @@ class DecomposedCycle:
             ss_old = self._switchingSegments[k-1]
             ms = self._monitoringSegments[k]
             ss_next = self._switchingSegments[k]
-            grad_phi[k] = ss_old.getGradientPsi() + ms.getGradientPhi()
-            grad_psi[k] = ms.getGradientPsi() + ss_next.getGradientPhi()
+            msp: LocalMonitoringParameters = ms.params
+            da_dphi = msp.getRegion().getBoundaryDerivative(msp._phi)
+            da_dpsi = msp.getRegion().getBoundaryDerivative(msp._psi)
+            grad_phi[k] = ss_old.getGradientPsi(da_dphi) + ms.getGradientPhi(da_dphi)
+            grad_psi[k] = ms.getGradientPsi(da_dpsi) + ss_next.getGradientPhi(da_dpsi)
         return grad_phi, grad_psi
 
     def getCycleCostGradients(self) -> Dict[str, np.ndarray]:
@@ -980,7 +958,6 @@ class Decomposition:
         self._sensor: Sensor = kwargs.get('sensor', None)                       # The sensor
         self._gpp: GlobalPathPlanner = kwargs.get('gpp', None)                  # Global path planner
         self._tvs: List[Target] = kwargs.get('tvs', [])                         # target visiting sequence
-        self._lpr: List[LocalMonitoringParameters] = kwargs.get('lpr', [])      # Local parameters
         self._dJ: Dict[str, np.ndarray] = {}                                    # Derivatives of the cost function
         self._cycle: DecomposedCycle = kwargs.get('cycle', None)                # The decomposed cycle
         self._N: int = kwargs.get('N', 100)                                     # Number of control intervals
@@ -1016,7 +993,6 @@ class Decomposition:
         
         # assign cycle
         self._cycle.assignCycle(mns, self.initialCovarianceMatrices())
-        self._lpr = [ms.params for ms in mns]
 
         # Gradient Descent Subsolver
         if self.op.subsolver == 'gd':
@@ -1069,8 +1045,8 @@ class Decomposition:
         self.updateGlobalCostGradients(stats)
 
         if not self.checkFeasibility():
-            raise RuntimeError("Infeasible initialization.")
-        
+            raise RuntimeError("Infeasible initialization.")       
+
         # update the parameters
         xold = self.toVector()
 
@@ -1100,7 +1076,7 @@ class Decomposition:
         for tr, to in zip(refined_tvs, self._tvs):
             if tr != to:
                 raise RuntimeError("Changes in the visiting sequence is not yet supported.")
-                    
+
         # store the parameters
         self._storeParameters(stats)
 
@@ -1113,7 +1089,7 @@ class Decomposition:
         return True
 
     def lpr(self, k: int) -> LocalMonitoringParameters:
-        return self._lpr[k % self.K()]
+        return self.monitoringSegment(k).params
 
     def updateSwitchingSegments(self) -> None:
         for k in range(self.K()):
@@ -1167,17 +1143,23 @@ class Decomposition:
     def sensor(self) -> Sensor:
         return self._sensor
 
+    def getParameters(self) -> List[LocalMonitoringParameters]:
+        """
+        Get the local parameters of the decomposition.
+        """
+        return [self.lpr(k) for k in range(self.K())]
+
     def getNumberParameters(self) -> int:
         """
         Get the number of parameters in the decomposition.
         """
-        return sum(lp.numberOfParameters() for lp in self._lpr)
+        return sum(lp.numberOfParameters() for lp in self.getParameters())
 
     def getNumberEqualityConstraints(self) -> int:
         """
         Get the number of equality constraints in the decomposition.
         """
-        return sum(lp.getNumberOfEqualityConstraints() for lp in self._lpr)
+        return sum(lp.getNumberOfEqualityConstraints() for lp in self.getParameters())
     
     def toVector(self) -> np.ndarray:
         """
@@ -1187,7 +1169,8 @@ class Decomposition:
         # initialize the vector
         vec = np.zeros(self.getNumberParameters())
         idx = 0
-        for lp in self._lpr:
+        for k in range(self.K()):
+            lp = self.lpr(k)
             vec[idx:idx+lp.numberOfParameters()] = lp.toVector()
             idx += lp.numberOfParameters()
         return vec
@@ -1197,9 +1180,11 @@ class Decomposition:
         Set the decomposition parameters from a vector form.
         """
         idx = 0
-        for lp in self._lpr:
-            lp.fromVector(vec[idx:idx+lp.numberOfParameters()])
-            idx += lp.numberOfParameters()
+        for k in range(self.K()):
+            np = self.lpr(k).numberOfParameters()
+            pk = vec[idx:idx+np]
+            self.lpr(k).fromVector(pk)
+            idx += np
 
     def getIndex(self, key: str, idx: int) -> int:
         """
@@ -1209,7 +1194,7 @@ class Decomposition:
             key (str): the type of parameter to get the index for
             idx (int): the index of the local parameters
         """
-        idx_offset = sum(self._lpr[i].numberOfParameters() for i in range(idx))
+        idx_offset = sum(self.lpr(k).numberOfParameters() for k in range(idx))
         if key == 'tau':
             return idx_offset
         elif key == 'phi':
@@ -1238,25 +1223,25 @@ class Decomposition:
         """
         Get the vector of durations.
         """
-        return np.array([self._lpr[i]._tf for i in range(len(self._lpr))])
+        return np.array([self.lpr(i)._tf for i in range(self.K())])
 
     def getPhiVec(self) -> np.ndarray:
         """
         Get the vector of entrance point polar angles.
         """
-        return np.array([self._lpr[i]._phi for i in range(len(self._lpr))])
+        return np.array([self.lpr(i)._phi for i in range(self.K())])
 
     def getPsiVec(self) -> np.ndarray:
         """
         Get the vector of departure point polar angles.
         """
-        return np.array([self._lpr[i]._psi for i in range(len(self._lpr))])
+        return np.array([self.lpr(i)._psi for i in range(self.K())])
     
     def nabla_f(self, **kwargs) -> np.ndarray:
         nf = np.zeros(self.getNumberParameters())
         for key in self._dJ.keys():
-            for idx, lp in enumerate(self._lpr):
-                nf[self.getIndex(key, idx)] = self._dJ[key][idx]
+            for k in range(self.K()):
+                nf[self.getIndex(key, k)] = self._dJ[key][k]
         return nf
 
     def h(self, **kwargs) -> np.ndarray:
@@ -1264,8 +1249,8 @@ class Decomposition:
         Combine the slacked inequality constraints.
         """
         h = []
-        for idx, lp in enumerate(self._lpr):
-            hk = lp.hk()
+        for k in range(self.K()):
+            hk = self.lpr(k).hk()
             h.append(hk)
         return np.array(h).flatten()
 
@@ -1274,8 +1259,8 @@ class Decomposition:
         Combine the slacked inequality constraints.
         """
         h = []
-        for idx, lp in enumerate(self._lpr):
-            hk = lp.hk_slacked()
+        for k in range(self.K()):
+            hk = self.lpr(k).hk_slacked()
             h.append(hk)
         return np.array(h).flatten()
 
@@ -1283,16 +1268,16 @@ class Decomposition:
         nx = self.getNumberParameters()
         nh = self.getNumberEqualityConstraints()
         jac_h = np.zeros((nh, nx))
-        for idx, lp in enumerate(self._lpr):
-            grad_hk = lp.nabla_hk()
-            tau_idx = self.getIndex('tau', idx)
-            phi_idx = self.getIndex('phi', idx)
-            psi_idx = self.getIndex('psi', idx)
-            rho_idx = self.getIndex('rho', idx)
-            jac_h[idx, tau_idx] = grad_hk[0]
-            jac_h[idx, phi_idx] = grad_hk[1]
-            jac_h[idx, psi_idx] = grad_hk[2]
-            jac_h[idx, rho_idx] = grad_hk[3]
+        for k in range(self.K()):
+            grad_hk = self.lpr(k).nabla_hk()
+            tau_idx = self.getIndex('tau', k)
+            phi_idx = self.getIndex('phi', k)
+            psi_idx = self.getIndex('psi', k)
+            rho_idx = self.getIndex('rho', k)
+            jac_h[k, tau_idx] = grad_hk[0]
+            jac_h[k, phi_idx] = grad_hk[1]
+            jac_h[k, psi_idx] = grad_hk[2]
+            jac_h[k, rho_idx] = grad_hk[3]
         return jac_h
 
     def refineVisitingSequence(
@@ -1329,7 +1314,7 @@ class Decomposition:
                     segments.append(swSeg)
                     refined_tvs.append(target)
 
-                if swPath is None or swPath.hasParent():
+                if swPath is None or not swPath.hasParent():
                     break
         
         return refined_tvs[0:-1], segments
@@ -1369,15 +1354,10 @@ class Decomposition:
                 if target == initialTarget:
                     continue
                 if target.region().contains(node.getData().p(), tol=1e-3):
-                    r0 = initialTarget.region()
-                    rf = target.region()
-                    phi = r0.getPolarAngle(ep.p())
-                    psi = rf.getPolarAngle(dp.p())
-
+                    
                     sp = LocalParameters(
-                        r = [r0, rf],
-                        phi = phi,
-                        psi = psi,
+                        a_phi = ep.p(),
+                        a_psi = dp.p(),
                         tf = tf,
                         N = self._N
                     )
@@ -1449,9 +1429,9 @@ class Decomposition:
             
             params = LocalMonitoringParameters(
                 r = target.region(),
-                phi = target.region().getPolarAngle(a_phi),
-                psi = target.region().getPolarAngle(a_psi), 
-                tf = tf, 
+                a_phi = a_phi,
+                a_psi = a_psi,
+                tf = tf,
                 N = self._N,
                 rho = tf - min_t
             )
@@ -1519,24 +1499,24 @@ class Decomposition:
         }
                     
         k = 0
-        for ts in self._cycle._trajectorySegments:
-            if isinstance(ts, SwitchingSegment):
-                
-                # get the gradient of the switching duration wrt start & end
-                a = ts.getStartPoint()
-                b = ts.getEndPoint()
-                da, db = self.gpp().getGradientDelta(a, b) 
+        for k in range(self.K()):
+            msp = self.lpr(k) 
+            ts = self._cycle._switchingSegments[k]
+            msn = self.lpr(k+1)
 
-                # get the gradient of the switching points wrt polar angles
-                phi = ts.params._phi
-                psi = ts.params._psi
-                da_dangle = ts.getStartRegion().getBoundaryDerivative(phi)
-                db_dangle = ts.getEndRegion().getBoundaryDerivative(psi)
-                
-                # chain rule
-                nablaDelta['psi'][k] = np.dot(da,da_dangle)
-                nablaDelta['phi'][(k+1) % self.K()] = np.dot(db, db_dangle)
-                k += 1
+            # get the gradient of the switching duration wrt start & end
+            a = ts.getStartPoint()
+            b = ts.getEndPoint()
+            da, db = self.gpp().getGradientDelta(a, b) 
+
+            # get the gradient of the switching points wrt polar angles
+            da_dangle = msp.getRegion().getBoundaryDerivative(msp._psi)
+            db_dangle = msn.getRegion().getBoundaryDerivative(msn._phi)
+            
+            # chain rule
+            nablaDelta['psi'][k] = np.dot(da,da_dangle)
+            nablaDelta['phi'][(k+1) % self.K()] = np.dot(db, db_dangle)
+            k += 1
 
         return {
             'tau': np.ones(self.K()),
