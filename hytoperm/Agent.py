@@ -48,21 +48,11 @@ class Agent:
         self.setTargetVisitingSequence(tvs)
     
     def simulateCycle(self) -> None:
-        try: 
-            self.decomposition.initialize()
-        except Exception as e:
-            print(e)
-            return
-        
+        self.decomposition.initialize()        
         self.decomposition._cycle.simulate()
         
     def optimizeCycle(self, op: OptimizationParameters) -> None:
-        try: 
-            self.initializeDecomposition()
-        except Exception as e:
-            print(e)
-            return
-        
+        self.initializeDecomposition()
         it = 0
         self._iteration_stats = IterationStats()
         while True:
