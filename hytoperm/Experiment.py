@@ -259,6 +259,8 @@ class VoronoiExperiment(Experiment):
         if seed is not None:
             np.random.seed(seed)
         
+        print(f"Generating voronoi experiment with seed = {seed}.")
+
         ex = VoronoiExperiment(domain=domain)
         ex.addRandomVoronoiPoints(
             ex.getNSets(**kwargs), 
@@ -417,9 +419,11 @@ class SphericalExperiment(Experiment):
         min_dist: float
             Minimum distance between target regions.
         '''
-        pass
         if seed is not None:
             np.random.seed(seed)
+
+        print(f"Generating spherical experiment with seed = {seed}.")
+
         ex = SphericalExperiment(domain=domain)
         n_targets = ex.getNTargets(**kwargs)
         radius = kwargs.get('radius', None)
