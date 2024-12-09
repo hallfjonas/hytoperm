@@ -428,7 +428,11 @@ class GlobalPathPlanner:
         for i_reg in initialRegions:
             for t_reg in targetRegions:
                 if i_reg == t_reg:
-                    return i_reg, i_reg.planPath(t0, tf)
+                    # only interested in abstract path (start and end point)
+                    tc = i_reg.travelCost(t0, tf)
+                    path = Tree(Node(t0, initialRegions))
+                    path.setParent(Tree(Node(tf, targetRegions)), tc)
+                    return path, tc
                 
         # utilize target planners if possible
         for target in self._world.targets():
