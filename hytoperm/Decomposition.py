@@ -10,6 +10,7 @@ from .PyPlotHelpers import *
 from .Optimization import *
 from .LinearSensingModel import *
 from .PyPlotHelpers import *
+from .Statistics import *
 _plotAttr = PlotAttributes()
 
 '''
@@ -931,18 +932,6 @@ class DecomposedCycle:
             po.add(self.plotTargetMSE(target, add_labels, ax, **eka))
             i += 1
         return po
-
-class IterationStats:
-    iterate: int = 0
-    global_costs : List[float] = []
-    global_gradients : List[np.ndarray] = []
-    global_gradient_norms: List[float] = []
-    steady_state_iterations : List[int] = []
-    is_steady_state: List[bool] = []
-    tau_values: List[np.ndarray] = []
-    phi_values: List[np.ndarray] = []
-    psi_values: List[np.ndarray] = []
-    alphas: List[float] = []
 
 
 """
