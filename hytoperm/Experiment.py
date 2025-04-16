@@ -422,8 +422,12 @@ class SphericalExperiment(Experiment):
         Special keyword arguments:
         n_targets: int
             Number of target locations.
-        radius: float (default = None)
-            Maximum radius of the targets. If None, the radius is randomized.
+        radius: float
+            Radius of the targets. If not specified, radius will be randomized.
+        max_radius: float
+            Maximum radius of the targets. Is ignored if radius is specified.
+        min_radius: float (default = None)
+            Minimum radius of the targets. Is ignored if radius is specified.
         min_dist: float
             Minimum distance between target regions.
         '''
@@ -435,12 +439,20 @@ class SphericalExperiment(Experiment):
         ex = SphericalExperiment(domain=domain)
         n_targets = ex.getNTargets(**kwargs)
         radius = kwargs.get('radius', None)
+        if radius is not None:
+            if radius < 0:
+                raise ValueError("Radius must be a nonnegative number.")
+            max_radius = radius
+            min_radius = radius
+        else:
+            max_radius = kwargs.get('max_radius', (domain.xmax() - domain.xmin())/n_targets)
+            min_radius = kwargs.get('min_radius', 0.0)
         min_dist = kwargs.get('min_dist', 0.1)
         ex.addRandomSpheres(
             n_targets,
             min_dist=min_dist, 
-            max_radius=radius if radius is not None else np.inf,
-            min_radius=radius if radius is not None else min_dist
+            max_radius=max_radius,
+            min_radius=min_radius
         )
         ex.generatePartitioning(**kwargs)
         ex.addCenteredTargets()
