@@ -156,6 +156,7 @@ class OptimizationParameters:
         self.sim_to_steady_state_tol : float = 1e-1                             # tolerance for simulation to steady state
         self.steady_state_iters : int = 1                                       # maximum number of iterations for steady state simulation
         self.optimization_iters : int = 100                                     # maximum number of iterations for optimization
+        self.step_size_strategy: str = "diminishing"                            # one of "fixed", "diminishing", or "momentum"
         self.subsolver: str = "bfgs"                                            # one of "bfgs" or "gd"
 
     def copy(self):
