@@ -1,10 +1,12 @@
 
 # external imports
+from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 
 # internal imports
 from .PyPlotHelpers.Plotters import PlotObject, getAxes
+from .DataStructures import Tree
 
 
 class Trajectory:
@@ -74,6 +76,18 @@ class Trajectory:
     def getDuration(self) -> float:
         return self.t[-1] - self.t[0]
 
+    def fromPath(path: Tree) -> Trajectory:
+        """
+        Constructs a trajectory from a tree of nodes.
+        """
+        x = []
+        t = []
+        T = path.getData().costToRoot()
+        while path is not None:
+            x.append(path.getData().p())
+            t.append(T - path.getData().costToRoot())
+            path = path.getParent()
+        return Trajectory(np.array(x).T, np.array(t))
 
 class ControlledTrajectory(Trajectory):
     def __init__(
