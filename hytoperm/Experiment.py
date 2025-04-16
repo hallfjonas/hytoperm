@@ -138,20 +138,28 @@ class Experiment:
 
         return plt.gcf(), ax
 
-    def zoomToTargetRegion(self, ax : plt.Axes, name : str):
-        target = self._world.getTargetByName(name)
-        region = target.region()
+    def zoomToTargetRegions(self, ax : plt.Axes) -> None:
+        if len(self._world.targets()) == 0:
+            return
         xrange = [np.inf, -np.inf]
         yrange = [np.inf, -np.inf]
-        i = 0
-        while i < 100:
-            i += 1
-            p = region.randomBoundaryPoint()
-            xrange[0] = min(xrange[0], p[0])
-            xrange[1] = max(xrange[1], p[0])
-            yrange[0] = min(yrange[0], p[1])
-            yrange[1] = max(yrange[1], p[1])
+        for target in self._world.targets():
+            r = target.region().range()
+            if r[0][0] < xrange[0]:
+                xrange[0] = r[0][0]
+            if r[0][1] > xrange[1]:
+                xrange[1] = r[0][1]
+            if r[1][0] < yrange[0]:
+                yrange[0] = r[1][0]
+            if r[1][1] > yrange[1]:
+                yrange[1] = r[1][1]
+        ax.set_xlim(xrange[0] - 0.01, xrange[1] + 0.01)
+        ax.set_ylim(yrange[0] - 0.01, yrange[1] + 0.01)
+        
 
+    def zoomToTargetRegion(self, ax : plt.Axes, name : str):
+        target = self._world.getTargetByName(name)
+        xrange, yrange = target.region().range()
         ax.set_xlim(xrange[0] - 0.01, xrange[1] + 0.01)
         ax.set_ylim(yrange[0] - 0.01, yrange[1] + 0.01)
 

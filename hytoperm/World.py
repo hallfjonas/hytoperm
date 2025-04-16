@@ -210,6 +210,18 @@ class Region:
     def randomPoint(self) -> np.ndarray:
         pass
 
+    def range(self, n_samples: int = 100) -> Tuple[float, float]:
+        xrange = [np.inf, -np.inf]
+        yrange = [np.inf, -np.inf]
+        i = 0
+        while i < n_samples:
+            i += 1
+            p = self.randomBoundaryPoint()
+            xrange[0] = min(xrange[0], p[0])
+            xrange[1] = max(xrange[1], p[0])
+            yrange[0] = min(yrange[0], p[1])
+            yrange[1] = max(yrange[1], p[1])
+        return xrange, yrange
 
 class Partition:
     def __init__(self, regions : Set[Region]) -> None:
