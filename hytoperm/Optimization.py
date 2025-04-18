@@ -148,7 +148,7 @@ class GradientDescent(SubproblemSolver):
 
 class OptimizationParameters:
     def __init__(self) -> None:
-        self.kkt_tolerance : float = 1e-1                                       # KKT tolerance
+        self.kkt_tolerance : float = 1e-2                                       # KKT tolerance
         self.alpha : float = 1.0                                                # step size for gradient descent    
         self.sigma : float = 1e-1                                               # constraint regularization parameter
         self.beta : float = 0.95                                                # step size reduction factor for gradient descent

@@ -64,9 +64,9 @@ class Experiment:
         Build a homogeneous sensor and add an agent with this sensor.
         """
         sensor = HomogeneousSensor()
-        sensor.setTargetQualityFunction(GaussianQualityFunction())
+        sensor.setTargetQualityFunction(GaussianQualityFunction(c1=0.1))
         sensor.setNoiseMatrix(np.eye(1))
-        sensor.setMeasurementMatrix(np.eye(1))
+        sensor.setMeasurementMatrix(2*np.eye(1))
         self.addAgent(gpp=gpp, sensor=sensor, name=name)
 
     def addAgentHeterogeneousSensor(
@@ -117,9 +117,7 @@ class Experiment:
         ax = getAxes(ax)        
         ax.set_aspect('equal', 'box')
         ax.axis('off')
-        ax.set_xlim(self._domain.xmin()*1.01, self._domain.xmax()*1.01)
-        ax.set_ylim(self._domain.ymin()*1.01, self._domain.ymax()*1.01)
-
+        self.zoomToTargetRegions(ax)
         if with_sensor_quality and len(self._agents) > 0:
             if len(self._agents) == 1 or self._homogeneous_agents:
                 self.agent(0).plotSensorQuality(ax=ax)
@@ -483,7 +481,7 @@ class SphericalExperiment(Experiment):
             if r_m < min_radius:
                 continue
             
-            rad = np.random.uniform(min_radius, r_m)
+            rad = np.random.uniform(min_radius, max_radius)
             
             r = SphericalRegion(np.array([x, y]), rad)
             intersects = False

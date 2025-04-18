@@ -48,9 +48,42 @@ class Agent:
         self.setTargetVisitingSequence(tvs)
     
     def simulateCycle(self) -> None:
-        self.decomposition.initialize()        
         self.decomposition._cycle.simulate()
         
+    def simulateToSteadyState(
+            self, 
+            op: OptimizationParameters,
+            stats: IterationStats = None
+            ) -> Tuple[bool, int]:
+        it = 0
+        cycle = self.decomposition._cycle
+        omega_f = cycle.getInitialCovarianceMatrices()
+        n_resolves = 0
+        while True:
+            it += 1
+
+            cycle.simulate()
+            omega_f = cycle.getTerminalCovarianceMatrices()
+            n_resolves = sum(ms._monitoring_controller.n_resolve for ms in cycle._monitoringSegments)
+
+            cycle_average_cost = cycle.getCost()/cycle.getDuration()
+            isSteady, error = cycle.steadyState(tol=op.sim_to_steady_state_tol)
+            cycle.updateInitialCovarianceMatrices(omega_f)
+
+            if isSteady or it >= op.steady_state_iters:
+                break
+            
+            cycle._cycle_start += cycle.getDuration()
+
+        if isinstance(stats, IterationStats):
+            stats.is_steady_state.append(isSteady)
+            stats.steady_state_iterations.append(it)                
+            stats.global_costs.append(cycle_average_cost)
+            stats.steady_state_violations.append(error)
+            stats.resolves.append(n_resolves)
+
+        return isSteady, it
+
     def optimizeCycle(self, op: OptimizationParameters) -> None:
         self.initializeDecomposition()
         it = 0
@@ -60,8 +93,6 @@ class Agent:
                 op,
                 self._iteration_stats
             )
-            self.printIteration(self._iteration_stats)
-
             if it > op.optimization_iters:
                 print("Maximum number of iterations reached...")
                 break
@@ -251,24 +282,3 @@ class Agent:
             po.add(ax.axvline(cumsum[i], **kwargs))
         return po
 
-    # printers
-    def printHeader(self) -> None:
-        print("----|-----------|-----------|-----------|--------|--------")
-        print(" it | avrg cost | grad. nrm | step size | it std | is std ")
-        print("----|-----------|-----------|-----------|--------|--------")
-              
-    def printIteration(self, stats: IterationStats) -> None:
-        if stats.iterate % 10 == 0:
-            self.printHeader()
-        
-        if len(stats.global_costs) == 0:
-            return
-
-        print("{:3d} | {:9.2e} | {:9.2e} | {:9.2e} | {:6d} | {:>6s}".format(
-            stats.iterate, 
-            stats.global_costs[-1], 
-            stats.global_gradient_norms[-1],
-            stats.alphas[-1], 
-            stats.steady_state_iterations[-1],
-            'T' if stats.is_steady_state[-1] else 'F'
-        ))

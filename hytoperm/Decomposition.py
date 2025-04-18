@@ -1,6 +1,7 @@
 from typing import List, Dict
 import numpy as np
 import math
+import pickle as pkl
 
 from .World import *
 from .Dynamics import *
@@ -38,17 +39,15 @@ LocalParameters: the parameters that define a trajectory segment, i.e., it is
 class LocalParameters:
     def __init__(
             self, 
-            a_phi: np.ndarray,                                                         # entrance point (polar angle of the boundary point on the first region)
-            a_psi: np.ndarray,                                                         # departure point (polar angle of the boundary point on the last region)
+            a_phi: np.ndarray,                                                  # entrance point (polar angle of the boundary point on the first region)
+            a_psi: np.ndarray,                                                  # departure point (polar angle of the boundary point on the last region)
             tf: float,                                                          # duration
             Omega0 : Dict[Target, np.ndarray] = {},                             # initial covariance matrices for all targets
             N = 100,                                                            # number of discretization nodes
-            rho: float = 0.0,                                                   # slack variable
             ) -> None:
         self._a_phi: np.ndarray = a_phi
         self._a_psi: np.ndarray = a_psi
         self._Omega0 : Dict[Target, np.ndarray] = Omega0
-        self._rho : float = rho
         self._tf : float = float(tf)
         self._N = N
 
@@ -56,16 +55,16 @@ class LocalParameters:
         """
         Get the number of parameters in the local parameters.
         
-        Warning: For now hard-coded to 4 (tf, phi, psi, rho).
+        Warning: For now hard-coded to 3 (tf, phi, psi).
         """
-        return 4
+        return 3
 
     def getNumberOfEqualityConstraints(self) -> int:
         """
         Get the number of equality constraints in the local parameters.
 
         Warning: For now hard-coded to capture
-            - tau - delta(bp(phi), bp(psi)) - rho = 0   (1D)
+            tau - delta(bp(phi), bp(psi)) = 0   (1D)
         """
         return 1
 
@@ -74,26 +73,6 @@ class LocalParameters:
         Get the lower bounds for the local parameters.
         """
         return np.array([-np.inf, -np.inf, -np.inf, 0])
-
-    def toVector(self) -> np.ndarray:
-        """
-        Get the local parameters in a vector form.
-        """
-        return np.array([
-            float(self._tf),
-            float(self._phi),
-            float(self._psi),
-            float(self._rho)
-        ])
-    
-    def fromVector(self, vec: np.ndarray) -> None:
-        """
-        Set the local parameters from a vector form.
-        """
-        self._tf = float(vec[0])
-        self._phi = float(vec[1])
-        self._psi = float(vec[2])
-        self._rho = float(vec[3])
 
     def getDuration(self) -> float:
         """
@@ -113,6 +92,11 @@ class LocalParameters:
         """
         return SwitchingPoint(self._a_psi)
     
+    def toVector(self) -> np.ndarray:
+        pass
+    
+    def fromVector(self, vec: np.ndarray) -> None:
+        pass
 
 """
 LocalMonitoringParameters: the parameters that define a monitoring segment
@@ -121,21 +105,50 @@ class LocalMonitoringParameters(LocalParameters):
     def __init__(
             self, 
             r: Region,
-            a_phi: np.ndarray,                                                         # entrance point (angle)
-            a_psi: np.ndarray,                                                         # departure point (angle)
-            tf: float,                                                          # duration
+            a_phi: np.ndarray = None,                                           # entrance point (angle)
+            a_psi: np.ndarray = None,                                           # departure point (angle)
+            tf: float = 0.0,                                                    # duration
             Omega0 : Dict[Target, np.ndarray] = {},                             # initial covariance matrices for all targets
             N = 100,                                                            # number of discretization nodes
-            rho: float = 0.0,                                                   # slack variable
             ) -> None:
 
         if not isinstance(r, Region):
             raise RuntimeError("Expected input of type Region.")
         
-        super().__init__(a_phi, a_psi, tf, Omega0, N, rho)
+        super().__init__(a_phi, a_psi, tf, Omega0, N)
         self._r = r
-        self._phi: float = r.getPolarAngle(a_phi)
-        self._psi: float = r.getPolarAngle(a_psi)
+        self.updateStartPoint(a_phi=a_phi)
+        self.updateEndPoint(a_psi=a_psi)
+
+    def min_dt(self) -> float:
+        """
+        Get the minimum travel time between the start and end points.
+        """
+        return self._r.travelCost(self._a_phi, self._a_psi)
+
+    def updateStartPoint(self, phi: float = None, a_phi: np.ndarray = None) -> None:
+        """
+        Update the start point of the segment using either a polar angle or the exact point.
+        The other will be determined. If both are provided, the polar angle will be used.
+        """
+        if phi is not None:
+            self._phi = phi
+            self._a_phi = self._r.getBoundaryPoint(phi)
+        elif a_phi is not None:
+            self._a_phi = a_phi
+            self._phi = self._r.getPolarAngle(a_phi)
+    
+    def updateEndPoint(self, psi: float = None, a_psi: np.ndarray = None) -> None:
+        """
+        Update the start point of the segment using either a polar angle or the exact point.
+        The other will be determined. If both are provided, the polar angle will be used.
+        """
+        if psi is not None:
+            self._psi = psi
+            self._a_psi = self._r.getBoundaryPoint(psi)
+        elif a_psi is not None:
+            self._a_psi = a_psi
+            self._psi = self._r.getPolarAngle(a_psi)
 
     def getRegion(self) -> Region:
         """
@@ -145,13 +158,12 @@ class LocalMonitoringParameters(LocalParameters):
 
     def hk(self):
         """
-        The slacked local inequality constraints.
+        The local inequality constraints.
 
         Args (all params are assumed to be floats/np.ndarrays or symbolics):
             t_param: the duration of the segment
             a_phi_param: the entrance point of the segment
             a_psi_param: the departure point of the segment
-            rho_param: the slack variable
         """
 
         tau = self.getDuration()
@@ -159,19 +171,6 @@ class LocalMonitoringParameters(LocalParameters):
         a_psi = self.getEndPoint().p()
         return tau - self.getRegion().travelCost(a_phi, a_psi)
     
-    def hk_slacked(self):
-        """
-        The slacked local inequality constraints.
-
-        Args (all params are assumed to be floats/np.ndarrays or symbolics):
-            t_param: the duration of the segment
-            a_phi_param: the entrance point of the segment
-            a_psi_param: the departure point of the segment
-            rho_param: the slack variable
-        """
-
-        return self.hk() - self._rho
-
     def nabla_hk(self, **kwargs):
 
         db_dphi = self.getRegion().getBoundaryDerivative(self._phi)
@@ -184,9 +183,28 @@ class LocalMonitoringParameters(LocalParameters):
         return np.array([
             1.0,
             -db_dphi @ dDelta_aphi,
-            -db_dpsi @ dDelta_apsi,
-            -1.0
+            -db_dpsi @ dDelta_apsi
         ])
+
+    def toVector(self) -> np.ndarray:
+        """
+        Get the local parameters in a vector form.
+        """
+        return np.array([
+            float(self._tf),
+            float(self._phi),
+            float(self._psi)
+        ])
+    
+    def fromVector(self, vec: np.ndarray) -> None:
+        """
+        Set the local parameters from a vector form.
+        """
+        self._tf = float(vec[0])
+        self._phi = float(vec[1])
+        self._psi = float(vec[2])
+        self._a_phi = self._r.getBoundaryPoint(self._phi)
+        self._a_psi = self._r.getBoundaryPoint(self._psi)
 
 
 '''
@@ -201,40 +219,21 @@ class TrajectorySegment:
         self.pTrajectory : Trajectory = None                                    # the agent's trajectory for this segment    
         self.uTrajectory : Trajectory = None                                    # the agent's control for this segment    
         self.mseTrajectories : Dict[Target, Trajectory] = {}                    # the estimator's mean squared error trajectory for each target
-        self.params : LocalParameters = params                                  # switching parameters for the segment
         self._cost : float = None                                               # the cost of the segment           
         self._gradient_tau = None                                               # the cost gradient with respect to trajectory duration
         self._gradient_a_phi = None                                             # the cost gradient with respect to entrance point      
         self._gradient_a_psi = None                                             # the cost gradient with respect to departure point
         self._ucs : Dict[Target : cad.Function] = ucs                           # an unmmonitored covariance simulator for each target
-        self._cov_f : Dict[Target, np.ndarray] = {}
+        self._cov_f : Dict[Target, np.ndarray] = {}                             # terminal covariance matrices for all targets            
 
         self.initializeTrajectory()
 
-    def update(self) -> None:
+    def update(self, agent_pos: np.ndarray) -> None:
         pass
 
     def initializeTrajectory(self) -> None:
-        ep = self.params.getStartPoint().p()
-        dp = self.params.getEndPoint().p()
-        tf = self.params.getDuration()
-        self.pTrajectory = Trajectory(
-            x0 = np.array((ep, dp)).T,
-            t0 = np.array((0, tf))
-        )
-
-    def getStartPoint(self) -> np.ndarray:
-        return self.params._a_phi
+        pass
     
-    def getEndPoint(self) -> np.ndarray:
-        return self.params._a_psi
-    
-    def getStartRegion(self) -> Region:
-        return self.params._r[0]
-    
-    def getEndRegion(self) -> Region:
-        return self.params._r[-1]
-
     def getDuration(self) -> float:
         return self.pTrajectory.t[-1] - self.pTrajectory.t[0]
 
@@ -258,8 +257,8 @@ class TrajectorySegment:
             self, 
             omega0 : Dict[Target, np.ndarray]
             ) -> None:
-        self.params._Omega0 = omega0
-
+        pass
+    
     def updateTerminalCovarianceMatrix(
             self, 
             target : Target, 
@@ -288,14 +287,6 @@ class TrajectorySegment:
         ax = getAxes(ax)
         return self.pTrajectory.plotStateVsState(0, 1, ax, **kwargs)
 
-    def plotBoundaryPoints(self, ax : plt.Axes = None, **kwargs) -> PlotObject:
-        ax = getAxes(ax)
-        po = PlotObject()
-        po.add(self.params.getStartPoint().plot(ax, **kwargs))
-        po.add(self.params.getEndPoint().plot(ax, **kwargs))
-        return po
-
-
 '''
 MonitoringController: a class that encapsulates the optimal monitoring control
 '''
@@ -308,6 +299,9 @@ class MonitoringController:
         self.nu : int = None                                                    # number of controls (assigned by builder)
         self.no : int = None                                                    # number of target states (assigned by builder)
         self.add_region_constraints = False                                     # whether or not to include all region boundaries as constraints
+        self.w_opt = None                                                       # optimal solution
+        self.max_resolve = 3 
+        self.n_resolve = 0                                                    # maximum number of resolve attempts
         self.buildOptimalMonitoringSolver(target, sensor)
 
     def buildOptimalMonitoringSolver(
@@ -373,19 +367,6 @@ class MonitoringController:
             Q = Q + DT/6*(k1_q + 2*k2_q + 2*k3_q + k4_q)
         F = cad.Function('F',[X0,U,params],[X,Q],['x0','u0','p'],['xf','qf'])
 
-        # Region constraints
-        if (self.add_region_constraints):
-            region = target.region()
-            if isinstance(region, CPRegion):
-                g_constr = region.g()
-                b_constr = region.b()
-                g_constr_term = []
-                for i in g_constr.keys():
-                    g_constr_term.append(cad.dot(g_constr[i], X0[0:2]) - b_constr[i])
-                R = cad.Function('r',[X0],[cad.vertcat(*g_constr_term)],['x0'],['r'])
-            elif isinstance(region, SphericalRegion):
-                R = cad.Function('r',[X0],[cad.norm_2(X0[0:2]-region.center()) - region.radius()],['x0'],['r'])
-
         lbx = -np.inf*np.ones(nx)
         ubx = -lbx
         lbu = -np.inf*np.ones(nu)
@@ -427,7 +408,7 @@ class MonitoringController:
             # Integrate till the end of the interval
             Fk = F(x0=Xk, u0=Uk, p=params)
             Xk_end = Fk['xf']
-            J=J+Fk['qf']
+            J = J + Fk['qf']
 
             # New NLP variable for state at end of interval
             Xk = cad.SX.sym('X_' + str(k+1), nx)
@@ -445,12 +426,6 @@ class MonitoringController:
             g   += [cad.dot(Uk, Uk)]
             lbg += [-np.inf]
             ubg += [1]
-
-            # Add region constraints
-            if (self.add_region_constraints):
-                g   += [R(Xk)]
-                lbg += [-np.inf*np.ones(len(g_constr_term))]
-                ubg += [np.zeros(len(g_constr_term))]
 
         # Terminal constraint
         g   += [Xk[0:2]-psi]
@@ -476,11 +451,40 @@ class MonitoringController:
               np.array(params.getDuration()), 
               np.matrix(params._Omega0[self.target]).getA1()]
         )
-        sol = self.solver.solve()
 
+        if self.w_opt is not None:
+            self.solver.w0 = self.w_opt
+
+        # solve
+        sol = self.solver.solve()
+        self.n_resolve = 0
+        while not self.solver.solver.stats()['success'] and self.n_resolve < self.max_resolve:
+            print(f"... solver failed, retrying {self.n_resolve}/{self.max_resolve}")
+            params._tf += np.random.uniform(0.0, 1e-3)
+            self.solver.params = cad.vertcat(
+                *[params.getStartPoint().p(), 
+                  params.getEndPoint().p(), 
+                  np.array(params.getDuration()), 
+                  np.matrix(params._Omega0[self.target]).getA1()]
+            )
+            sol = self.solver.solve()
+            self.n_resolve = self.n_resolve + 1
+        
+        # ensure the solution converged
         if not self.solver.solver.stats()['success']:
+            print("Configuration:")
+            print("... target: ", self.target.name)
+            print("... Omega0: ", params._Omega0[self.target])
+            print("... params: ", params.toVector())
+
+            min_dt = self.target.region().travelCost(params.getStartPoint().p(), params.getEndPoint().p())
+            print("... min travel time: ", min_dt)
+            print("... duration: ", params.getDuration())
+            pkl.dump(self.solver.params, open(f'failed/target-{self.target.name}.pkl', 'wb'))
+
             raise Exception("Optimal monitoring control failed to converge...")
-        w_opt = sol['x'].full()
+        
+        self.w_opt = sol['x'].full()
 
         # Plot the solution
         nx = self.nx; nu = self.nu; no = self.no; N = self.N 
@@ -488,15 +492,15 @@ class MonitoringController:
         omega = np.zeros((no*no, N+1))
         mse = np.zeros((1, N+1))
         u = np.nan*np.zeros((nu, N))
-        p[0,:] = w_opt[0::nx+nu].flatten()
-        p[1,:] = w_opt[1::nx+nu].flatten()
+        p[0,:] = self.w_opt[0::nx+nu].flatten()
+        p[1,:] = self.w_opt[1::nx+nu].flatten()
         for i in range(no*no):
-            omega[i,:] = w_opt[2+i::nx+nu].flatten()
+            omega[i,:] = self.w_opt[2+i::nx+nu].flatten()
             if i % no == 0:
                 mse[0,:] = mse[0,:] + omega[i,:]
-
-        u[0,:] = w_opt[nx::nx+nu].flatten()
-        u[1,:] = w_opt[nx+1::nx+nu].flatten()
+        
+        u[0,:] = self.w_opt[nx::nx+nu].flatten()
+        u[1,:] = self.w_opt[nx+1::nx+nu].flatten()
         t_grid = np.array([params._tf/N*k for k in range(N+1)])
 
         pTrajectory = Trajectory(p, t_grid)
@@ -509,7 +513,6 @@ class MonitoringController:
         # extract trajectories
         return pTrajectory, mseTrajectory, omegaTrajectory, uTrajectory, f, lam
 
-
 '''
 MonitoringSegment: monitoring a single target region
 '''
@@ -521,6 +524,7 @@ class MonitoringSegment(TrajectorySegment):
             ucs : Dict[Target, cad.Function], 
             params : LocalParameters = None
             ) -> None:
+        self.params : LocalMonitoringParameters = params
         self._target : Target = target
         self._monitoring_controller : MonitoringController = None
         self._monitoring_controller = MonitoringController(
@@ -528,10 +532,11 @@ class MonitoringSegment(TrajectorySegment):
             sensor=sensor, 
             N=params._N
         )
-        super().__init__(ucs, params)
+        super().__init__(ucs)
 
-    def update(self):
+    def update(self, agent_pos: np.ndarray):
         mc = self._monitoring_controller
+        self.params.updateStartPoint(a_phi=agent_pos)
         p, m, omega, u, Jk, duals_p = mc.optimalMonitoringControl(self.params)
         self.pTrajectory = p
         self.updateMSETrajectory(self._target, m)
@@ -542,12 +547,13 @@ class MonitoringSegment(TrajectorySegment):
         self._gradient_a_phi = -duals_p[0:2].full().flatten()
         self._gradient_a_psi = -duals_p[2:4].full().flatten()
         self._gradient_tau = -duals_p[4].full().flatten()
+        duration = self.params.getDuration()
         for target in self._ucs.keys():
             if target == self._target:
                 continue
             mse, Omega, Ik, dIk_dt = simulateUnmonitoredOmega(
                 self._ucs[target], 
-                self.params.getDuration(), 
+                duration, 
                 self.params._Omega0[target]
             )
             self.updateMSETrajectory(target, mse)
@@ -556,6 +562,12 @@ class MonitoringSegment(TrajectorySegment):
             self._gradient_tau += dIk_dt 
             # gradients of phi and psi are equal to 0 here!
 
+    def updateInitialCovarianceMatrices(
+            self, 
+            omega0 : Dict[Target, np.ndarray]
+            ) -> None:
+        for t in omega0.keys():
+            self.params._Omega0[t] = omega0[t]
 
 '''
 SwitchingSegment: switching from one target region to the next
@@ -565,15 +577,25 @@ class SwitchingSegment(TrajectorySegment):
             self, 
             ucs : Dict[Target, cad.Function], 
             gpp : GlobalPathPlanner,
-            params : LocalParameters = None
+            params_0: LocalMonitoringParameters,
+            params_f: LocalMonitoringParameters
             ) -> None:
-        super().__init__(ucs, params)
+        super().__init__(ucs)
+        self.params_0 : LocalMonitoringParameters = params_0
+        self.params_f : LocalMonitoringParameters = params_f
         self._gpp : GlobalPathPlanner = gpp
 
     def gpp(self) -> GlobalPathPlanner:
         return self._gpp
     
-    def update(self) -> None:
+    def update(self, agent_pos: np.ndarray) -> None:
+        # update the trajectory
+        a_phikn = self.params_f.getStartPoint().p()
+        path, tf = self.gpp().planPath(agent_pos, a_phikn)
+        self.pTrajectory = Trajectory.fromPath(path)
+        tf = self.pTrajectory.getDuration()
+        
+        # update gradient
         self._cost = 0
         self._gradient_tau = 0
 
@@ -584,8 +606,8 @@ class SwitchingSegment(TrajectorySegment):
         for target in self._ucs.keys():
             mse, Omega, Ik, mseEnd = simulateUnmonitoredOmega(
                 self._ucs[target], 
-                self.params.getDuration(), 
-                self.params._Omega0[target]
+                tf, 
+                self.params_0._Omega0[target]
             )
             self.updateMSETrajectory(target, mse)
             self.updateTerminalCovarianceMatrix(target, Omega.getEndPoint())
@@ -598,8 +620,8 @@ class SwitchingSegment(TrajectorySegment):
 
         # chain rule (inner)
         da_psi, da_phi = self.gpp().getGradientDelta(
-            self.getStartPoint(),
-            self.getEndPoint()
+            self.params_0._a_psi,
+            self.params_f._a_phi
         )
 
         # chain rule (outer * inner)
@@ -610,6 +632,13 @@ class SwitchingSegment(TrajectorySegment):
         t0 = self.uTrajectory.t[0]
         self.uTrajectory.shiftTime(-t0)
         self.pTrajectory.shiftTime(-t0)
+
+    def updateInitialCovarianceMatrices(
+            self, 
+            omega0 : Dict[Target, np.ndarray]
+            ) -> None:
+        for t in omega0.keys():
+            self.params_0._Omega0[t] = omega0[t]
 
 
 '''
@@ -682,9 +711,6 @@ class DecomposedCycle:
                 if not isinstance(ts, SwitchingSegment):
                     raise Exception("Assumed to begin with monitoring segment, and end with switching segment.")
             
-            if np.linalg.norm(old_seg.getEndPoint() - new_seg.getStartPoint()) != 0:
-                raise Exception("Subsequent trajectories don't connect.")
-            
     # getters
     def getDuration(self) -> float:
         return sum([ts.getDuration() for ts in self._trajectorySegments])
@@ -736,27 +762,27 @@ class DecomposedCycle:
     def getTerminalCovarianceMatrices(self) -> Dict[Target, np.ndarray]:
         return self._covAtCycleEnd.copy()
     
-    def steadyState(self, tol=1e-2) -> bool:
+    def steadyState(self, tol=1e-2) -> Tuple[bool, float]:
+        max_violation = 0.0
         for target in self._covAtCycleStart.keys():
             if self._covAtCycleEnd is None:
                 return False
             
-            if not np.allclose(
-                self._covAtCycleStart[target], 
-                self._covAtCycleEnd[target], 
-                atol=tol):
-                return False
+            max_violation = max(
+                max_violation,
+                np.max(np.abs(self._covAtCycleStart[target] - self._covAtCycleEnd[target]))
+            )
             
-        return True
+        return max_violation < tol, max_violation
     
     # modifiers
     def simulate(self) -> None:
         t0 = self._cycle_start
         omega0 = self._covAtCycleStart.copy()
         self.clearTrajectories()
-        for ts in self._trajectorySegments:
+        for i, ts in enumerate(self._trajectorySegments):
             ts.updateInitialCovarianceMatrices(omega0)
-            ts.update()
+            ts.update(self._trajectorySegments[i-1].pTrajectory.getEndPoint())
             omega0 = ts.getTerminalCovarianceMatrices()
             ts.shiftTime(t0)
             t0 += ts.getDuration()
@@ -960,11 +986,6 @@ class Decomposition:
         # simulation functions for forward integration of covariance matrices
         self._ucs : Dict[Target, cad.Function] = {}                             # unmonitored covariance simulators
 
-        # optimization parameters
-        self._subSolver: SubproblemSolver = None                                # SubproblemSolver for the bilevel optimization
-        self._lambda : Dict[int, float] = {}                                    # map a target visit index to a dual of the kth bilevel optimization constraint
-        self.op : OptimizationParameters = OptimizationParameters()             # optimization parameters
-
     def initialize(self) -> None:
 
         if (self.K() <= 1):
@@ -989,92 +1010,24 @@ class Decomposition:
         # assign cycle
         self._cycle.assignCycle(mns, self.initialCovarianceMatrices())
 
-        # Gradient Descent Subsolver
-        if self.op.subsolver == 'gd':
-            self._subSolver = GradientDescent(
-                nx=self.getNumberParameters(),
-                ng=self.getNumberEqualityConstraints(),
-                x0=self.toVector(),
-                nabla_f=lambda x: self.nabla_f(),
-                nabla_g=lambda x: self.jacobian_h_slacked().T,
-                g=lambda x: self.h_slacked(),
-                lbx=self.getBFGSLowerBounds(),
-                alpha=self.op.alpha
+    def renewModel(self) -> None:
+        """
+        Renew the model.
+        """
+        for target in self.world().targets():
+            self._ucs[target] = unmonitoredOmegaSimulator(
+                target, 
+                self.sensor(), 
+                self._N
             )
-
-        elif self.op.subsolver == 'bfgs':
-            self._subSolver = BFGS(
-                nx=self.getNumberParameters(),
-                ng=self.getNumberEqualityConstraints(),
-                x0=self.toVector(),
-                nabla_f=lambda x: self.nabla_f(),
-                nabla_g=lambda x: self.jacobian_h_slacked().T,
-                g=lambda x: self.h_slacked(),
-                lbx=self.getBFGSLowerBounds()
-            )
-
-        else:
-            raise ValueError(f"Unknown subsolver type {self.op.subsolver}.")
-
-    def getBFGSLowerBounds(self) -> np.ndarray:
-        lbs = []
-        for k in range(self.K()):
-            lbs.extend(self.lpr(k).getLowerBounds())
-        return lbs
-
-    def updateParameters(
-            self, 
-            op: OptimizationParameters, 
-            stats: IterationStats = None
-            ) -> None:
-        '''
-        Simple projected gradient descend
-        '''
-
-        steady, ssc = self.simulateToSteadyState(op, stats)
+            
+        # initialize monitoring and switching segments
+        mns = self.initializeMonitoringSegments()
         
-        if isinstance(stats, IterationStats):
-            stats.is_steady_state.append(steady)
-            stats.steady_state_iterations.append(ssc)
+        # assign cycle
+        self._cycle.assignCycle(mns, self.initialCovarianceMatrices())
+
         
-        self.updateGlobalCostGradients(stats)
-
-        if not self.checkFeasibility():
-            raise RuntimeError("Infeasible initialization.")       
-
-        # update the parameters
-        xold = self.toVector()
-
-        self._subSolver.alpha = 0.1
-        self._subSolver.iterate()
-        sk = self._subSolver.sk
-        
-        alpha = 1.0
-        beta = 0.9
-        while True:
-            self.fromVector(xold + alpha * sk)
-            if self.checkFeasibility():
-                break
-            alpha *= beta
-
-            if alpha < 1e-6:
-                raise RuntimeError("Backtracking failed (step size too small.)")
-        
-        swPaths = []
-        for k in range(self.K()):
-            apsi = self.lpr(k).getEndPoint().p()
-            aphi = self.lpr(k+1).getStartPoint().p()
-            swPaths.append(self.gpp().planPath(apsi, aphi)[0])
-        refined_tvs, sw = self.refineVisitingSequence(swPaths)
-        self._cycle.replaceSwitchingSegments(sw)
-        
-        for tr, to in zip(refined_tvs, self._tvs):
-            if tr != to:
-                raise RuntimeError("Changes in the visiting sequence is not yet supported.")
-
-        # store the parameters
-        self._storeParameters(stats)
-        stats.alphas.append(alpha)
 
     def checkFeasibility(self) -> bool:
         for k in range(self.K()):
@@ -1087,17 +1040,6 @@ class Decomposition:
     def lpr(self, k: int) -> LocalMonitoringParameters:
         return self.monitoringSegment(k).params
 
-    def updateSwitchingSegments(self) -> None:
-        for k in range(self.K()):
-            a_psik = self.lpr(k).getEndPoint().p()
-            a_phikn = self.lpr(k+1).getEndPoint().p()
-            path, tf = self.gpp().planPath(a_psik, a_phikn)
-            sw, nt, _ = self.extractSwitchingSegment(
-                path, 
-                self.getTarget(k)
-            )
-            self._switchingSegments[k].update()
-
     def setTargetVisitingSequence(self, tvs: List[Target]) -> None:
         """
         Set the target visiting sequence.
@@ -1108,7 +1050,6 @@ class Decomposition:
         self._tvs = tvs
 
     def initializeSwitchingSegments(self) -> None:
-        
         swPaths: List[Tree] = []
         for k in range(self.K()):
             ot = self.getTarget(k)
@@ -1151,12 +1092,24 @@ class Decomposition:
         """
         return sum(lp.numberOfParameters() for lp in self.getParameters())
 
-    def getNumberEqualityConstraints(self) -> int:
+    def setTau(self, k: int, tau: float) -> None:
         """
-        Get the number of equality constraints in the decomposition.
+        Set the duration of the k-th monitoring trajectory.
         """
-        return sum(lp.getNumberOfEqualityConstraints() for lp in self.getParameters())
-    
+        self.lpr(k)._tf = tau
+
+    def setPhi(self, k: int, phi: float) -> None:
+        """
+        Set the entrance point of the k-th monitoring trajectory.
+        """
+        self.lpr(k).updateStartPoint(phi=phi)
+
+    def setPsi(self, k: int, psi: float) -> None:
+        """
+        Set the departure point of the k-th monitoring trajectory.
+        """
+        self.lpr(k).updateEndPoint(psi=psi)
+
     def toVector(self) -> np.ndarray:
         """
         Get the decomposition parameters in a vector form.
@@ -1197,10 +1150,8 @@ class Decomposition:
             return idx_offset + 1
         elif key == 'psi':
             return idx_offset + 2
-        elif key == 'rho':
-            return idx_offset + 3
         
-        raise Exception(f"Invalid key {key} (expected to be one of 'tau', 'phi', 'psi', or 'rho').")
+        raise Exception(f"Invalid key {key} (expected to be one of 'tau', 'phi', 'psi').")
 
     def getTauLowerBounds(self) -> np.ndarray:
         """
@@ -1250,32 +1201,6 @@ class Decomposition:
             h.append(hk)
         return np.array(h).flatten()
 
-    def h_slacked(self, **kwargs) -> np.ndarray:
-        """
-        Combine the slacked inequality constraints.
-        """
-        h = []
-        for k in range(self.K()):
-            hk = self.lpr(k).hk_slacked()
-            h.append(hk)
-        return np.array(h).flatten()
-
-    def jacobian_h_slacked(self, **kwargs) -> np.ndarray:
-        nx = self.getNumberParameters()
-        nh = self.getNumberEqualityConstraints()
-        jac_h = np.zeros((nh, nx))
-        for k in range(self.K()):
-            grad_hk = self.lpr(k).nabla_hk()
-            tau_idx = self.getIndex('tau', k)
-            phi_idx = self.getIndex('phi', k)
-            psi_idx = self.getIndex('psi', k)
-            rho_idx = self.getIndex('rho', k)
-            jac_h[k, tau_idx] = grad_hk[0]
-            jac_h[k, phi_idx] = grad_hk[1]
-            jac_h[k, psi_idx] = grad_hk[2]
-            jac_h[k, rho_idx] = grad_hk[3]
-        return jac_h
-
     def refineVisitingSequence(
             self,
             swPaths: List[Tree]
@@ -1299,13 +1224,16 @@ class Decomposition:
         """
         segments : List[SwitchingSegment] = []
         refined_tvs = [self.getTarget(0)]
-
+        swSeg = None
         for i in range(self.K()):
             target = self.getTarget(i)
             swPath = swPaths[i]
             next_target = self.getTarget(i+1)
             while True:
-                swSeg, target, swPath = self.extractSwitchingSegment(swPath,target)
+                swSeg, target, swPath = self.extractSwitchingSegment(
+                    swPath,
+                    target,
+                    sw_prev=swSeg)
 
                 if swSeg is None:
                     raise Exception("Expected a switching segment.")
@@ -1316,6 +1244,23 @@ class Decomposition:
                 if target == next_target:
                     break
         
+        # params_0 of first segment and params_f of last segment need 
+        # to be the same instance. 
+        segments[0].params_0.updateStartPoint(a_phi=swSeg.params_f._a_phi)
+        segments[-1].params_f = segments[0].params_0
+
+        for s in segments:
+            if s.params_0 is None or s.params_f is None:
+                raise Exception("A monitoring parameter was not assigned.")
+            if s.params_0._a_phi is None or s.params_f._a_phi is None:
+                raise Exception("A monitoring parameter was not assigned.")
+            if s.params_0._a_psi is None or s.params_f._a_psi is None:
+                raise Exception("A monitoring parameter was not assigned.")
+            if s.params_0._phi is None or s.params_f._phi is None:
+                raise Exception("A monitoring parameter was not assigned.")
+            if s.params_0._psi is None or s.params_f._psi is None:
+                raise Exception("A monitoring parameter was not assigned.")
+            
         return refined_tvs[0:-1], segments
 
     def getTarget(self, k: int) -> Target:
@@ -1324,7 +1269,8 @@ class Decomposition:
     def extractSwitchingSegment(
             self, 
             path : Tree,
-            initialTarget: Target
+            initialTarget: Target,
+            sw_prev: SwitchingSegment = None
             ) -> Tuple[SwitchingSegment, Target, Tree]:
         '''
         Move up the tree and extract the switching points until a target region 
@@ -1345,6 +1291,7 @@ class Decomposition:
         a_phi = ep.p()
         pTrajectory = Trajectory(ep.p().reshape(2,1), tf)
         uTrajectory = Trajectory(u, tf)
+        t0 = initialTarget
 
         while node is not None:
 
@@ -1354,18 +1301,32 @@ class Decomposition:
                     continue
                 if target.region().contains(node.getData().p(), tol=1e-3):
                     
-                    sp = LocalParameters(
-                        a_phi = ep.p(),
-                        a_psi = dp.p(),
-                        tf = tf,
+                    # previous monitoring parameters
+                    if sw_prev is not None:
+                        mp_0 = sw_prev.params_f                        
+                    else:
+                        mp_0 = LocalMonitoringParameters(
+                            r = t0.region(),
+                            N = self._N
+                        )
+                    mp_0.updateEndPoint(a_psi=ep.p())
+
+                    # next monitoring parameters
+                    mp_f = LocalMonitoringParameters(
+                        r = target.region(),
+                        a_phi = dp.p(),
                         N = self._N
                     )
 
                     ts = SwitchingSegment(
                         self._ucs, 
-                        self.gpp(), 
-                        sp
+                        self.gpp(),
+                        params_0=mp_0,
+                        params_f=mp_f
                     )
+
+                    # keep track of previous switching segment
+                    sw_prev = ts
 
                     ts.pTrajectory = pTrajectory
                     ts.uTrajectory = uTrajectory
@@ -1421,19 +1382,9 @@ class Decomposition:
         segments : List[MonitoringSegment] = []
         for i in range(self.K()):
             target = self.getTarget(i)
-            a_phi = self.switchingSegment(i-1).getEndPoint()
-            a_psi = self.switchingSegment(i).getStartPoint()
-            min_t = target.region().travelCost(a_phi, a_psi)
-            tf = max(0.1, 1.5*min_t)
-            
-            params = LocalMonitoringParameters(
-                r = target.region(),
-                a_phi = a_phi,
-                a_psi = a_psi,
-                tf = tf,
-                N = self._N,
-                rho = tf - min_t
-            )
+            params = self.switchingSegment(i).params_0           
+            min_t = target.region().travelCost(params._a_phi, params._a_psi)
+            params._tf = max(0.1, 2.0*min_t)            
 
             segment = MonitoringSegment(
                 target,
@@ -1446,35 +1397,6 @@ class Decomposition:
 
         return segments
     
-    def simulateToSteadyState(
-            self, 
-            op: OptimizationParameters,
-            stats: IterationStats = None
-            ) -> Tuple[bool, int]:
-        it = 0
-        cycle = self._cycle
-        omega_f = cycle.getInitialCovarianceMatrices()
-        while True:
-            it += 1
-
-            cycle.simulate()
-            omega_f = cycle.getTerminalCovarianceMatrices()
-
-            cycle_average_cost = cycle.getCost()/cycle.getDuration()
-            if isinstance(stats, IterationStats):
-                stats.global_costs.append(cycle_average_cost)
-
-            isSteady = cycle.steadyState(tol=op.sim_to_steady_state_tol)
-            cycle.updateInitialCovarianceMatrices(omega_f)
-
-            if isSteady:
-                return True, it
-
-            if it >= op.steady_state_iters:
-                return False, it
-            
-            cycle._cycle_start += cycle.getDuration()
-
     def getGradientCycleCost(self) -> Dict[str, np.ndarray]:
         """
         Compute the gradient of the cycle cost, i.e., of the cost of one 
@@ -1504,8 +1426,8 @@ class Decomposition:
             msn = self.lpr(k+1)
 
             # get the gradient of the switching duration wrt start & end
-            a = ts.getStartPoint()
-            b = ts.getEndPoint()
+            a = ts.params_0._a_psi
+            b = ts.params_f._a_phi 
             da, db = self.gpp().getGradientDelta(a, b) 
 
             # get the gradient of the switching points wrt polar angles
@@ -1549,13 +1471,6 @@ class Decomposition:
         if isinstance(stats, IterationStats):
             stats.global_gradients.append(nablaJ)
             stats.global_gradient_norms.append(self.getGlobalGradientNorm())
-
-    def _storeParameters(self, stats: IterationStats) -> None:
-        if isinstance(stats, IterationStats):
-            stats.tau_values.append(self.getTauVec())
-            stats.phi_values.append(self.getPsiVec())
-            stats.psi_values.append(self.getPhiVec())
-            stats.iterate += 1
 
     def plotMonitoringSegments(
             self,
